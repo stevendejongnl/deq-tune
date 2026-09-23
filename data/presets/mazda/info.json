@@ -1,0 +1,71 @@
+{
+"presets":[
+{
+"modelNameKey":"model_mazda_2",
+"startYear":2013,
+"endYear":-1,
+"handlePosition":2,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "],
+"data":{
+"fnameBankForGeneralSpeaker":"tuning_preset_model_mazda_2_general.json",
+"fnameBankForCarrozzeriaSpeaker":"tuning_preset_model_mazda_2_carrozzeria.json"}},
+
+{
+"modelNameKey":"model_mazda_3",
+"startYear":2013,
+"endYear":-1,
+"handlePosition":2,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "],
+"data":{
+"fnameBankForGeneralSpeaker":"tuning_preset_model_mazda_3_general.json",
+"fnameBankForCarrozzeriaSpeaker":"tuning_preset_model_mazda_3_carrozzeria.json"}},
+
+{
+"modelNameKey":"model_mazda_6",
+"startYear":2013,
+"endYear":-1,
+"handlePosition":2,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "],
+"data":{
+"fnameBankForGeneralSpeaker":"tuning_preset_model_mazda_6_general.json",
+"fnameBankForCarrozzeriaSpeaker":"tuning_preset_model_mazda_6_carrozzeria.json"}},
+
+{
+"modelNameKey":"model_mazda_cx3",
+"startYear":2013,
+"endYear":-1,
+"handlePosition":2,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "],
+"data":{
+"fnameBankForGeneralSpeaker":"tuning_preset_model_mazda_cx3_general.json",
+"fnameBankForCarrozzeriaSpeaker":"tuning_preset_model_mazda_cx3_carrozzeria.json"}},
+
+{
+"modelNameKey":"model_mazda_cx5",
+"startYear":2013,
+"endYear":-1,
+"handlePosition":2,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "],
+"data":{
+"fnameBankForGeneralSpeaker":"tuning_preset_model_mazda_cx5_general.json",
+"fnameBankForCarrozzeriaSpeaker":"tuning_preset_model_mazda_cx5_carrozzeria.json"}},
+
+{
+"modelNameKey":"model_mazda_cx8",
+"startYear":2013,
+"endYear":-1,
+"handlePosition":2,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "],
+"data":{
+"fnameBankForGeneralSpeaker":"tuning_preset_model_mazda_cx8_general.json",
+"fnameBankForCarrozzeriaSpeaker":"tuning_preset_model_mazda_cx8_carrozzeria.json"}}
+
+],
+
+"other":{
+"startYear":1980,
+"endYear":-1,
+"handlePosition":0,
+"supportedProcessors":["DEQ-1000A-MZ","DEQ-1000A-MZ "]}
+
+}

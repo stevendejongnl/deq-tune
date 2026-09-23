@@ -1,0 +1,818 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DEQ Tune",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/profiles": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "List Profiles",
+        "operationId": "list_profiles_profiles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Profiles Profiles Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Create Profile",
+        "operationId": "create_profile_profiles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile_id}": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Get Profile",
+        "operationId": "get_profile_profiles__profile_id__get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Update Profile",
+        "operationId": "update_profile_profiles__profile_id__put",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Delete Profile",
+        "operationId": "delete_profile_profiles__profile_id__delete",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile_id}/duplicate": {
+      "post": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Duplicate Profile",
+        "operationId": "duplicate_profile_profiles__profile_id__duplicate_post",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CancellingEq": {
+        "properties": {
+          "L": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "L"
+          },
+          "R": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "R"
+          }
+        },
+        "type": "object",
+        "required": [
+          "L",
+          "R"
+        ],
+        "title": "CancellingEq"
+      },
+      "CancellingTA": {
+        "properties": {
+          "L": {
+            "type": "number",
+            "title": "L"
+          },
+          "R": {
+            "type": "number",
+            "title": "R"
+          }
+        },
+        "type": "object",
+        "required": [
+          "L",
+          "R"
+        ],
+        "title": "CancellingTA"
+      },
+      "ChannelBank": {
+        "properties": {
+          "isLocked": {
+            "type": "boolean",
+            "title": "Islocked"
+          },
+          "numOfBand": {
+            "type": "integer",
+            "title": "Numofband"
+          },
+          "selectedBank": {
+            "type": "integer",
+            "title": "Selectedbank"
+          },
+          "banks": {
+            "$ref": "#/components/schemas/ChannelBankData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "isLocked",
+          "numOfBand",
+          "selectedBank",
+          "banks"
+        ],
+        "title": "ChannelBank"
+      },
+      "ChannelBankData": {
+        "properties": {
+          "q": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Q"
+          },
+          "f0": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "F0"
+          },
+          "gain": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Gain"
+          }
+        },
+        "type": "object",
+        "required": [
+          "q",
+          "f0",
+          "gain"
+        ],
+        "title": "ChannelBankData"
+      },
+      "FactoryCancel": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "data": {
+            "$ref": "#/components/schemas/FactoryCancelData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available",
+          "enabled",
+          "data"
+        ],
+        "title": "FactoryCancel"
+      },
+      "FactoryCancelData": {
+        "properties": {
+          "cancellingEQ": {
+            "$ref": "#/components/schemas/CancellingEq"
+          },
+          "cancellingTACm": {
+            "$ref": "#/components/schemas/CancellingTA"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cancellingEQ",
+          "cancellingTACm"
+        ],
+        "title": "FactoryCancelData"
+      },
+      "FaderBalance": {
+        "properties": {
+          "fader": {
+            "type": "number",
+            "title": "Fader"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fader",
+          "balance"
+        ],
+        "title": "FaderBalance"
+      },
+      "Filter": {
+        "properties": {
+          "front": {
+            "$ref": "#/components/schemas/FilterBand"
+          },
+          "rear": {
+            "$ref": "#/components/schemas/FilterBand"
+          }
+        },
+        "type": "object",
+        "required": [
+          "front",
+          "rear"
+        ],
+        "title": "Filter"
+      },
+      "FilterBand": {
+        "properties": {
+          "cutoff_hpf": {
+            "type": "number",
+            "title": "Cutoff Hpf"
+          },
+          "slope_hpf": {
+            "type": "number",
+            "title": "Slope Hpf"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cutoff_hpf",
+          "slope_hpf"
+        ],
+        "title": "FilterBand"
+      },
+      "FoundationEq": {
+        "properties": {
+          "isLRMode": {
+            "type": "boolean",
+            "title": "Islrmode"
+          },
+          "eqs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LRBank"
+            },
+            "type": "object",
+            "title": "Eqs"
+          },
+          "expandEq": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ChannelBank"
+            },
+            "type": "object",
+            "title": "Expandeq"
+          }
+        },
+        "type": "object",
+        "required": [
+          "isLRMode",
+          "eqs",
+          "expandEq"
+        ],
+        "title": "FoundationEq"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LRBank": {
+        "properties": {
+          "isLocked": {
+            "type": "boolean",
+            "title": "Islocked"
+          },
+          "numOfBand": {
+            "type": "integer",
+            "title": "Numofband"
+          },
+          "selectedBank": {
+            "type": "integer",
+            "title": "Selectedbank"
+          },
+          "banks": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Banks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "isLocked",
+          "numOfBand",
+          "selectedBank",
+          "banks"
+        ],
+        "title": "LRBank",
+        "description": "A combined L+R graphic-EQ slot. `banks` holds one 13-value gain\narray per storable bank (device has multiple slots); `selectedBank`\npicks which one is active. Frequencies follow the fixed 13-band\ntable also given explicitly per-channel in `expandEq` (50Hz-12.5kHz,\ndoubling)."
+      },
+      "ProfileCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TuningData"
+          },
+          "brand_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Name"
+          },
+          "car_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Model"
+          },
+          "speaker_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Type"
+          },
+          "supported_processors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Processors",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "data"
+        ],
+        "title": "ProfileCreate"
+      },
+      "ProfileRead": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "brand_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Name"
+          },
+          "car_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Car Model"
+          },
+          "speaker_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker Type"
+          },
+          "supported_processors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Processors"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TuningData"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "source",
+          "brand_name",
+          "car_model",
+          "speaker_type",
+          "supported_processors",
+          "data"
+        ],
+        "title": "ProfileRead"
+      },
+      "ProfileUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TuningData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "ProfileUpdate"
+      },
+      "Speaker": {
+        "properties": {
+          "isPositivePhase": {
+            "type": "boolean",
+            "title": "Ispositivephase"
+          },
+          "levelDB": {
+            "type": "number",
+            "title": "Leveldb"
+          },
+          "timeAlignmentCm": {
+            "type": "number",
+            "title": "Timealignmentcm"
+          },
+          "levelDBExtended": {
+            "type": "number",
+            "title": "Leveldbextended"
+          }
+        },
+        "type": "object",
+        "required": [
+          "isPositivePhase",
+          "levelDB",
+          "timeAlignmentCm",
+          "levelDBExtended"
+        ],
+        "title": "Speaker"
+      },
+      "TimeAlignment": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "easySoundFitModeEnabled": {
+            "type": "boolean",
+            "title": "Easysoundfitmodeenabled"
+          },
+          "easySoundFitMode": {
+            "type": "integer",
+            "title": "Easysoundfitmode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "easySoundFitModeEnabled",
+          "easySoundFitMode"
+        ],
+        "title": "TimeAlignment"
+      },
+      "TuningData": {
+        "properties": {
+          "foundationEq": {
+            "$ref": "#/components/schemas/FoundationEq"
+          },
+          "speakers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Speaker"
+            },
+            "type": "object",
+            "title": "Speakers"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/Filter"
+          },
+          "factoryCancel": {
+            "$ref": "#/components/schemas/FactoryCancel"
+          },
+          "faderBalance": {
+            "$ref": "#/components/schemas/FaderBalance"
+          },
+          "timeAlignment": {
+            "$ref": "#/components/schemas/TimeAlignment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "foundationEq",
+          "speakers",
+          "filter",
+          "factoryCancel",
+          "faderBalance",
+          "timeAlignment"
+        ],
+        "title": "TuningData",
+        "description": "Everything except `header` \u2014 the part that's actually editable\nin the EQ UI and (eventually) written to the device."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
