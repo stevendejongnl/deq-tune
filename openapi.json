@@ -5,13 +5,13 @@
     "version": "0.1.0"
   },
   "paths": {
-    "/profiles": {
+    "/api/profiles": {
       "get": {
         "tags": [
           "profiles"
         ],
         "summary": "List Profiles",
-        "operationId": "list_profiles_profiles_get",
+        "operationId": "list_profiles_api_profiles_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -22,7 +22,7 @@
                     "$ref": "#/components/schemas/ProfileRead"
                   },
                   "type": "array",
-                  "title": "Response List Profiles Profiles Get"
+                  "title": "Response List Profiles Api Profiles Get"
                 }
               }
             }
@@ -34,7 +34,7 @@
           "profiles"
         ],
         "summary": "Create Profile",
-        "operationId": "create_profile_profiles_post",
+        "operationId": "create_profile_api_profiles_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -69,13 +69,13 @@
         }
       }
     },
-    "/profiles/{profile_id}": {
+    "/api/profiles/{profile_id}": {
       "get": {
         "tags": [
           "profiles"
         ],
         "summary": "Get Profile",
-        "operationId": "get_profile_profiles__profile_id__get",
+        "operationId": "get_profile_api_profiles__profile_id__get",
         "parameters": [
           {
             "name": "profile_id",
@@ -115,7 +115,7 @@
           "profiles"
         ],
         "summary": "Update Profile",
-        "operationId": "update_profile_profiles__profile_id__put",
+        "operationId": "update_profile_api_profiles__profile_id__put",
         "parameters": [
           {
             "name": "profile_id",
@@ -165,7 +165,7 @@
           "profiles"
         ],
         "summary": "Delete Profile",
-        "operationId": "delete_profile_profiles__profile_id__delete",
+        "operationId": "delete_profile_api_profiles__profile_id__delete",
         "parameters": [
           {
             "name": "profile_id",
@@ -194,13 +194,13 @@
         }
       }
     },
-    "/profiles/{profile_id}/duplicate": {
+    "/api/profiles/{profile_id}/duplicate": {
       "post": {
         "tags": [
           "profiles"
         ],
         "summary": "Duplicate Profile",
-        "operationId": "duplicate_profile_profiles__profile_id__duplicate_post",
+        "operationId": "duplicate_profile_api_profiles__profile_id__duplicate_post",
         "parameters": [
           {
             "name": "profile_id",

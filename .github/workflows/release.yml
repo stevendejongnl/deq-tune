@@ -1,0 +1,83 @@
+name: Test, release, and publish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync
+      - run: uv run pytest
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+
+  release:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+      published: ${{ steps.semantic.outputs.new_release_published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push Docker image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          IMAGE="git.madebysteven.nl/stevendejong/deq-tune"
+          docker build -t "${IMAGE}:${VERSION}" .
+          docker save "${IMAGE}:${VERSION}" -o /tmp/image.tar
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq skopeo
+          skopeo copy --dest-creds "stevendejong:${REGISTRY_TOKEN}" \
+            "docker-archive:/tmp/image.tar" \
+            "docker://${IMAGE}:${VERSION}"
+          skopeo copy --dest-creds "stevendejong:${REGISTRY_TOKEN}" \
+            "docker-archive:/tmp/image.tar" \
+            "docker://${IMAGE}:latest"
