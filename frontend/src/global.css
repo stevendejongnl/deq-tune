@@ -1,0 +1,58 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* Colors copied from the Pioneer Sound Tune app's own res/values/colors.xml
+   (colorAppBackground, colorAppForeground, colorPrimary, colorAccent, ...) —
+   not an invented palette. */
+:root {
+  --color-background: #0e011a;
+  --color-foreground: #f2e3fd;
+  --color-card: #1f1429;
+  --color-card-foreground: #f2e3fd;
+  --color-muted: #261831;
+  --color-muted-foreground: #877d94;
+  --color-border: #382a49;
+  --color-accent: #17af6d;
+  --color-accent-strong: #00985c;
+  --color-on-accent: #0e011a;
+  --color-gold: #e8b502;
+  --color-gold-strong: #cd830f;
+  --color-on-gold: #0e011a;
+  --color-destructive: #ef4444;
+  --color-on-destructive: #0e011a;
+  --color-ring: #17af6d;
+
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius: 0.5rem;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Shown instead of the app when the browser can't run it at all — see
+   index.html's <script nomodule> and main.ts's feature check. */
+.unsupported-browser {
+  max-width: 28rem;
+  margin: 4rem auto;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-foreground);
+}
