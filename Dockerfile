@@ -1,6 +1,6 @@
 FROM node:22-slim AS frontend-build
 # typia's build-time transform needs a Go toolchain to compile its native plugin.
-RUN apt-get update -qq && apt-get install -y -qq golang-go && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qq && apt-get install -y -qq golang-go git && rm -rf /var/lib/apt/lists/*
 # proxy.golang.org's TLS chain fails to verify on some Docker build networks;
 # fetch the Go module straight from its VCS host instead.
 ENV GOPROXY=direct GOSUMDB=off
