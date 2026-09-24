@@ -49,6 +49,18 @@ function translateSpeakerType(locale: Locale, speakerType: string): string {
   );
 }
 
+/** A factory preset's car model in `locale`, for example "Mazda2", or
+ * "DEMIO" in Japanese. A custom profile has no car model of its own. */
+export function localizedModelName(profile: ProfileDto, locale: Locale): string | null {
+  return profile.car_model === null ? null : translateModelName(locale, profile.car_model);
+}
+
+/** A factory preset's speaker type in `locale`, for example "For
+ * Pioneer Speaker". A custom profile has no speaker type of its own. */
+export function localizedSpeakerTypeLabel(profile: ProfileDto, locale: Locale): string | null {
+  return profile.speaker_type === null ? null : translateSpeakerType(locale, profile.speaker_type);
+}
+
 /** A factory preset's name in `locale`, built from its car model and
  * speaker type. A custom (user-created) profile's name is never
  * translated — it's the name the user typed. */

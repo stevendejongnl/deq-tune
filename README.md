@@ -2,7 +2,7 @@
 
 A web app for the equalizer and sound-profile part of Pioneer's Sound & Tune app.
 
-This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level and time alignment, the high-pass filter, and fader/balance. It ships with the factory Mazda presets, extracted from the official Android app, and the device's built-in EQ-style and Live-Simulation DSP presets (POWERFUL, SUPER BASS, Concert hall, ...). The UI works in English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser. Profiles open in a slide-over drawer, and the app works on phones. It's also a PWA — installable, with an offline app shell. USB connect to the physical Pioneer DEQ unit is stubbed in the UI; the app does not yet speak the device's USB protocol (see [Status](#status)).
+This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level and time alignment, the high-pass filter, and fader/balance. It ships with the factory Mazda presets, extracted from the official Android app, and the device's built-in EQ-style and Live-Simulation DSP presets (POWERFUL, SUPER BASS, Concert hall, ...). The UI works in English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser. The profile list is a permanent sidebar on a desktop screen, a drawer on a tablet, and a bottom sheet on a phone. It's also a PWA — installable, with an offline app shell. USB connect to the physical Pioneer DEQ unit is stubbed in the UI; the app does not yet speak the device's USB protocol (see [Status](#status)).
 
 **Browser requirement:** this app needs [WebUSB](https://developer.chrome.com/docs/capabilities/usb) — Chrome or Edge, on desktop or Android. It does not work in Safari, Firefox, or any browser on iOS (WebUSB isn't available there at all), and shows a blocking message rather than a broken page in those browsers.
 
@@ -10,7 +10,7 @@ This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level an
 
 ```
 backend/    FastAPI + SQLite. Serves and stores profiles.
-frontend/   Lit + TypeScript + Vite. The EQ editor, profile drawer, and USB connect UI. Also a PWA.
+frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and USB connect UI. Also a PWA.
 data/presets/  The bundled factory preset JSON files, extracted from the Pioneer APK.
 openapi.json   The backend's exported API schema. The frontend generates its DTOs from this file.
 Makefile       Shortcuts for install/dev/test/generate-dto/clean. Run `make help`.

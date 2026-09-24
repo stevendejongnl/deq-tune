@@ -5,12 +5,17 @@ import { FakeProfileApi } from "./testing/fake-profile-api.ts";
 import { sampleProfile } from "../dto/testing/sample-profile.ts";
 import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts";
+import {
+  createFakePhoneLayoutQuery,
+  type FakePhoneLayoutQuery,
+} from "../testing/fake-phone-layout-query.ts";
 
-async function mount(api: FakeProfileApi): Promise<AppRoot> {
+async function mount(api: FakeProfileApi, phoneLayout = false): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
   element.api = api;
   element.localeStorage = createFakeLocaleStorage({});
   element.browserLanguages = ["en-US"];
+  element.phoneLayoutQuery = createFakePhoneLayoutQuery(phoneLayout);
   document.body.append(element);
   await flushMicrotasks();
   await element.updateComplete;
@@ -105,11 +110,14 @@ describe("app-root", () => {
     element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["ja-JP"];
+    element.phoneLayoutQuery = createFakePhoneLayoutQuery(false);
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
 
-    expect(element.shadowRoot!.textContent).toContain("ブラウザ");
+    const profileListText =
+      element.shadowRoot!.querySelector("profile-list")!.shadowRoot!.textContent;
+    expect(profileListText).toContain("純正プリセット");
   });
 
   it("switches language via the locale switcher and remembers the choice", async () => {
@@ -118,6 +126,7 @@ describe("app-root", () => {
     element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
     element.localeStorage = storage;
     element.browserLanguages = ["en-US"];
+    element.phoneLayoutQuery = createFakePhoneLayoutQuery(false);
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
@@ -171,6 +180,67 @@ describe("app-root", () => {
     await element.updateComplete;
 
     expect(queryDrawer(element).classList.contains("open")).toBe(false);
+  });
+
+  it("shows the brand, the speaker type and the model name above the panels", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+
+    await click(queryNameButton(element), element);
+
+    const heading = element.shadowRoot!.querySelector(".heading-row")!;
+    expect(heading.textContent).toContain("Mazda");
+    expect(heading.textContent).toContain("For Normal Speaker");
+    expect(heading.querySelector(".profile-title")!.textContent).toContain("Mazda3");
+  });
+
+  it("shows every panel at once outside the phone layout", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    await click(queryNameButton(element), element);
+
+    expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
+    expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
+  });
+
+  it("renders only the active tab in the phone layout", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), true);
+    await click(queryNameButton(element), element);
+
+    expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("speaker-panel")).toBeNull();
+    expect(element.shadowRoot!.querySelector("dsp-panel")).toBeNull();
+  });
+
+  it("swaps the panel when another phone tab is pressed", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), true);
+    await click(queryNameButton(element), element);
+
+    const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
+    await click(speakersTab, element);
+
+    expect(speakersTab.getAttribute("aria-pressed")).toBe("true");
+    expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("eq-editor")).toBeNull();
+  });
+
+  it("moves to the phone layout when the viewport becomes narrow", async () => {
+    const phoneLayoutQuery: FakePhoneLayoutQuery = createFakePhoneLayoutQuery(false);
+    const element = document.createElement("app-root") as AppRoot;
+    element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    element.localeStorage = createFakeLocaleStorage({});
+    element.browserLanguages = ["en-US"];
+    element.phoneLayoutQuery = phoneLayoutQuery;
+    document.body.append(element);
+    await flushMicrotasks();
+    await element.updateComplete;
+    expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
+
+    phoneLayoutQuery.setMatches(true);
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
   });
 
   it("closes the profiles drawer after selecting a profile", async () => {

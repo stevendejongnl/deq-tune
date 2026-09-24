@@ -1,7 +1,6 @@
 import type { Locale } from "./locale.ts";
 
 export interface UiStrings {
-  tagline: string;
   factoryPresets: string;
   myProfiles: string;
   duplicate: string;
@@ -31,10 +30,11 @@ export interface UiStrings {
   dspDeviceHint: string;
   profilesButton: string;
   closeLabel: string;
+  tabEq: string;
+  tabStyle: string;
 }
 
 const EN: UiStrings = {
-  tagline: "Pioneer DEQ equalizer profiles, in the browser",
   factoryPresets: "Factory presets",
   myProfiles: "My profiles",
   duplicate: "Duplicate",
@@ -64,10 +64,11 @@ const EN: UiStrings = {
   dspDeviceHint: "Takes effect once a DEQ device is connected.",
   profilesButton: "Profiles",
   closeLabel: "Close",
+  tabEq: "EQ",
+  tabStyle: "Style",
 };
 
 const JA: UiStrings = {
-  tagline: "PioneerのDEQイコライザープロファイルをブラウザで",
   factoryPresets: "純正プリセット",
   myProfiles: "マイプロファイル",
   duplicate: "複製",
@@ -97,10 +98,11 @@ const JA: UiStrings = {
   dspDeviceHint: "DEQデバイス接続後に反映されます。",
   profilesButton: "プロファイル",
   closeLabel: "閉じる",
+  tabEq: "EQ",
+  tabStyle: "スタイル",
 };
 
 const DE: UiStrings = {
-  tagline: "Pioneer-DEQ-Equalizer-Profile im Browser",
   factoryPresets: "Werkspresets",
   myProfiles: "Meine Profile",
   duplicate: "Duplizieren",
@@ -130,10 +132,11 @@ const DE: UiStrings = {
   dspDeviceHint: "Wird erst nach Verbindung mit einem DEQ-Gerät wirksam.",
   profilesButton: "Profile",
   closeLabel: "Schließen",
+  tabEq: "EQ",
+  tabStyle: "Stil",
 };
 
 const FR: UiStrings = {
-  tagline: "Profils d'égaliseur Pioneer DEQ, dans le navigateur",
   factoryPresets: "Préréglages d'usine",
   myProfiles: "Mes profils",
   duplicate: "Dupliquer",
@@ -164,10 +167,11 @@ const FR: UiStrings = {
   dspDeviceHint: "Prend effet une fois un appareil DEQ connecté.",
   profilesButton: "Profils",
   closeLabel: "Fermer",
+  tabEq: "EQ",
+  tabStyle: "Style",
 };
 
 const ES: UiStrings = {
-  tagline: "Perfiles de ecualizador Pioneer DEQ, en el navegador",
   factoryPresets: "Preajustes de fábrica",
   myProfiles: "Mis perfiles",
   duplicate: "Duplicar",
@@ -198,10 +202,11 @@ const ES: UiStrings = {
   dspDeviceHint: "Se aplica al conectar un dispositivo DEQ.",
   profilesButton: "Perfiles",
   closeLabel: "Cerrar",
+  tabEq: "EQ",
+  tabStyle: "Estilo",
 };
 
 const NL: UiStrings = {
-  tagline: "Pioneer DEQ-equalizerprofielen, in de browser",
   factoryPresets: "Fabriekspresets",
   myProfiles: "Mijn profielen",
   duplicate: "Dupliceren",
@@ -231,6 +236,8 @@ const NL: UiStrings = {
   dspDeviceHint: "Wordt actief zodra een DEQ-apparaat is verbonden.",
   profilesButton: "Profielen",
   closeLabel: "Sluiten",
+  tabEq: "EQ",
+  tabStyle: "Stijl",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };
