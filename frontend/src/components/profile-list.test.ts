@@ -107,7 +107,10 @@ describe("profile-list", () => {
     more.click();
     await element.updateComplete;
 
-    expect(element.shadowRoot!.querySelectorAll(".menu .action")).toHaveLength(2);
+    const actions = [...element.shadowRoot!.querySelectorAll(".menu .action")].map(
+      (action) => action.textContent?.trim(),
+    );
+    expect(actions).toEqual(["Rename", "Duplicate", "Delete"]);
   });
 
   it("emits duplicate-profile and delete-profile from the overflow menu", async () => {
@@ -121,14 +124,91 @@ describe("profile-list", () => {
 
     (element.shadowRoot!.querySelector(".more") as HTMLButtonElement).click();
     await element.updateComplete;
-    (element.shadowRoot!.querySelectorAll(".menu .action")[0] as HTMLButtonElement).click();
+    (element.shadowRoot!.querySelectorAll(".menu .action")[1] as HTMLButtonElement).click();
     await element.updateComplete;
 
     (element.shadowRoot!.querySelector(".more") as HTMLButtonElement).click();
     await element.updateComplete;
-    (element.shadowRoot!.querySelectorAll(".menu .action")[1] as HTMLButtonElement).click();
+    (element.shadowRoot!.querySelectorAll(".menu .action")[2] as HTMLButtonElement).click();
 
     expect(events).toEqual(["duplicate", "delete"]);
+  });
+
+  it("asks for a new profile from the New profile button", async () => {
+    const element = await mount();
+    let asked = 0;
+    element.addEventListener("create-profile", () => (asked += 1));
+
+    (element.shadowRoot!.querySelector(".new-profile") as HTMLButtonElement).click();
+
+    expect(asked).toBe(1);
+  });
+
+  it("renames a custom profile from the overflow menu", async () => {
+    const element = await mount([
+      ...factoryProfiles,
+      sampleProfile({ id: 9, name: "My copy", source: "custom" }),
+    ]);
+    let detail: { id: number; name: string } | undefined;
+    element.addEventListener("rename-profile", (rawEvent) => {
+      detail = (rawEvent as CustomEvent).detail;
+    });
+
+    (element.shadowRoot!.querySelector(".more") as HTMLButtonElement).click();
+    await element.updateComplete;
+    (element.shadowRoot!.querySelectorAll(".menu .action")[0] as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    const input = element.shadowRoot!.querySelector(".rename-input") as HTMLInputElement;
+    input.value = "Night drive";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await element.updateComplete;
+
+    expect(detail).toEqual({ id: 9, name: "Night drive" });
+    expect(element.shadowRoot!.querySelector(".rename-input")).toBeNull();
+  });
+
+  it("drops the rename when Escape is pressed", async () => {
+    const element = await mount([
+      ...factoryProfiles,
+      sampleProfile({ id: 9, name: "My copy", source: "custom" }),
+    ]);
+    let renames = 0;
+    element.addEventListener("rename-profile", () => (renames += 1));
+
+    (element.shadowRoot!.querySelector(".more") as HTMLButtonElement).click();
+    await element.updateComplete;
+    (element.shadowRoot!.querySelectorAll(".menu .action")[0] as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    const input = element.shadowRoot!.querySelector(".rename-input") as HTMLInputElement;
+    input.value = "Ignored";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await element.updateComplete;
+
+    expect(renames).toBe(0);
+    expect(element.shadowRoot!.querySelector(".rename-input")).toBeNull();
+  });
+
+  it("keeps the old name when the field is emptied", async () => {
+    const element = await mount([
+      ...factoryProfiles,
+      sampleProfile({ id: 9, name: "My copy", source: "custom" }),
+    ]);
+    let renames = 0;
+    element.addEventListener("rename-profile", () => (renames += 1));
+
+    (element.shadowRoot!.querySelector(".more") as HTMLButtonElement).click();
+    await element.updateComplete;
+    (element.shadowRoot!.querySelectorAll(".menu .action")[0] as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    const input = element.shadowRoot!.querySelector(".rename-input") as HTMLInputElement;
+    input.value = "   ";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await element.updateComplete;
+
+    expect(renames).toBe(0);
   });
 
   it("names the factory group after the brand", async () => {

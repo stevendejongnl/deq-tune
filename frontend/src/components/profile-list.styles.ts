@@ -46,6 +46,42 @@ export const profileListStyles = css`
     gap: 8px;
     min-height: 0;
   }
+  .group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .new-profile {
+    border: 0;
+    background: transparent;
+    color: var(--color-accent);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+
+    &:hover {
+      background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    }
+  }
+  .custom-row.renaming {
+    padding: 4px;
+  }
+  .rename-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-sm);
+    background: var(--color-inset);
+    color: var(--color-foreground);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+  }
   .group-label {
     margin: 0;
     padding: 0 8px;

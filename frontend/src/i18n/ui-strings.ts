@@ -76,6 +76,10 @@ export interface UiStrings {
   saveShort: string;
   startEditingHint: string;
   discardDraftConfirm: string;
+  newProfile: string;
+  newProfileName: string;
+  rename: string;
+  renameLabel: string;
 }
 
 const EN: UiStrings = {
@@ -163,6 +167,10 @@ const EN: UiStrings = {
   saveShort: "Save as mine",
   startEditingHint: "Drag any point to start your own version",
   discardDraftConfirm: "You have unsaved changes. Leave them?",
+  newProfile: "New profile",
+  newProfileName: "My profile",
+  rename: "Rename",
+  renameLabel: "Profile name",
 };
 
 const JA: UiStrings = {
@@ -250,6 +258,10 @@ const JA: UiStrings = {
   saveShort: "保存",
   startEditingHint: "点をドラッグすると自分用の設定を作れます",
   discardDraftConfirm: "保存していない変更があります。破棄しますか？",
+  newProfile: "新規プロファイル",
+  newProfileName: "マイプロファイル",
+  rename: "名前を変更",
+  renameLabel: "プロファイル名",
 };
 
 const DE: UiStrings = {
@@ -337,6 +349,10 @@ const DE: UiStrings = {
   saveShort: "Speichern",
   startEditingHint: "Ziehe einen Punkt, um deine eigene Version zu starten",
   discardDraftConfirm: "Du hast ungespeicherte Änderungen. Verwerfen?",
+  newProfile: "Neues Profil",
+  newProfileName: "Mein Profil",
+  rename: "Umbenennen",
+  renameLabel: "Profilname",
 };
 
 const FR: UiStrings = {
@@ -425,6 +441,10 @@ const FR: UiStrings = {
   saveShort: "Enregistrer",
   startEditingHint: "Faites glisser un point pour créer votre version",
   discardDraftConfirm: "Vous avez des modifications non enregistrées. Les abandonner ?",
+  newProfile: "Nouveau profil",
+  newProfileName: "Mon profil",
+  rename: "Renommer",
+  renameLabel: "Nom du profil",
 };
 
 const ES: UiStrings = {
@@ -513,6 +533,10 @@ const ES: UiStrings = {
   saveShort: "Guardar",
   startEditingHint: "Arrastra un punto para crear tu propia versión",
   discardDraftConfirm: "Tienes cambios sin guardar. ¿Descartarlos?",
+  newProfile: "Nuevo perfil",
+  newProfileName: "Mi perfil",
+  rename: "Cambiar el nombre",
+  renameLabel: "Nombre del perfil",
 };
 
 const NL: UiStrings = {
@@ -600,6 +624,10 @@ const NL: UiStrings = {
   saveShort: "Opslaan",
   startEditingHint: "Sleep een punt om je eigen versie te maken",
   discardDraftConfirm: "Je hebt niet-opgeslagen wijzigingen. Weggooien?",
+  newProfile: "Nieuw profiel",
+  newProfileName: "Mijn profiel",
+  rename: "Naam wijzigen",
+  renameLabel: "Profielnaam",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };

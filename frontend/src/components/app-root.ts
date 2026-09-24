@@ -257,6 +257,9 @@ export class AppRoot extends LitElement {
             this.duplicateProfile(duplicateEvent.detail.id)}
           @delete-profile=${(deleteEvent: CustomEvent<{ id: number }>) =>
             this.deleteProfile(deleteEvent.detail.id)}
+          @rename-profile=${(renameEvent: CustomEvent<{ id: number; name: string }>) =>
+            this.renameProfile(renameEvent.detail.id, renameEvent.detail.name)}
+          @create-profile=${() => this.createProfile()}
         ></profile-list>
       </aside>
     `;
@@ -570,6 +573,33 @@ export class AppRoot extends LitElement {
     this.draft = null;
     this.selectedId = copy.id;
     this.closeProfilesDrawer();
+  }
+
+  /** Starts a profile of your own. It copies the data of the selected
+   * profile, or of the first factory preset when nothing is selected,
+   * so the new profile has a valid curve to edit. */
+  private async createProfile(): Promise<void> {
+    const source = this.selectedProfile ?? this.profiles.find((profile) => profile.source === "factory");
+    if (source === undefined) {
+      return;
+    }
+    const created = await this.api.createProfile({
+      name: uiStrings(this.locale).newProfileName,
+      data: this.draft ?? source.data,
+      brand_name: source.brand_name,
+      car_model: source.car_model,
+      speaker_type: source.speaker_type,
+      supported_processors: source.supported_processors,
+    });
+    this.draft = null;
+    await this.loadProfiles();
+    this.selectedId = created.id;
+    this.closeProfilesDrawer();
+  }
+
+  private async renameProfile(id: number, name: string): Promise<void> {
+    const updated = await this.api.updateProfile(id, { name });
+    this.profiles = this.profiles.map((profile) => (profile.id === id ? updated : profile));
   }
 
   private async deleteProfile(id: number): Promise<void> {
