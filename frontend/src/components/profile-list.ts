@@ -5,6 +5,7 @@ import type { Locale } from "../i18n/locale.ts";
 import { localizedProfileName } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { groupFactoryProfiles, type CarModelGroup } from "../factory-groups.ts";
+import { autoFocus } from "./auto-focus.ts";
 import { profileListStyles } from "./profile-list.styles.ts";
 
 function renderSearchIcon(): TemplateResult {
@@ -34,6 +35,7 @@ export class ProfileList extends LitElement {
 
   @state() private search = "";
   @state() private openMenuId: number | null = null;
+  @state() private renamingId: number | null = null;
 
   override render() {
     const strings = uiStrings(this.locale);
@@ -66,7 +68,16 @@ export class ProfileList extends LitElement {
   ): TemplateResult {
     return html`
       <section class="group">
-        <h3 class="group-label">${strings.myProfiles}</h3>
+        <div class="group-head">
+          <h3 class="group-label">${strings.myProfiles}</h3>
+          <button
+            type="button"
+            class="new-profile"
+            @click=${() => this.dispatchEvent(new CustomEvent("create-profile"))}
+          >
+            + ${strings.newProfile}
+          </button>
+        </div>
         ${customProfiles.length === 0
           ? html`<p class="empty">${strings.duplicateHint}</p>`
           : html`
@@ -79,6 +90,9 @@ export class ProfileList extends LitElement {
   }
 
   private renderCustomProfile(strings: UiStrings, profile: ProfileDto): TemplateResult {
+    if (this.renamingId === profile.id) {
+      return this.renderRenameRow(strings, profile);
+    }
     return html`
       <li class="custom-row ${profile.id === this.selectedId ? "selected" : ""}">
         <button class="name" type="button" @click=${() => this.selectProfile(profile.id)}>
@@ -97,6 +111,9 @@ export class ProfileList extends LitElement {
         ${this.openMenuId === profile.id
           ? html`
               <div class="menu">
+                <button class="action" type="button" @click=${() => this.startRename(profile.id)}>
+                  ${strings.rename}
+                </button>
                 <button
                   class="action"
                   type="button"
@@ -114,6 +131,24 @@ export class ProfileList extends LitElement {
               </div>
             `
           : nothing}
+      </li>
+    `;
+  }
+
+  /** Renaming swaps the row for one text field. Enter keeps the name
+   * and Escape drops the change. */
+  private renderRenameRow(strings: UiStrings, profile: ProfileDto): TemplateResult {
+    return html`
+      <li class="custom-row renaming">
+        <input
+          class="rename-input"
+          type="text"
+          .value=${profile.name}
+          aria-label=${strings.renameLabel}
+          @keydown=${(event: KeyboardEvent) => this.onRenameKeydown(event, profile.id)}
+          @blur=${(event: Event) => this.commitRename(profile.id, event.target as HTMLInputElement)}
+          ${autoFocus()}
+        />
       </li>
     `;
   }
@@ -168,6 +203,33 @@ export class ProfileList extends LitElement {
         ${label}
       </button>
     `;
+  }
+
+  private startRename(id: number): void {
+    this.openMenuId = null;
+    this.renamingId = id;
+  }
+
+  private onRenameKeydown(event: KeyboardEvent, id: number): void {
+    if (event.key === "Enter") {
+      this.commitRename(id, event.target as HTMLInputElement);
+      return;
+    }
+    if (event.key === "Escape") {
+      this.renamingId = null;
+    }
+  }
+
+  private commitRename(id: number, input: HTMLInputElement): void {
+    if (this.renamingId !== id) {
+      return;
+    }
+    this.renamingId = null;
+    const name = input.value.trim();
+    if (name === "") {
+      return;
+    }
+    this.dispatchEvent(new CustomEvent("rename-profile", { detail: { id, name } }));
   }
 
   private toggleMenu(id: number): void {
