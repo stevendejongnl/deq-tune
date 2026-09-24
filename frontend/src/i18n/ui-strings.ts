@@ -56,6 +56,12 @@ export interface UiStrings {
   longerDelayLabel: string;
   soundStyleTitle: string;
   soundStyleSuffix: string;
+  findYourCar: string;
+  customProfileCaption: string;
+  speakerPioneerShort: string;
+  speakerStockShort: string;
+  factoryGroupLabel: string;
+  moreActionsLabel: string;
 }
 
 const EN: UiStrings = {
@@ -121,6 +127,12 @@ const EN: UiStrings = {
   longerDelayLabel: "Longer delay",
   soundStyleTitle: "Sound style",
   soundStyleSuffix: "· on top of your EQ",
+  findYourCar: "Find your car",
+  customProfileCaption: "Your copy of the factory preset",
+  speakerPioneerShort: "Pioneer",
+  speakerStockShort: "Stock",
+  factoryGroupLabel: "Factory",
+  moreActionsLabel: "More actions",
 };
 
 const JA: UiStrings = {
@@ -186,6 +198,12 @@ const JA: UiStrings = {
   longerDelayLabel: "遅延を長くする",
   soundStyleTitle: "サウンドスタイル",
   soundStyleSuffix: "· EQに重ねて適用",
+  findYourCar: "車種を検索",
+  customProfileCaption: "純正プリセットのコピー",
+  speakerPioneerShort: "カロッツェリア",
+  speakerStockShort: "純正",
+  factoryGroupLabel: "純正",
+  moreActionsLabel: "その他の操作",
 };
 
 const DE: UiStrings = {
@@ -251,6 +269,12 @@ const DE: UiStrings = {
   longerDelayLabel: "Verzögerung verlängern",
   soundStyleTitle: "Klangstil",
   soundStyleSuffix: "· zusätzlich zu deinem EQ",
+  findYourCar: "Auto suchen",
+  customProfileCaption: "Deine Kopie des Werkspresets",
+  speakerPioneerShort: "Pioneer",
+  speakerStockShort: "Serie",
+  factoryGroupLabel: "Werk",
+  moreActionsLabel: "Weitere Aktionen",
 };
 
 const FR: UiStrings = {
@@ -317,6 +341,12 @@ const FR: UiStrings = {
   longerDelayLabel: "Augmenter le retard",
   soundStyleTitle: "Style sonore",
   soundStyleSuffix: "· en plus de votre EQ",
+  findYourCar: "Trouvez votre voiture",
+  customProfileCaption: "Votre copie du préréglage d'usine",
+  speakerPioneerShort: "Pioneer",
+  speakerStockShort: "Origine",
+  factoryGroupLabel: "Usine",
+  moreActionsLabel: "Autres actions",
 };
 
 const ES: UiStrings = {
@@ -383,6 +413,12 @@ const ES: UiStrings = {
   longerDelayLabel: "Aumentar el retardo",
   soundStyleTitle: "Estilo de sonido",
   soundStyleSuffix: "· sobre tu EQ",
+  findYourCar: "Busca tu coche",
+  customProfileCaption: "Tu copia del preajuste de fábrica",
+  speakerPioneerShort: "Pioneer",
+  speakerStockShort: "Serie",
+  factoryGroupLabel: "Fábrica",
+  moreActionsLabel: "Más acciones",
 };
 
 const NL: UiStrings = {
@@ -448,6 +484,12 @@ const NL: UiStrings = {
   longerDelayLabel: "Langere vertraging",
   soundStyleTitle: "Geluidsstijl",
   soundStyleSuffix: "· boven op je EQ",
+  findYourCar: "Zoek je auto",
+  customProfileCaption: "Jouw kopie van de fabriekspreset",
+  speakerPioneerShort: "Pioneer",
+  speakerStockShort: "Standaard",
+  factoryGroupLabel: "Fabriek",
+  moreActionsLabel: "Meer acties",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };

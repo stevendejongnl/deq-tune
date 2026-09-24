@@ -1,64 +1,28 @@
-import { html, LitElement, type TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { html, LitElement, nothing, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import type { ProfileDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import { localizedProfileName } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
+import { groupFactoryProfiles, type CarModelGroup } from "../factory-groups.ts";
 import { profileListStyles } from "./profile-list.styles.ts";
 
-function renderNameButton(displayName: string, onSelect: () => void): TemplateResult {
+function renderSearchIcon(): TemplateResult {
   return html`
-    <button class="name" type="button" @click=${onSelect}>${displayName}</button>
-  `;
-}
-
-function renderDuplicateButton(label: string, onDuplicate: () => void): TemplateResult {
-  return html`<button class="action" type="button" @click=${onDuplicate}>${label}</button>`;
-}
-
-function renderDeleteButton(label: string, onDelete: () => void): TemplateResult {
-  return html`<button class="action destructive" type="button" @click=${onDelete}>
-    ${label}
-  </button>`;
-}
-
-function renderFactoryItem(
-  displayName: string,
-  strings: UiStrings,
-  isSelected: boolean,
-  onSelect: () => void,
-  onDuplicate: () => void,
-): TemplateResult {
-  return html`
-    <li aria-current=${isSelected ? "true" : "false"}>
-      ${renderNameButton(displayName, onSelect)}
-      <div class="actions">${renderDuplicateButton(strings.duplicate, onDuplicate)}</div>
-    </li>
-  `;
-}
-
-function renderCustomItem(
-  displayName: string,
-  strings: UiStrings,
-  isSelected: boolean,
-  onSelect: () => void,
-  onDuplicate: () => void,
-  onDelete: () => void,
-): TemplateResult {
-  return html`
-    <li aria-current=${isSelected ? "true" : "false"}>
-      ${renderNameButton(displayName, onSelect)}
-      <div class="actions">
-        ${renderDuplicateButton(strings.duplicate, onDuplicate)}
-        ${renderDeleteButton(strings.delete, onDelete)}
-      </div>
-    </li>
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path d="M10.5 10.5 L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+    </svg>
   `;
 }
 
 /**
- * Lists profiles, grouped by source. Emits `select-profile`
- * ({ id }), `duplicate-profile` ({ id }) and `delete-profile` ({ id }).
+ * The profile list: a search field, your own profiles, and the factory
+ * presets grouped by car model. Each model row offers a Pioneer chip
+ * and a Stock chip, which map to the two speaker types.
+ *
+ * It emits `select-profile` ({ id }), `duplicate-profile` ({ id }) and
+ * `delete-profile` ({ id }).
  */
 @customElement("profile-list")
 export class ProfileList extends LitElement {
@@ -68,57 +32,160 @@ export class ProfileList extends LitElement {
   @property({ type: Number }) selectedId: number | null = null;
   @property({ type: String }) locale: Locale = "en";
 
+  @state() private search = "";
+  @state() private openMenuId: number | null = null;
+
   override render() {
     const strings = uiStrings(this.locale);
-    const factoryProfiles = this.profiles.filter((profile) => profile.source === "factory");
     const customProfiles = this.profiles.filter((profile) => profile.source === "custom");
-
+    const groups = groupFactoryProfiles(this.profiles, this.locale, this.search);
     return html`
-      <section>
-        <h3>${strings.myProfiles}</h3>
+      ${this.renderSearchField(strings)} ${this.renderCustomSection(strings, customProfiles)}
+      ${this.renderFactorySection(strings, groups)}
+    `;
+  }
+
+  private renderSearchField(strings: UiStrings): TemplateResult {
+    return html`
+      <label class="search">
+        ${renderSearchIcon()}
+        <span class="visually-hidden">${strings.findYourCar}</span>
+        <input
+          type="search"
+          placeholder=${strings.findYourCar}
+          .value=${this.search}
+          @input=${(event: Event) => (this.search = (event.target as HTMLInputElement).value)}
+        />
+      </label>
+    `;
+  }
+
+  private renderCustomSection(
+    strings: UiStrings,
+    customProfiles: readonly ProfileDto[],
+  ): TemplateResult {
+    return html`
+      <section class="group">
+        <h3 class="group-label">${strings.myProfiles}</h3>
         ${customProfiles.length === 0
           ? html`<p class="empty">${strings.duplicateHint}</p>`
           : html`
-              <ul>
-                ${customProfiles.map((profile) =>
-                  renderCustomItem(
-                    localizedProfileName(profile, this.locale),
-                    strings,
-                    profile.id === this.selectedId,
-                    () => this.selectProfile(profile.id),
-                    () => this.duplicateProfile(profile.id),
-                    () => this.deleteProfile(profile.id),
-                  ),
-                )}
+              <ul class="custom-list">
+                ${customProfiles.map((profile) => this.renderCustomProfile(strings, profile))}
               </ul>
             `}
       </section>
-      <section>
-        <h3>${strings.factoryPresets}</h3>
-        <ul>
-          ${factoryProfiles.map((profile) =>
-            renderFactoryItem(
-              localizedProfileName(profile, this.locale),
-              strings,
-              profile.id === this.selectedId,
-              () => this.selectProfile(profile.id),
-              () => this.duplicateProfile(profile.id),
-            ),
-          )}
+    `;
+  }
+
+  private renderCustomProfile(strings: UiStrings, profile: ProfileDto): TemplateResult {
+    return html`
+      <li class="custom-row ${profile.id === this.selectedId ? "selected" : ""}">
+        <button class="name" type="button" @click=${() => this.selectProfile(profile.id)}>
+          <span class="custom-name">${localizedProfileName(profile, this.locale)}</span>
+          <span class="custom-caption">${strings.customProfileCaption}</span>
+        </button>
+        <button
+          class="more"
+          type="button"
+          aria-label=${strings.moreActionsLabel}
+          aria-expanded=${this.openMenuId === profile.id}
+          @click=${() => this.toggleMenu(profile.id)}
+        >
+          ⋯
+        </button>
+        ${this.openMenuId === profile.id
+          ? html`
+              <div class="menu">
+                <button
+                  class="action"
+                  type="button"
+                  @click=${() => this.duplicateProfile(profile.id)}
+                >
+                  ${strings.duplicate}
+                </button>
+                <button
+                  class="action destructive"
+                  type="button"
+                  @click=${() => this.deleteProfile(profile.id)}
+                >
+                  ${strings.delete}
+                </button>
+              </div>
+            `
+          : nothing}
+      </li>
+    `;
+  }
+
+  private renderFactorySection(
+    strings: UiStrings,
+    groups: readonly CarModelGroup[],
+  ): TemplateResult {
+    const brand = groups[0]?.brand ?? null;
+    return html`
+      <section class="group">
+        <h3 class="group-label">
+          ${strings.factoryGroupLabel}${brand === null ? nothing : ` · ${brand}`}
+        </h3>
+        <ul class="factory-list">
+          ${groups.map((group) => this.renderModelRow(strings, group))}
         </ul>
       </section>
     `;
   }
 
+  private renderModelRow(strings: UiStrings, group: CarModelGroup): TemplateResult {
+    const holdsSelection = group.profiles.some((profile) => profile.id === this.selectedId);
+    return html`
+      <li class="model-row ${holdsSelection ? "selected" : ""}">
+        <span class="model-name">${group.modelName}</span>
+        <div class="chips">
+          ${this.renderSpeakerChip(group, "carrozzeria", strings.speakerPioneerShort)}
+          ${this.renderSpeakerChip(group, "general", strings.speakerStockShort)}
+        </div>
+      </li>
+    `;
+  }
+
+  private renderSpeakerChip(
+    group: CarModelGroup,
+    speakerType: string,
+    label: string,
+  ): TemplateResult {
+    const profile = group.profiles.find((candidate) => candidate.speaker_type === speakerType);
+    if (profile === undefined) {
+      return html``;
+    }
+    const selected = profile.id === this.selectedId;
+    return html`
+      <button
+        type="button"
+        class="chip ${selected ? "selected" : ""}"
+        aria-pressed=${selected}
+        @click=${() => this.selectProfile(profile.id)}
+      >
+        ${label}
+      </button>
+    `;
+  }
+
+  private toggleMenu(id: number): void {
+    this.openMenuId = this.openMenuId === id ? null : id;
+  }
+
   private selectProfile(id: number) {
+    this.openMenuId = null;
     this.dispatchEvent(new CustomEvent("select-profile", { detail: { id } }));
   }
 
   private duplicateProfile(id: number) {
+    this.openMenuId = null;
     this.dispatchEvent(new CustomEvent("duplicate-profile", { detail: { id } }));
   }
 
   private deleteProfile(id: number) {
+    this.openMenuId = null;
     this.dispatchEvent(new CustomEvent("delete-profile", { detail: { id } }));
   }
 }

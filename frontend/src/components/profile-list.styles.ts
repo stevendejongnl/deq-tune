@@ -2,90 +2,231 @@ import { css } from "lit";
 
 export const profileListStyles = css`
   :host {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
   }
-  section + section {
-    margin-top: var(--space-6);
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
-  h3 {
-    margin: 0 0 var(--space-2);
-    font-size: 0.75rem;
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-sidebar);
+    color: var(--color-muted-foreground);
+    font-size: 14px;
+
+    input {
+      flex-grow: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      color: var(--color-foreground);
+      font: inherit;
+      outline: none;
+
+      &::-webkit-search-cancel-button {
+        filter: grayscale(1);
+      }
+    }
+  }
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+  .group-label {
+    margin: 0;
+    padding: 0 8px;
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: var(--color-muted-foreground);
+  }
+  .empty {
+    margin: 0;
+    padding: 0 8px;
+    font-size: 13px;
     color: var(--color-muted-foreground);
   }
   ul {
     list-style: none;
     margin: 0;
     padding: 0;
-    border-radius: var(--radius);
-    overflow: hidden;
-    border: 1px solid var(--color-border);
-  }
-  li {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3) var(--space-3);
-    background: var(--color-card);
-    border-left: 3px solid transparent;
-
-    &[aria-current="true"] {
-      border-left-color: var(--color-accent);
-      background: var(--color-muted);
-    }
   }
-  li + li {
-    border-top: 1px solid var(--color-border);
+  .custom-list {
+    gap: 8px;
   }
-  .name {
-    background: none;
-    border: none;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-    font: inherit;
-    line-height: 1.3;
-    padding: var(--space-2) 0 0;
-
-    &:hover {
-      color: var(--color-accent);
-    }
-  }
-  .actions {
+  .custom-row {
+    position: relative;
     display: flex;
-    justify-content: flex-end;
-    gap: var(--space-2);
-  }
-  .action {
-    flex-shrink: 0;
-    background: none;
+    align-items: center;
+    gap: 4px;
+    padding: 0 4px 0 0;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
+    background: var(--color-card);
+
+    &.selected {
+      background: var(--color-inset);
+      border-color: var(--color-accent);
+    }
+  }
+  .name {
+    flex-grow: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--color-foreground);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .custom-name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .custom-caption {
+    font-size: 12px;
+    color: var(--color-muted-foreground);
+  }
+  .more {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--color-muted-foreground);
     font: inherit;
-    font-size: 0.75rem;
-    padding: 0.25rem var(--space-2);
+    font-size: 16px;
     cursor: pointer;
 
     &:hover {
       color: var(--color-foreground);
-      border-color: var(--color-foreground);
+    }
+  }
+  .menu {
+    position: absolute;
+    right: 4px;
+    top: calc(100% - 4px);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    padding: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-inset);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+  .action {
+    padding: 8px 10px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-2);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--color-card);
+      color: var(--color-foreground);
     }
 
     &.destructive:hover {
-      color: var(--color-destructive);
-      border-color: var(--color-destructive);
+      color: var(--color-accent);
     }
   }
-  .empty {
-    margin: 0;
-    padding: var(--space-3);
-    border: 1px dashed var(--color-border);
+  .factory-list {
+    gap: 2px;
+    overflow-y: auto;
+  }
+  .model-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
     border-radius: var(--radius);
+
+    &.selected {
+      background: var(--color-inset);
+    }
+  }
+  .model-name {
+    flex-grow: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .chips {
+    display: flex;
+    gap: 6px;
+  }
+  .chip {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 9px;
+    border: 1px solid var(--color-border);
+    background: transparent;
     color: var(--color-muted-foreground);
-    font-size: 0.8125rem;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+
+    &.selected {
+      background: var(--color-accent);
+      border-color: var(--color-accent);
+      color: var(--color-on-accent);
+    }
+  }
+
+  @media (min-width: 1200px) {
+    :host {
+      gap: 24px;
+    }
+    .search {
+      height: 40px;
+      border-radius: var(--radius);
+    }
+    .group {
+      gap: 4px;
+    }
+    .model-name {
+      font-size: 14px;
+    }
+    .chip {
+      height: 28px;
+      padding: 0 9px;
+      border-radius: 7px;
+      font-size: 12px;
+    }
   }
 `;
