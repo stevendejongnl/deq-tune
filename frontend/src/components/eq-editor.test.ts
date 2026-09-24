@@ -137,6 +137,38 @@ describe("eq-editor", () => {
     expect(element.shadowRoot!.querySelector(".reset-band")).toBeNull();
   });
 
+  it("changes the gain while a dot is dragged", async () => {
+    const element = await mount([...FLAT], [...FLAT]);
+    const gains: number[] = [];
+    element.addEventListener("gain-change", (rawEvent) => {
+      gains.push((rawEvent as CustomEvent).detail.value);
+    });
+
+    const dot = queryBandButtons(element)[6];
+    dot.setPointerCapture = () => {};
+    dot.hasPointerCapture = () => false;
+    dot.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
+    // The chart is 300 tall with 24 padding, so its top edge is +12 dB.
+    dot.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientY: 24, bubbles: true }));
+    dot.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
+    await element.updateComplete;
+
+    expect(gains.length).toBeGreaterThan(0);
+    expect(gains[gains.length - 1]).toBe(12);
+  });
+
+  it("ignores pointer moves when no dot is held", async () => {
+    const element = await mount([...FLAT], [...FLAT]);
+    let changes = 0;
+    element.addEventListener("gain-change", () => (changes += 1));
+
+    queryBandButtons(element)[6].dispatchEvent(
+      new PointerEvent("pointermove", { pointerId: 1, clientY: 24, bubbles: true }),
+    );
+
+    expect(changes).toBe(0);
+  });
+
   it("shows band chips instead of zones in the phone layout", async () => {
     const element = await mount([...FLAT], [...FLAT], "phone");
 

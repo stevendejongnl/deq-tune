@@ -64,6 +64,14 @@ export function gainY(box: ChartBox, gain: number): number {
   return box.padY + ((MAX_GAIN_DB - gain) / (MAX_GAIN_DB - MIN_GAIN_DB)) * (box.height - 2 * box.padY);
 }
 
+/** The gain at a y inside the chart. It is the inverse of `gainY`, and
+ * it drives the drag of a band dot. */
+export function gainFromY(box: ChartBox, y: number): number {
+  const span = box.height - 2 * box.padY;
+  const ratio = span === 0 ? 0 : (y - box.padY) / span;
+  return MAX_GAIN_DB - ratio * (MAX_GAIN_DB - MIN_GAIN_DB);
+}
+
 export function curvePoints(box: ChartBox, gains: readonly number[]): CurvePoint[] {
   return EQ_BAND_FREQUENCIES.map((_frequency, band) => ({
     x: bandX(box, band),
