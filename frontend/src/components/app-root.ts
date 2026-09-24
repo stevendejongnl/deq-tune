@@ -1,7 +1,7 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { DeqApiClient, type ProfileApi } from "../api/client.ts";
-import type { ProfileDto, Speaker } from "../dto/profile.dto.ts";
+import type { ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
 import { frontGains, withFrontGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
@@ -9,6 +9,7 @@ import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-na
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import type { EqStyleId, LiveSimulationId } from "../i18n/dsp-presets.ts";
 import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
+import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
@@ -27,10 +28,6 @@ function resolveGlobalLanguages(): readonly string[] {
 
 function renderNoSelection(strings: UiStrings): TemplateResult {
   return html`<p class="empty">${strings.selectProfilePrompt}</p>`;
-}
-
-function renderReadOnlyHint(strings: UiStrings): TemplateResult {
-  return html`<p class="hint">${strings.readOnlyHint}</p>`;
 }
 
 function renderWordmarkIcon(): TemplateResult {
@@ -65,26 +62,15 @@ function renderProfilesToggle(strings: UiStrings, onOpen: () => void): TemplateR
   `;
 }
 
-/** The breadcrumb and the model name above the panels. A custom profile
- * has no car model, so it shows its own name instead. */
-function renderHeadingRow(profile: ProfileDto, locale: Locale): TemplateResult {
-  const brand = profile.brand_name;
-  const speakerType = localizedSpeakerTypeLabel(profile, locale);
-  const title = localizedModelName(profile, locale) ?? profile.name;
-  return html`
-    <div class="heading-row">
-      <div class="heading-text">
-        ${brand === null || speakerType === null
-          ? nothing
-          : html`
-              <div class="breadcrumb">
-                <span>${brand}</span><span aria-hidden="true">/</span><span>${speakerType}</span>
-              </div>
-            `}
-        <h2 class="profile-title">${title}</h2>
-      </div>
-    </div>
-  `;
+/** The badge text: neutral for untouched factory data, and a count of
+ * the edits once the user changes something. */
+function editBadgeText(strings: UiStrings, editCount: number): string {
+  if (editCount === 0) {
+    return strings.factoryBadge;
+  }
+  return editCount === 1
+    ? strings.editedBadgeOne
+    : strings.editedBadgeMany.replace("{count}", String(editCount));
 }
 
 /**
@@ -120,6 +106,14 @@ export class AppRoot extends LitElement {
   @state() private phoneTab: PhoneTab = "eq";
   @state() private connectProblem: ConnectProblem | null = null;
 
+  /** Edits to a factory preset live here until the user saves them. */
+  @state() private draft: TuningDataDto | null = null;
+
+  /** `confirmDiscard` asks before a draft is dropped. It defaults to
+   * the browser dialog but a test can answer it without one. */
+  @property({ attribute: false }) confirmDiscard: (question: string) => boolean = (question) =>
+    typeof window === "undefined" ? true : window.confirm(question);
+
   private unsubscribeLayout: (() => void) | null = null;
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
@@ -154,24 +148,41 @@ export class AppRoot extends LitElement {
     return this.layout === "phone";
   }
 
-  /** The factory curve to draw behind your own. A factory profile
-   * compares against itself. A custom profile compares against the
-   * factory profile for the same car model and speaker type. */
-  private get factoryGains(): number[] {
+  /** The data the panels show: the draft while it exists, else the
+   * stored profile. */
+  private get shownData(): TuningDataDto | undefined {
+    return this.draft ?? this.selectedProfile?.data;
+  }
+
+  /** The factory data the edits compare against. */
+  private get factoryData(): TuningDataDto | undefined {
     const profile = this.selectedProfile;
     if (profile === undefined) {
-      return [];
+      return undefined;
     }
     if (profile.source === "factory") {
-      return frontGains(profile.data);
+      return profile.data;
     }
-    const origin = this.profiles.find(
+    return this.profiles.find(
       (candidate) =>
         candidate.source === "factory" &&
         candidate.car_model === profile.car_model &&
         candidate.speaker_type === profile.speaker_type,
-    );
-    return origin === undefined ? [] : frontGains(origin.data);
+    )?.data;
+  }
+
+  private get editCount(): number {
+    const shown = this.shownData;
+    const factory = this.factoryData;
+    return shown === undefined || factory === undefined ? 0 : countEdits(shown, factory);
+  }
+
+  /** The factory curve to draw behind your own. A factory profile
+   * compares against itself. A custom profile compares against the
+   * factory profile for the same car model and speaker type. */
+  private get factoryGains(): number[] {
+    const factory = this.factoryData;
+    return factory === undefined ? [] : frontGains(factory);
   }
 
   override render() {
@@ -206,9 +217,10 @@ export class AppRoot extends LitElement {
           ${this.isPhoneLayout ? this.renderConnectProblem(strings, "banner") : nothing}
           ${this.selectedProfile === undefined
             ? nothing
-            : renderHeadingRow(this.selectedProfile, this.locale)}
+            : this.renderHeadingRow(strings, this.selectedProfile)}
           ${this.isPhoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings)}
         </main>
+        ${this.isPhoneLayout ? this.renderSaveBar(strings) : nothing}
         ${this.isPhoneLayout ? this.renderTabBar(strings) : nothing}
       </div>
     `;
@@ -247,6 +259,76 @@ export class AppRoot extends LitElement {
             this.deleteProfile(deleteEvent.detail.id)}
         ></profile-list>
       </aside>
+    `;
+  }
+
+  /** The breadcrumb and the model name, with the edit badge and the
+   * save actions. A custom profile has no car model, so it shows its
+   * own name instead. */
+  private renderHeadingRow(strings: UiStrings, profile: ProfileDto): TemplateResult {
+    const brand = profile.brand_name;
+    const speakerType = localizedSpeakerTypeLabel(profile, this.locale);
+    const title = localizedModelName(profile, this.locale) ?? profile.name;
+    const editCount = this.editCount;
+    return html`
+      <div class="heading-row">
+        <div class="heading-text">
+          <div class="breadcrumb">
+            ${brand === null || speakerType === null
+              ? nothing
+              : html`<span>${brand}</span><span aria-hidden="true">/</span
+                  ><span>${speakerType}</span>`}
+            <span class="badge ${editCount === 0 ? "" : "edited"}"
+              >${editBadgeText(strings, editCount)}</span
+            >
+          </div>
+          <h2 class="profile-title">${title}</h2>
+        </div>
+        ${this.isPhoneLayout ? nothing : this.renderHeadingActions(strings, editCount)}
+      </div>
+    `;
+  }
+
+  private renderHeadingActions(strings: UiStrings, editCount: number): TemplateResult {
+    if (editCount === 0) {
+      return html`<span class="start-hint">${strings.startEditingHint}</span>`;
+    }
+    return html`
+      <div class="heading-actions">
+        <button type="button" class="secondary" @click=${() => this.revertToFactory()}>
+          ${strings.revertToFactory}
+        </button>
+        ${this.draft === null
+          ? nothing
+          : html`
+              <button type="button" class="primary" @click=${() => this.saveDraftAsProfile()}>
+                ${strings.saveAsMyProfile}
+              </button>
+            `}
+      </div>
+    `;
+  }
+
+  /** The phone puts the same actions in a bar above the tab bar. */
+  private renderSaveBar(strings: UiStrings): TemplateResult | typeof nothing {
+    const editCount = this.editCount;
+    if (editCount === 0) {
+      return nothing;
+    }
+    return html`
+      <div class="save-bar">
+        <span class="badge edited">${editBadgeText(strings, editCount)}</span>
+        <button type="button" class="secondary" @click=${() => this.revertToFactory()}>
+          ${strings.revertShort}
+        </button>
+        ${this.draft === null
+          ? nothing
+          : html`
+              <button type="button" class="primary" @click=${() => this.saveDraftAsProfile()}>
+                ${strings.saveShort}
+              </button>
+            `}
+      </div>
     `;
   }
 
@@ -342,7 +424,7 @@ export class AppRoot extends LitElement {
   private renderWidePanels(strings: UiStrings): TemplateResult {
     return html`
       <div class="panels">
-        ${this.renderEqPanel(strings)} ${this.renderSpeakerPanel(strings)}
+        ${this.renderEqPanel(strings)} ${this.renderSpeakerPanel()}
         ${this.renderStylePanel()}
       </div>
     `;
@@ -355,7 +437,7 @@ export class AppRoot extends LitElement {
 
   private renderPhoneTabContent(strings: UiStrings): TemplateResult {
     if (this.phoneTab === "speakers") {
-      return this.renderSpeakerPanel(strings);
+      return this.renderSpeakerPanel();
     }
     if (this.phoneTab === "style") {
       return this.renderStylePanel();
@@ -395,7 +477,7 @@ export class AppRoot extends LitElement {
     return html`
       <eq-editor
         class="area-eq"
-        .gains=${frontGains(profile.data)}
+        .gains=${frontGains(this.shownData ?? profile.data)}
         .factoryGains=${this.factoryGains}
         .locale=${this.locale}
         .layout=${this.layout}
@@ -405,7 +487,7 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  private renderSpeakerPanel(strings: UiStrings): TemplateResult {
+  private renderSpeakerPanel(): TemplateResult {
     const profile = this.selectedProfile;
     if (profile === undefined) {
       return html`<div class="area-speakers"></div>`;
@@ -413,7 +495,7 @@ export class AppRoot extends LitElement {
     return html`
       <div class="area-speakers">
         <speaker-panel
-          .speakers=${profile.data.speakers}
+          .speakers=${(this.shownData ?? profile.data).speakers}
           .locale=${this.locale}
           .layout=${this.layout}
           @speaker-change=${(
@@ -429,7 +511,6 @@ export class AppRoot extends LitElement {
               speakerChangeEvent.detail.value,
             )}
         ></speaker-panel>
-        ${profile.source === "factory" ? renderReadOnlyHint(strings) : null}
       </div>
     `;
   }
@@ -471,6 +552,14 @@ export class AppRoot extends LitElement {
   }
 
   private selectProfile(id: number): void {
+    if (id === this.selectedId) {
+      this.closeProfilesDrawer();
+      return;
+    }
+    if (this.draft !== null && !this.confirmDiscard(uiStrings(this.locale).discardDraftConfirm)) {
+      return;
+    }
+    this.draft = null;
     this.selectedId = id;
     this.closeProfilesDrawer();
   }
@@ -478,6 +567,7 @@ export class AppRoot extends LitElement {
   private async duplicateProfile(id: number): Promise<void> {
     const copy = await this.api.duplicateProfile(id);
     await this.loadProfiles();
+    this.draft = null;
     this.selectedId = copy.id;
     this.closeProfilesDrawer();
   }
@@ -492,10 +582,11 @@ export class AppRoot extends LitElement {
 
   private async changeGain(band: number, gain: number): Promise<void> {
     const profile = this.selectedProfile;
-    if (profile === undefined || profile.source !== "custom") {
+    const shown = this.shownData;
+    if (profile === undefined || shown === undefined) {
       return;
     }
-    await this.saveProfileData(profile.id, withFrontGain(profile.data, band, gain));
+    await this.applyEdit(profile, withFrontGain(shown, band, gain));
   }
 
   private async changeSpeaker(
@@ -504,10 +595,48 @@ export class AppRoot extends LitElement {
     value: number | boolean,
   ): Promise<void> {
     const profile = this.selectedProfile;
-    if (profile === undefined || profile.source !== "custom") {
+    const shown = this.shownData;
+    if (profile === undefined || shown === undefined) {
       return;
     }
-    await this.saveProfileData(profile.id, withSpeakerField(profile.data, channel, field, value));
+    await this.applyEdit(profile, withSpeakerField(shown, channel, field, value));
+  }
+
+  /** A custom profile saves every edit. A factory preset keeps its
+   * edits in the draft until the user saves them as a new profile. */
+  private async applyEdit(profile: ProfileDto, data: TuningDataDto): Promise<void> {
+    if (profile.source === "factory") {
+      this.draft = data;
+      return;
+    }
+    this.draft = data;
+    await this.saveProfileData(profile.id, data);
+    this.draft = null;
+  }
+
+  private revertToFactory(): void {
+    this.draft = null;
+    const profile = this.selectedProfile;
+    const factory = this.factoryData;
+    if (profile === undefined || factory === undefined || profile.source === "factory") {
+      return;
+    }
+    this.saveProfileData(profile.id, factory);
+  }
+
+  /** Copies the factory preset, writes the draft into the copy, then
+   * selects it. */
+  private async saveDraftAsProfile(): Promise<void> {
+    const profile = this.selectedProfile;
+    const draft = this.draft;
+    if (profile === undefined || draft === null) {
+      return;
+    }
+    const copy = await this.api.duplicateProfile(profile.id);
+    await this.api.updateProfile(copy.id, { data: draft });
+    this.draft = null;
+    await this.loadProfiles();
+    this.selectedId = copy.id;
   }
 
   private async saveProfileData(id: number, data: ProfileDto["data"]): Promise<void> {

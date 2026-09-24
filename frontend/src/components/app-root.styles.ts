@@ -225,6 +225,72 @@ export const appRootStyles = css`
     line-height: 1;
     letter-spacing: -0.02em;
   }
+  .badge {
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-badge);
+    color: var(--color-text-2);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+
+    &.edited {
+      background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+      color: var(--color-accent);
+    }
+  }
+  .start-hint {
+    font-size: 13px;
+    color: var(--color-muted-foreground);
+  }
+  .heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .heading-actions button,
+  .save-bar button {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .heading-actions .secondary,
+  .save-bar .secondary {
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-foreground);
+
+    &:hover {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+  }
+  .heading-actions .primary,
+  .save-bar .primary {
+    border: 0;
+    padding: 0 18px;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-weight: 600;
+  }
+  .save-bar {
+    position: sticky;
+    bottom: 68px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 10px 16px;
+    background: var(--color-card);
+    border-top: 1px solid var(--color-divider);
+
+    .badge {
+      flex-grow: 1;
+    }
+  }
   .panels {
     display: flex;
     flex-direction: column;
