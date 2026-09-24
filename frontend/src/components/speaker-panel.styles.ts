@@ -3,92 +3,209 @@ import { css } from "lit";
 export const speakerPanelStyles = css`
   :host {
     display: block;
+  }
+  .panel {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid var(--color-divider);
+    border-radius: var(--radius-lg);
     background: var(--color-card);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    padding: var(--space-4) var(--space-6);
   }
-  .table-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border) transparent;
-    mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent 100%);
-
-    &::-webkit-scrollbar {
-      height: 6px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: var(--color-border);
-      border-radius: 3px;
-    }
+  .panel-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    min-width: 30rem;
-    font-size: 0.875rem;
-  }
-  td:last-child,
-  th:last-child {
-    padding-right: 1.5rem;
-  }
-  th {
-    font-size: 0.6875rem;
+  h2 {
+    margin: 0;
+    font-size: 15px;
     font-weight: 600;
-    letter-spacing: 0.03em;
+  }
+  .caption {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
     color: var(--color-muted-foreground);
   }
-  th,
-  td {
-    padding: var(--space-2) var(--space-3);
-    text-align: left;
+  .cabin {
+    position: relative;
+    align-self: center;
   }
-  td:first-child,
-  th:first-child {
-    padding-left: 0;
+  .cabin svg {
+    position: absolute;
+    left: 0;
+    top: 0;
   }
-  tbody tr + tr {
-    border-top: 1px solid var(--color-border);
+  .body {
+    fill: var(--color-sidebar);
+    stroke: var(--color-border-strong);
+    stroke-width: 1.5;
   }
-  input[type="number"] {
-    width: 5rem;
-    background: var(--color-background);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    color: var(--color-foreground);
-    font: inherit;
-    font-variant-numeric: tabular-nums;
-    padding: 0.25rem var(--space-2);
+  .window {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 1.5;
+  }
+  .seat {
+    fill: var(--color-inset);
+    stroke: var(--color-border-strong);
+  }
+  .listener-glow {
+    fill: var(--color-accent);
+    fill-opacity: 0.07;
+  }
+  .listener {
+    fill: var(--color-accent);
+  }
+  .listener-label {
+    fill: var(--color-text-2);
+    font-family: var(--font-sans);
+    font-size: 11px;
+  }
+  .delay-line {
+    fill: none;
+    stroke: var(--color-idle);
+    stroke-width: 1.2;
+    stroke-dasharray: 3 4;
 
-    &:focus-visible {
-      outline: 2px solid var(--color-ring);
-      outline-offset: 1px;
+    &.selected {
+      stroke: var(--color-accent);
+      stroke-width: 2;
     }
   }
-  button[aria-pressed] {
-    width: 2rem;
-    height: 2rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+  .delay-pill {
+    position: absolute;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
     background: var(--color-background);
-    color: var(--color-muted-foreground);
-    font: inherit;
+    color: var(--color-text-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .speaker {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-outline);
+    background: var(--color-card);
+    color: var(--color-foreground);
+    font-family: var(--font-mono);
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
 
-    &[aria-pressed="true"] {
+    &.selected {
+      background: var(--color-accent);
+      border: 0;
+      color: var(--color-on-accent);
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-accent) 18%, transparent);
+    }
+  }
+  .editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    background: var(--color-inset);
+    border: 1px solid var(--color-border);
+  }
+  .editor-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .editor-grid {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 10px 12px;
+    align-items: center;
+  }
+  .field-label {
+    font-size: 13px;
+    color: var(--color-muted-foreground);
+  }
+  .stepper-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .step {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-card);
+    color: var(--color-foreground);
+    font: inherit;
+    font-size: 16px;
+    cursor: pointer;
+
+    &:hover {
       border-color: var(--color-accent);
       color: var(--color-accent);
     }
   }
-  h3 {
-    margin: 0 0 var(--space-4);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+  .value {
+    flex-grow: 1;
+    min-width: 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .milliseconds {
     color: var(--color-muted-foreground);
+    font-size: 12px;
+  }
+  .segmented {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--color-card);
+    border: 1px solid var(--color-border-strong);
+  }
+  .segment {
+    height: 38px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-muted-foreground);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+
+    &.selected {
+      background: var(--color-border-strong);
+      color: var(--color-foreground);
+    }
+  }
+
+  @media (min-width: 700px) {
+    .panel {
+      padding: 20px 24px 24px;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .editor-grid {
+      grid-template-columns: 72px minmax(0, 1fr);
+    }
+    .step {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+    }
+    .segment {
+      height: 32px;
+    }
   }
 `;

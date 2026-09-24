@@ -324,6 +324,7 @@ export class AppRoot extends LitElement {
         <speaker-panel
           .speakers=${profile.data.speakers}
           .locale=${this.locale}
+          .layout=${this.layout}
           @speaker-change=${(
             speakerChangeEvent: CustomEvent<{
               channel: string;

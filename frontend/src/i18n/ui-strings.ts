@@ -41,6 +41,19 @@ export interface UiStrings {
   gainSliderLabel: string;
   lowerGainLabel: string;
   raiseGainLabel: string;
+  speakersTitle: string;
+  cabinHintPick: string;
+  cabinHintTap: string;
+  listenerLabel: string;
+  levelLabel: string;
+  delayLabel: string;
+  phaseLabel: string;
+  phaseNormal: string;
+  phaseInverted: string;
+  lowerLevelLabel: string;
+  raiseLevelLabel: string;
+  shorterDelayLabel: string;
+  longerDelayLabel: string;
 }
 
 const EN: UiStrings = {
@@ -91,6 +104,19 @@ const EN: UiStrings = {
   gainSliderLabel: "Gain for selected band",
   lowerGainLabel: "Lower by 0.5 dB",
   raiseGainLabel: "Raise by 0.5 dB",
+  speakersTitle: "Speakers & timing",
+  cabinHintPick: "Distances are delays to your seat. Pick a speaker to adjust it.",
+  cabinHintTap: "Distances are delays to your seat. Tap a speaker to adjust it.",
+  listenerLabel: "You",
+  levelLabel: "Level",
+  delayLabel: "Delay",
+  phaseLabel: "Phase",
+  phaseNormal: "Normal",
+  phaseInverted: "Inverted",
+  lowerLevelLabel: "Lower level",
+  raiseLevelLabel: "Raise level",
+  shorterDelayLabel: "Shorter delay",
+  longerDelayLabel: "Longer delay",
 };
 
 const JA: UiStrings = {
@@ -141,6 +167,19 @@ const JA: UiStrings = {
   gainSliderLabel: "選択したバンドのゲイン",
   lowerGainLabel: "0.5 dB下げる",
   raiseGainLabel: "0.5 dB上げる",
+  speakersTitle: "スピーカーとタイミング",
+  cabinHintPick: "距離はあなたの席までの遅延です。スピーカーを選ぶと調整できます。",
+  cabinHintTap: "距離はあなたの席までの遅延です。スピーカーをタップすると調整できます。",
+  listenerLabel: "あなた",
+  levelLabel: "レベル",
+  delayLabel: "遅延",
+  phaseLabel: "位相",
+  phaseNormal: "正相",
+  phaseInverted: "逆相",
+  lowerLevelLabel: "レベルを下げる",
+  raiseLevelLabel: "レベルを上げる",
+  shorterDelayLabel: "遅延を短くする",
+  longerDelayLabel: "遅延を長くする",
 };
 
 const DE: UiStrings = {
@@ -191,6 +230,19 @@ const DE: UiStrings = {
   gainSliderLabel: "Pegel des gewählten Bands",
   lowerGainLabel: "Um 0,5 dB senken",
   raiseGainLabel: "Um 0,5 dB anheben",
+  speakersTitle: "Lautsprecher & Timing",
+  cabinHintPick: "Die Abstände sind Verzögerungen zu deinem Sitz. Wähle einen Lautsprecher, um ihn einzustellen.",
+  cabinHintTap: "Die Abstände sind Verzögerungen zu deinem Sitz. Tippe auf einen Lautsprecher, um ihn einzustellen.",
+  listenerLabel: "Du",
+  levelLabel: "Pegel",
+  delayLabel: "Verzögerung",
+  phaseLabel: "Phase",
+  phaseNormal: "Normal",
+  phaseInverted: "Invertiert",
+  lowerLevelLabel: "Pegel senken",
+  raiseLevelLabel: "Pegel anheben",
+  shorterDelayLabel: "Verzögerung verkürzen",
+  longerDelayLabel: "Verzögerung verlängern",
 };
 
 const FR: UiStrings = {
@@ -242,6 +294,19 @@ const FR: UiStrings = {
   gainSliderLabel: "Gain de la bande sélectionnée",
   lowerGainLabel: "Baisser de 0,5 dB",
   raiseGainLabel: "Monter de 0,5 dB",
+  speakersTitle: "Haut-parleurs et timing",
+  cabinHintPick: "Les distances sont des retards jusqu'à votre siège. Choisissez un haut-parleur pour le régler.",
+  cabinHintTap: "Les distances sont des retards jusqu'à votre siège. Touchez un haut-parleur pour le régler.",
+  listenerLabel: "Vous",
+  levelLabel: "Niveau",
+  delayLabel: "Retard",
+  phaseLabel: "Phase",
+  phaseNormal: "Normale",
+  phaseInverted: "Inversée",
+  lowerLevelLabel: "Baisser le niveau",
+  raiseLevelLabel: "Monter le niveau",
+  shorterDelayLabel: "Réduire le retard",
+  longerDelayLabel: "Augmenter le retard",
 };
 
 const ES: UiStrings = {
@@ -293,6 +358,19 @@ const ES: UiStrings = {
   gainSliderLabel: "Ganancia de la banda seleccionada",
   lowerGainLabel: "Bajar 0,5 dB",
   raiseGainLabel: "Subir 0,5 dB",
+  speakersTitle: "Altavoces y tiempo",
+  cabinHintPick: "Las distancias son retardos hasta tu asiento. Elige un altavoz para ajustarlo.",
+  cabinHintTap: "Las distancias son retardos hasta tu asiento. Toca un altavoz para ajustarlo.",
+  listenerLabel: "Tú",
+  levelLabel: "Nivel",
+  delayLabel: "Retardo",
+  phaseLabel: "Fase",
+  phaseNormal: "Normal",
+  phaseInverted: "Invertida",
+  lowerLevelLabel: "Bajar el nivel",
+  raiseLevelLabel: "Subir el nivel",
+  shorterDelayLabel: "Reducir el retardo",
+  longerDelayLabel: "Aumentar el retardo",
 };
 
 const NL: UiStrings = {
@@ -343,6 +421,19 @@ const NL: UiStrings = {
   gainSliderLabel: "Versterking van de gekozen band",
   lowerGainLabel: "0,5 dB omlaag",
   raiseGainLabel: "0,5 dB omhoog",
+  speakersTitle: "Luidsprekers en timing",
+  cabinHintPick: "De afstanden zijn vertragingen tot je stoel. Kies een luidspreker om die aan te passen.",
+  cabinHintTap: "De afstanden zijn vertragingen tot je stoel. Tik op een luidspreker om die aan te passen.",
+  listenerLabel: "Jij",
+  levelLabel: "Niveau",
+  delayLabel: "Vertraging",
+  phaseLabel: "Fase",
+  phaseNormal: "Normaal",
+  phaseInverted: "Omgekeerd",
+  lowerLevelLabel: "Niveau omlaag",
+  raiseLevelLabel: "Niveau omhoog",
+  shorterDelayLabel: "Kortere vertraging",
+  longerDelayLabel: "Langere vertraging",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };
