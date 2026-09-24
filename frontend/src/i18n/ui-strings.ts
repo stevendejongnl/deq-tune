@@ -54,6 +54,8 @@ export interface UiStrings {
   raiseLevelLabel: string;
   shorterDelayLabel: string;
   longerDelayLabel: string;
+  soundStyleTitle: string;
+  soundStyleSuffix: string;
 }
 
 const EN: UiStrings = {
@@ -81,8 +83,8 @@ const EN: UiStrings = {
   languageLabel: "Language",
   eqStyleTitle: "EQ Style",
   liveSimulationTitle: "Live Simulation",
-  applauseLabel: "Applause",
-  dspDeviceHint: "Takes effect once a DEQ device is connected.",
+  applauseLabel: "Add applause",
+  dspDeviceHint: "Applies once the DEQ is connected",
   profilesButton: "Profiles",
   closeLabel: "Close",
   tabEq: "EQ",
@@ -117,6 +119,8 @@ const EN: UiStrings = {
   raiseLevelLabel: "Raise level",
   shorterDelayLabel: "Shorter delay",
   longerDelayLabel: "Longer delay",
+  soundStyleTitle: "Sound style",
+  soundStyleSuffix: "· on top of your EQ",
 };
 
 const JA: UiStrings = {
@@ -144,8 +148,8 @@ const JA: UiStrings = {
   languageLabel: "言語",
   eqStyleTitle: "EQスタイル",
   liveSimulationTitle: "Live Simulation",
-  applauseLabel: "拍手・歓声",
-  dspDeviceHint: "DEQデバイス接続後に反映されます。",
+  applauseLabel: "拍手・歓声を追加",
+  dspDeviceHint: "DEQの接続後に適用されます",
   profilesButton: "プロファイル",
   closeLabel: "閉じる",
   tabEq: "EQ",
@@ -180,6 +184,8 @@ const JA: UiStrings = {
   raiseLevelLabel: "レベルを上げる",
   shorterDelayLabel: "遅延を短くする",
   longerDelayLabel: "遅延を長くする",
+  soundStyleTitle: "サウンドスタイル",
+  soundStyleSuffix: "· EQに重ねて適用",
 };
 
 const DE: UiStrings = {
@@ -207,8 +213,8 @@ const DE: UiStrings = {
   languageLabel: "Sprache",
   eqStyleTitle: "EQ-Stil",
   liveSimulationTitle: "Live Simulation",
-  applauseLabel: "Beifall",
-  dspDeviceHint: "Wird erst nach Verbindung mit einem DEQ-Gerät wirksam.",
+  applauseLabel: "Beifall hinzufügen",
+  dspDeviceHint: "Gilt, sobald das DEQ verbunden ist",
   profilesButton: "Profile",
   closeLabel: "Schließen",
   tabEq: "EQ",
@@ -243,6 +249,8 @@ const DE: UiStrings = {
   raiseLevelLabel: "Pegel anheben",
   shorterDelayLabel: "Verzögerung verkürzen",
   longerDelayLabel: "Verzögerung verlängern",
+  soundStyleTitle: "Klangstil",
+  soundStyleSuffix: "· zusätzlich zu deinem EQ",
 };
 
 const FR: UiStrings = {
@@ -271,8 +279,8 @@ const FR: UiStrings = {
   languageLabel: "Langue",
   eqStyleTitle: "Style EQ",
   liveSimulationTitle: "Live Simulation",
-  applauseLabel: "Applaudissements",
-  dspDeviceHint: "Prend effet une fois un appareil DEQ connecté.",
+  applauseLabel: "Ajouter des applaudissements",
+  dspDeviceHint: "S'applique une fois le DEQ connecté",
   profilesButton: "Profils",
   closeLabel: "Fermer",
   tabEq: "EQ",
@@ -307,6 +315,8 @@ const FR: UiStrings = {
   raiseLevelLabel: "Monter le niveau",
   shorterDelayLabel: "Réduire le retard",
   longerDelayLabel: "Augmenter le retard",
+  soundStyleTitle: "Style sonore",
+  soundStyleSuffix: "· en plus de votre EQ",
 };
 
 const ES: UiStrings = {
@@ -335,8 +345,8 @@ const ES: UiStrings = {
   languageLabel: "Idioma",
   eqStyleTitle: "Estilo de EQ",
   liveSimulationTitle: "Live Simulation",
-  applauseLabel: "Aplausos",
-  dspDeviceHint: "Se aplica al conectar un dispositivo DEQ.",
+  applauseLabel: "Añadir aplausos",
+  dspDeviceHint: "Se aplica al conectar el DEQ",
   profilesButton: "Perfiles",
   closeLabel: "Cerrar",
   tabEq: "EQ",
@@ -371,6 +381,8 @@ const ES: UiStrings = {
   raiseLevelLabel: "Subir el nivel",
   shorterDelayLabel: "Reducir el retardo",
   longerDelayLabel: "Aumentar el retardo",
+  soundStyleTitle: "Estilo de sonido",
+  soundStyleSuffix: "· sobre tu EQ",
 };
 
 const NL: UiStrings = {
@@ -398,8 +410,8 @@ const NL: UiStrings = {
   languageLabel: "Taal",
   eqStyleTitle: "EQ-stijl",
   liveSimulationTitle: "Live Simulation",
-  applauseLabel: "Applaus",
-  dspDeviceHint: "Wordt actief zodra een DEQ-apparaat is verbonden.",
+  applauseLabel: "Applaus toevoegen",
+  dspDeviceHint: "Geldt zodra de DEQ is verbonden",
   profilesButton: "Profielen",
   closeLabel: "Sluiten",
   tabEq: "EQ",
@@ -434,6 +446,8 @@ const NL: UiStrings = {
   raiseLevelLabel: "Niveau omhoog",
   shorterDelayLabel: "Kortere vertraging",
   longerDelayLabel: "Langere vertraging",
+  soundStyleTitle: "Geluidsstijl",
+  soundStyleSuffix: "· boven op je EQ",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };

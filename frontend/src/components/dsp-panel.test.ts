@@ -29,7 +29,7 @@ describe("dsp-panel", () => {
     await element.updateComplete;
 
     const pressedTile = element.shadowRoot!.querySelector('.tile[aria-pressed="true"]');
-    expect(pressedTile?.textContent?.trim()).toBe("POWERFUL");
+    expect(pressedTile?.textContent?.trim()).toBe("Powerful");
   });
 
   it("emits eq-style-change with the clicked tile's id", async () => {
@@ -40,7 +40,7 @@ describe("dsp-panel", () => {
     });
 
     const superBassTile = [...element.shadowRoot!.querySelectorAll(".tile")].find(
-      (tile) => tile.textContent?.trim() === "SUPER BASS",
+      (tile) => tile.textContent?.trim() === "Super Bass",
     ) as HTMLButtonElement;
     superBassTile.click();
 
@@ -62,20 +62,33 @@ describe("dsp-panel", () => {
     expect(detail).toEqual({ id: "club" });
   });
 
-  it("emits applause-change with the checkbox's new state", async () => {
+  it("emits applause-change from the switch", async () => {
     const element = await mount();
     let detail: { enabled: boolean } | undefined;
     element.addEventListener("applause-change", (rawEvent) => {
       detail = (rawEvent as CustomEvent).detail;
     });
 
-    const checkbox = element.shadowRoot!.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    checkbox.checked = true;
-    checkbox.dispatchEvent(new Event("change"));
+    const applauseSwitch = element.shadowRoot!.querySelector(".applause") as HTMLButtonElement;
+    applauseSwitch.click();
 
     expect(detail).toEqual({ enabled: true });
+  });
+
+  it("marks the applause switch as pressed when it is on", async () => {
+    const element = await mount();
+    element.applause = true;
+    await element.updateComplete;
+
+    const applauseSwitch = element.shadowRoot!.querySelector(".applause")!;
+    expect(applauseSwitch.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("shows the lock note instead of a footer hint", async () => {
+    const element = await mount();
+    expect(element.shadowRoot!.querySelector(".lock-note")!.textContent).toContain(
+      "Applies once the DEQ is connected",
+    );
   });
 
   it("translates tile and option names for the given locale", async () => {
