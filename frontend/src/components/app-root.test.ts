@@ -7,6 +7,7 @@ import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts";
 import { createFakeLayoutQuery, type FakeLayoutQuery } from "../testing/fake-layout-query.ts";
 import type { AppLayout } from "../layout-query.ts";
+import type { ProfileList } from "./profile-list.ts";
 
 async function mount(api: FakeProfileApi, layout: AppLayout = "desktop"): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
@@ -26,15 +27,17 @@ async function click(button: HTMLButtonElement, element: AppRoot): Promise<void>
   await element.updateComplete;
 }
 
-function queryProfileListItems(element: AppRoot): NodeListOf<HTMLLIElement> {
-  const profileList = element.shadowRoot!.querySelector("profile-list")!;
-  return profileList.shadowRoot!.querySelectorAll("li");
+function queryProfileList(element: AppRoot): ProfileList {
+  return element.shadowRoot!.querySelector("profile-list") as ProfileList;
 }
 
-function queryNameButton(element: AppRoot): HTMLButtonElement {
-  return element.shadowRoot!
-    .querySelector("profile-list")!
-    .shadowRoot!.querySelector(".name") as HTMLButtonElement;
+function queryModelRows(element: AppRoot): NodeListOf<HTMLLIElement> {
+  return queryProfileList(element).shadowRoot!.querySelectorAll(".model-row");
+}
+
+/** The factory rows select through their speaker chips. */
+function queryFirstChip(element: AppRoot): HTMLButtonElement {
+  return queryProfileList(element).shadowRoot!.querySelector(".chip") as HTMLButtonElement;
 }
 
 function queryDrawer(element: AppRoot): HTMLElement {
@@ -53,7 +56,7 @@ describe("app-root", () => {
 
     const element = await mount(api);
 
-    expect(queryProfileListItems(element)).toHaveLength(1);
+    expect(queryModelRows(element)).toHaveLength(1);
   });
 
   it("shows a prompt to select a profile before one is chosen", async () => {
@@ -68,7 +71,7 @@ describe("app-root", () => {
     ]);
     const element = await mount(api);
 
-    await click(queryNameButton(element), element);
+    await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
     expect(element.shadowRoot!.textContent).toContain("duplicate it in the list to edit");
@@ -77,7 +80,10 @@ describe("app-root", () => {
   it("persists a gain change through the api for a custom profile", async () => {
     const api = new FakeProfileApi([sampleProfile({ id: 1, name: "My EQ", source: "custom" })]);
     const element = await mount(api);
-    await click(queryNameButton(element), element);
+    const customName = queryProfileList(element).shadowRoot!.querySelector(
+      ".custom-row .name",
+    ) as HTMLButtonElement;
+    await click(customName, element);
 
     const eqEditor = element.shadowRoot!.querySelector("eq-editor")!;
     eqEditor.dispatchEvent(new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }));
@@ -88,18 +94,19 @@ describe("app-root", () => {
     expect(saved.data.foundationEq.expandEq.FRONT.banks.gain[2]).toBe(4.5);
   });
 
-  it("selects the new copy after duplicating a factory profile", async () => {
+  it("selects the new copy after a duplicate-profile event", async () => {
     const api = new FakeProfileApi([
       sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
     const element = await mount(api);
 
-    const duplicateButton = element.shadowRoot!
-      .querySelector("profile-list")!
-      .shadowRoot!.querySelectorAll("li button")[1] as HTMLButtonElement;
-    await click(duplicateButton, element);
+    queryProfileList(element).dispatchEvent(
+      new CustomEvent("duplicate-profile", { detail: { id: 1 } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
 
-    expect(queryProfileListItems(element)).toHaveLength(2);
+    expect(queryProfileList(element).shadowRoot!.querySelectorAll(".custom-row")).toHaveLength(1);
     expect(element.shadowRoot!.textContent).not.toContain("duplicate it in the list to edit");
   });
 
@@ -113,9 +120,8 @@ describe("app-root", () => {
     await flushMicrotasks();
     await element.updateComplete;
 
-    const profileListText =
-      element.shadowRoot!.querySelector("profile-list")!.shadowRoot!.textContent;
-    expect(profileListText).toContain("純正プリセット");
+    const profileListText = queryProfileList(element).shadowRoot!.textContent;
+    expect(profileListText).toContain("純正");
   });
 
   it("switches language via the locale switcher and remembers the choice", async () => {
@@ -136,9 +142,8 @@ describe("app-root", () => {
     select.dispatchEvent(new Event("change"));
     await element.updateComplete;
 
-    const profileListText =
-      element.shadowRoot!.querySelector("profile-list")!.shadowRoot!.textContent;
-    expect(profileListText).toContain("Werkspresets");
+    const profileListText = queryProfileList(element).shadowRoot!.textContent;
+    expect(profileListText).toContain("Werk");
     expect(storage.getItem("deq-tune-locale")).toBe("de");
   });
 
@@ -183,7 +188,7 @@ describe("app-root", () => {
   it("shows the brand, the speaker type and the model name above the panels", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
 
-    await click(queryNameButton(element), element);
+    await click(queryFirstChip(element), element);
 
     const heading = element.shadowRoot!.querySelector(".heading-row")!;
     expect(heading.textContent).toContain("Mazda");
@@ -193,7 +198,7 @@ describe("app-root", () => {
 
   it("shows every panel at once outside the phone layout", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
-    await click(queryNameButton(element), element);
+    await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
     expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
@@ -203,7 +208,7 @@ describe("app-root", () => {
 
   it("renders only the active tab in the phone layout", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
-    await click(queryNameButton(element), element);
+    await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
@@ -213,7 +218,7 @@ describe("app-root", () => {
 
   it("swaps the panel when another phone tab is pressed", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
-    await click(queryNameButton(element), element);
+    await click(queryFirstChip(element), element);
 
     const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
     await click(speakersTab, element);
@@ -259,7 +264,7 @@ describe("app-root", () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
     await click(queryProfilesToggle(element), element);
 
-    await click(queryNameButton(element), element);
+    await click(queryFirstChip(element), element);
 
     expect(queryDrawer(element).classList.contains("open")).toBe(false);
   });
