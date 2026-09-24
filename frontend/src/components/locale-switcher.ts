@@ -24,7 +24,16 @@ export class LocaleSwitcher extends LitElement {
   override render() {
     return html`
       <label>
-        ${uiStrings(this.locale).languageLabel}
+        <svg class="globe" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.3" />
+          <path
+            d="M1.5 8 H14.5 M8 1.5 C5.5 4 5.5 12 8 14.5 M8 1.5 C10.5 4 10.5 12 8 14.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+        </svg>
+        <span class="visually-hidden">${uiStrings(this.locale).languageLabel}</span>
         <select @change=${(event: Event) => this.onChange(event)}>
           ${SUPPORTED_LOCALES.map(
             (locale) => html`

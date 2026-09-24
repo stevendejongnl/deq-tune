@@ -1,6 +1,7 @@
-import { html, LitElement, type TemplateResult } from "lit";
+import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Locale } from "../i18n/locale.ts";
+import type { AppLayout } from "../layout-query.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import { connectDeviceStyles } from "./connect-device.styles.ts";
 
@@ -8,6 +9,14 @@ import { connectDeviceStyles } from "./connect-device.styles.ts";
 const PIONEER_VENDOR_ID = 0x08e4;
 
 type ConnectionState = "idle" | "connecting" | "connected" | "error";
+
+/** What the connect failure means to the user. The browser throws
+ * `NotFoundError` when the user closes the device picker without a
+ * choice, which is not an error worth raw text. */
+export interface ConnectProblem {
+  title: string;
+  body: string;
+}
 
 function resolveGlobalUsb(): USB | undefined {
   return typeof navigator === "undefined" ? undefined : navigator.usb;
@@ -17,49 +26,39 @@ function describeDevice(device: USBDevice): string {
   return device.productName ?? `Pioneer device (${device.serialNumber ?? "unknown serial"})`;
 }
 
-function describeConnectError(strings: UiStrings, caughtError: unknown): string {
-  return caughtError instanceof Error ? caughtError.message : strings.couldNotConnect;
+function isPickerCancelled(caughtError: unknown): boolean {
+  return caughtError instanceof Error && caughtError.name === "NotFoundError";
 }
 
-function renderUnsupportedHint(strings: UiStrings): TemplateResult {
-  return html`<p class="hint" title=${strings.connectHint}>${strings.usbUnsupported}</p>`;
-}
-
-function renderConnected(deviceName: string): TemplateResult {
-  return html`<p class="connected"><span class="dot"></span>${deviceName}</p>`;
-}
-
-function renderConnectForm(
+export function describeConnectProblem(
   strings: UiStrings,
-  connecting: boolean,
-  error: string,
-  onConnect: () => void,
-): TemplateResult {
-  return html`
-    <div class="form">
-      <button
-        type="button"
-        ?disabled=${connecting}
-        title=${strings.connectHint}
-        @click=${onConnect}
-      >
-        ${connecting ? strings.connecting : strings.connectDevice}
-      </button>
-      ${error ? html`<p class="error" role="alert">${error}</p>` : null}
-    </div>
-  `;
+  caughtError: unknown,
+  isTouchLayout: boolean,
+): ConnectProblem {
+  if (isPickerCancelled(caughtError)) {
+    return {
+      title: strings.noDevicePickedTitle,
+      body: isTouchLayout ? strings.noDevicePickedBodyTouch : strings.noDevicePickedBodyDesktop,
+    };
+  }
+  return {
+    title: strings.couldNotConnect,
+    body: caughtError instanceof Error ? caughtError.message : "",
+  };
 }
 
 /**
- * WebUSB pairing stub for the physical DEQ unit. Proves device
- * selection works via `usb.requestDevice`; does NOT speak the DEQ
- * command protocol yet (that's still native-only in the Android app
- * and needs a USB capture to reverse-engineer). Emits
- * `device-connected` with `{ device }` once paired, so a future
- * protocol layer has a seam to plug into.
+ * WebUSB pairing stub for the physical DEQ unit. It proves the device
+ * selection works through `usb.requestDevice`. It does not speak the
+ * DEQ command protocol yet.
  *
- * `usb` defaults to `navigator.usb` but is a settable property so
- * tests can inject a fake instead of stubbing the global.
+ * The control is a pill: a status dot, the device text, and the connect
+ * button. A failure emits `connect-problem`, and `app-root` places the
+ * message where the layout wants it.
+ *
+ * It emits `device-connected` with `{ device }` once paired. `usb`
+ * defaults to `navigator.usb` but is a settable property so tests can
+ * inject a fake instead of stubbing the global.
  */
 @customElement("connect-device")
 export class ConnectDevice extends LitElement {
@@ -67,22 +66,54 @@ export class ConnectDevice extends LitElement {
 
   @property({ attribute: false }) usb: USB | undefined = resolveGlobalUsb();
   @property({ type: String }) locale: Locale = "en";
+  @property({ type: String }) layout: AppLayout = "desktop";
 
   @state() private status: ConnectionState = "idle";
   @state() private deviceName = "";
-  @state() private error = "";
+
+  private get isTouchLayout(): boolean {
+    return this.layout !== "desktop";
+  }
 
   override render() {
     const strings = uiStrings(this.locale);
     if (this.usb === undefined) {
-      return renderUnsupportedHint(strings);
+      return html`<p class="hint" title=${strings.connectHint}>${strings.usbUnsupported}</p>`;
     }
-    if (this.status === "connected") {
-      return renderConnected(this.deviceName);
-    }
-    return renderConnectForm(strings, this.status === "connecting", this.error, () =>
-      this.connect(),
-    );
+    return this.renderPill(strings);
+  }
+
+  /** The phone header has room for the dot and the button alone, so it
+   * drops the status text until a device is paired. */
+  private get showsDeviceLabel(): boolean {
+    return this.status === "connected" || this.layout !== "phone";
+  }
+
+  private renderPill(strings: UiStrings): TemplateResult {
+    const connected = this.status === "connected";
+    return html`
+      <div class="pill ${connected ? "connected" : ""}">
+        <span class="dot"></span>
+        ${this.showsDeviceLabel
+          ? html`<span class="device-label"
+              >${connected ? this.deviceName : strings.deviceNotConnected}</span
+            >`
+          : nothing}
+        ${connected
+          ? nothing
+          : html`
+              <button
+                type="button"
+                class="connect"
+                ?disabled=${this.status === "connecting"}
+                title=${strings.connectHint}
+                @click=${() => this.connect()}
+              >
+                ${this.status === "connecting" ? strings.connecting : strings.connectShort}
+              </button>
+            `}
+      </div>
+    `;
   }
 
   private async connect() {
@@ -92,7 +123,7 @@ export class ConnectDevice extends LitElement {
     }
 
     this.status = "connecting";
-    this.error = "";
+    this.dispatchEvent(new CustomEvent("connect-problem", { detail: { problem: null } }));
     try {
       const device = await usb.requestDevice({ filters: [{ vendorId: PIONEER_VENDOR_ID }] });
       this.deviceName = describeDevice(device);
@@ -100,7 +131,12 @@ export class ConnectDevice extends LitElement {
       this.dispatchEvent(new CustomEvent("device-connected", { detail: { device } }));
     } catch (caughtError) {
       this.status = "idle";
-      this.error = describeConnectError(uiStrings(this.locale), caughtError);
+      const problem = describeConnectProblem(
+        uiStrings(this.locale),
+        caughtError,
+        this.isTouchLayout,
+      );
+      this.dispatchEvent(new CustomEvent("connect-problem", { detail: { problem } }));
     }
   }
 }
