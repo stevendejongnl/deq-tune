@@ -3,7 +3,7 @@ import { eqStyleName, liveSimulationName } from "./dsp-presets.ts";
 
 describe("eqStyleName", () => {
   it("returns the English name", () => {
-    expect(eqStyleName("en", "super_bass")).toBe("SUPER BASS");
+    expect(eqStyleName("en", "super_bass")).toBe("Super Bass");
   });
 
   it("returns the German name", () => {

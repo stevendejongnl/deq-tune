@@ -10,51 +10,25 @@ import {
   eqStyleName,
   liveSimulationName,
 } from "../i18n/dsp-presets.ts";
-import { uiStrings } from "../i18n/ui-strings.ts";
+import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 
-function renderEqStyleTile(
-  locale: Locale,
-  id: EqStyleId,
-  isSelected: boolean,
-  onSelect: () => void,
-): TemplateResult {
+function renderLockIcon(): TemplateResult {
   return html`
-    <button
-      type="button"
-      class="tile"
-      aria-pressed=${isSelected ? "true" : "false"}
-      @click=${onSelect}
-    >
-      ${eqStyleName(locale, id)}
-    </button>
-  `;
-}
-
-function renderLiveSimulationOption(
-  locale: Locale,
-  id: LiveSimulationId,
-  isSelected: boolean,
-  onSelect: () => void,
-): TemplateResult {
-  return html`
-    <button
-      type="button"
-      class="option"
-      aria-pressed=${isSelected ? "true" : "false"}
-      @click=${onSelect}
-    >
-      ${liveSimulationName(locale, id)}
-    </button>
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+      <rect x="2" y="5" width="8" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2" />
+      <path d="M4 5 V3.5 A2 2 0 0 1 8 3.5 V5" fill="none" stroke="currentColor" stroke-width="1.2" />
+    </svg>
   `;
 }
 
 /**
  * The DEQ device's built-in EQ-style and Live-Simulation DSP presets
- * (POWERFUL, SUPER BASS, Concert hall, ...). These run entirely on the
- * device's own firmware — this panel only tracks which one is
- * selected locally; selecting one has no effect until the USB command
- * protocol is reverse-engineered (see connect-device.ts) and wired up
- * here. Emits `eq-style-change` ({ id }), `live-simulation-change`
+ * (Super Bass, Powerful, Concert hall, ...). These run on the device's
+ * own firmware. This panel only tracks which one is selected locally.
+ * A selection has no effect until the USB command protocol is known
+ * (see connect-device.ts).
+ *
+ * It emits `eq-style-change` ({ id }), `live-simulation-change`
  * ({ id }) and `applause-change` ({ enabled }).
  */
 @customElement("dsp-panel")
@@ -69,47 +43,74 @@ export class DspPanel extends LitElement {
   override render() {
     const strings = uiStrings(this.locale);
     return html`
-      <section>
-        <h3>${strings.eqStyleTitle}</h3>
-        <div class="tiles">
-          ${EQ_STYLE_IDS.map((id) =>
-            renderEqStyleTile(this.locale, id, id === this.eqStyle, () => this.selectEqStyle(id)),
-          )}
+      <section class="panel">
+        <div class="styles-column">
+          <div class="panel-head">
+            <h2>
+              ${strings.soundStyleTitle}
+              <span class="suffix">${strings.soundStyleSuffix}</span>
+            </h2>
+            <span class="lock-note">${renderLockIcon()}${strings.dspDeviceHint}</span>
+          </div>
+          <div class="tiles">
+            ${EQ_STYLE_IDS.map((id) => this.renderEqStyleTile(id))}
+          </div>
+        </div>
+        <div class="simulation-column">
+          <h2>${strings.liveSimulationTitle}</h2>
+          <div class="options">
+            ${LIVE_SIMULATION_IDS.map((id) => this.renderLiveSimulationOption(id))}
+          </div>
+          ${this.renderApplauseSwitch(strings)}
         </div>
       </section>
-      <section>
-        <h3>${strings.liveSimulationTitle}</h3>
-        <div class="options">
-          ${LIVE_SIMULATION_IDS.map((id) =>
-            renderLiveSimulationOption(this.locale, id, id === this.liveSimulation, () =>
-              this.selectLiveSimulation(id),
-            ),
-          )}
-        </div>
-        <label class="applause">
-          <input
-            type="checkbox"
-            .checked=${this.applause}
-            @change=${(event: Event) =>
-              this.emitApplauseChange((event.target as HTMLInputElement).checked)}
-          />
-          ${strings.applauseLabel}
-        </label>
-      </section>
-      <p class="hint">${strings.dspDeviceHint}</p>
     `;
   }
 
-  private selectEqStyle(id: EqStyleId): void {
-    this.dispatchEvent(new CustomEvent("eq-style-change", { detail: { id } }));
+  private renderEqStyleTile(id: EqStyleId): TemplateResult {
+    const selected = id === this.eqStyle;
+    return html`
+      <button
+        type="button"
+        class="tile ${selected ? "selected" : ""}"
+        aria-pressed=${selected}
+        @click=${() => this.dispatchEvent(new CustomEvent("eq-style-change", { detail: { id } }))}
+      >
+        <span class="radio"></span>${eqStyleName(this.locale, id)}
+      </button>
+    `;
   }
 
-  private selectLiveSimulation(id: LiveSimulationId): void {
-    this.dispatchEvent(new CustomEvent("live-simulation-change", { detail: { id } }));
+  private renderLiveSimulationOption(id: LiveSimulationId): TemplateResult {
+    const selected = id === this.liveSimulation;
+    return html`
+      <button
+        type="button"
+        class="option ${selected ? "selected" : ""}"
+        aria-pressed=${selected}
+        @click=${() =>
+          this.dispatchEvent(new CustomEvent("live-simulation-change", { detail: { id } }))}
+      >
+        ${liveSimulationName(this.locale, id)}
+      </button>
+    `;
   }
 
-  private emitApplauseChange(enabled: boolean): void {
-    this.dispatchEvent(new CustomEvent("applause-change", { detail: { enabled } }));
+  private renderApplauseSwitch(strings: UiStrings): TemplateResult {
+    return html`
+      <button
+        type="button"
+        class="applause ${this.applause ? "on" : ""}"
+        aria-pressed=${this.applause}
+        @click=${() =>
+          this.dispatchEvent(
+            new CustomEvent("applause-change", { detail: { enabled: !this.applause } }),
+          )}
+      >
+        <span class="track"><span class="knob"></span></span>
+        ${strings.applauseLabel}
+      </button>
+    `;
   }
 }
 

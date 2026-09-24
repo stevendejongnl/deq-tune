@@ -28,10 +28,10 @@ export type LiveSimulationId = (typeof LIVE_SIMULATION_IDS)[number];
 
 const EQ_STYLE_NAMES: Record<Locale, Record<EqStyleId, string>> = {
   en: {
-    super_bass: "SUPER BASS",
-    powerful: "POWERFUL",
-    natural: "NATURAL",
-    vocal: "VOCAL",
+    super_bass: "Super Bass",
+    powerful: "Powerful",
+    natural: "Natural",
+    vocal: "Vocal",
     vivid: "Vivid",
     dynamic: "Dynamic",
     custom_a: "Custom A",
