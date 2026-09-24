@@ -13,6 +13,7 @@ import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
 import "./connect-device.ts";
+import type { ConnectProblem } from "./connect-device.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import { appRootStyles } from "./app-root.styles.ts";
@@ -117,6 +118,7 @@ export class AppRoot extends LitElement {
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
   @state() private phoneTab: PhoneTab = "eq";
+  @state() private connectProblem: ConnectProblem | null = null;
 
   private unsubscribeLayout: (() => void) | null = null;
 
@@ -179,15 +181,29 @@ export class AppRoot extends LitElement {
       <div class="content">
         <header>
           <div class="header-start">
-            ${renderProfilesToggle(strings, () => this.openProfilesDrawer())}
-            <div class="wordmark">${renderWordmarkIcon()}<h1>DEQ Tune</h1></div>
+            ${this.isPhoneLayout
+              ? html`<div class="wordmark">${renderWordmarkIcon()}</div>`
+              : html`
+                  ${renderProfilesToggle(strings, () => this.openProfilesDrawer())}
+                  <div class="wordmark">${renderWordmarkIcon()}<h1>DEQ Tune</h1></div>
+                `}
+            ${this.isPhoneLayout ? this.renderPhoneProfileButton(strings) : nothing}
           </div>
           <div class="header-controls">
-            ${this.isPhoneLayout ? nothing : this.renderLocaleSwitcher()}
-            <connect-device .locale=${this.locale}></connect-device>
+            ${this.isPhoneLayout
+              ? nothing
+              : html`${this.renderLocaleSwitcher()}<span class="header-divider"></span>`}
+            <connect-device
+              .locale=${this.locale}
+              .layout=${this.layout}
+              @connect-problem=${(problemEvent: CustomEvent<{ problem: ConnectProblem | null }>) =>
+                (this.connectProblem = problemEvent.detail.problem)}
+            ></connect-device>
+            ${this.isPhoneLayout ? nothing : this.renderConnectProblem(strings, "toast")}
           </div>
         </header>
         <main>
+          ${this.isPhoneLayout ? this.renderConnectProblem(strings, "banner") : nothing}
           ${this.selectedProfile === undefined
             ? nothing
             : renderHeadingRow(this.selectedProfile, this.locale)}
@@ -231,6 +247,81 @@ export class AppRoot extends LitElement {
             this.deleteProfile(deleteEvent.detail.id)}
         ></profile-list>
       </aside>
+    `;
+  }
+
+  /** The connect message is a toast under the header on the desktop,
+   * and a banner at the top of the content on a touch layout. */
+  private renderConnectProblem(
+    strings: UiStrings,
+    kind: "toast" | "banner",
+  ): TemplateResult | typeof nothing {
+    if (this.connectProblem === null) {
+      return nothing;
+    }
+    return html`
+      <div class="connect-problem ${kind}" role="status">
+        <svg class="info-icon" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <path
+            d="M9 5 V10 M9 12.5 V13"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />
+        </svg>
+        <div class="problem-text">
+          <div class="problem-title">${this.connectProblem.title}</div>
+          <div class="problem-body">${this.connectProblem.body}</div>
+        </div>
+        <button
+          type="button"
+          class="dismiss"
+          aria-label=${strings.dismissLabel}
+          @click=${() => (this.connectProblem = null)}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path
+              d="M2 2 L10 10 M10 2 L2 10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+    `;
+  }
+
+  /** The phone header replaces the wordmark and the profiles button
+   * with the selected profile, which opens the sheet. */
+  private renderPhoneProfileButton(strings: UiStrings): TemplateResult {
+    const profile = this.selectedProfile;
+    const title =
+      profile === undefined
+        ? strings.profilesButton
+        : (localizedModelName(profile, this.locale) ?? profile.name);
+    const caption =
+      profile === undefined ? null : localizedSpeakerTypeLabel(profile, this.locale);
+    return html`
+      <button type="button" class="profiles-toggle phone" @click=${() => this.openProfilesDrawer()}>
+        <span class="phone-profile-text">
+          <span class="phone-profile-title">${title}</span>
+          ${caption === null
+            ? nothing
+            : html`<span class="phone-profile-caption">${caption}</span>`}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+          <path
+            d="M3 5 L7 9 L11 5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
     `;
   }
 

@@ -7,22 +7,29 @@ export const localeSwitcherStyles = css`
   label {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
-    font-size: 0.8125rem;
+    gap: 8px;
+    font-size: 13px;
     color: var(--color-muted-foreground);
   }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .globe {
+    flex-shrink: 0;
+  }
   select {
-    background: var(--color-card);
+    height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    background: var(--color-card);
     color: var(--color-foreground);
     font: inherit;
-    font-size: 0.8125rem;
-    padding: 0.4rem var(--space-2);
-
-    &:focus-visible {
-      outline: 2px solid var(--color-ring);
-      outline-offset: 1px;
-    }
+    font-size: 13px;
+    cursor: pointer;
   }
 `;

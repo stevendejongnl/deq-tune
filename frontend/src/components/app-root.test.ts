@@ -228,6 +228,51 @@ describe("app-root", () => {
     expect(element.shadowRoot!.querySelector("eq-editor")).toBeNull();
   });
 
+  it("shows a connect failure as a toast outside the phone layout", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+
+    element.shadowRoot!.querySelector("connect-device")!.dispatchEvent(
+      new CustomEvent("connect-problem", {
+        detail: { problem: { title: "No DEQ picked", body: "Plug the DEQ in." } },
+      }),
+    );
+    await element.updateComplete;
+
+    const problem = element.shadowRoot!.querySelector(".connect-problem")!;
+    expect(problem.classList.contains("toast")).toBe(true);
+    expect(problem.textContent).toContain("No DEQ picked");
+  });
+
+  it("shows a connect failure as a banner in the content on the phone", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
+
+    element.shadowRoot!.querySelector("connect-device")!.dispatchEvent(
+      new CustomEvent("connect-problem", {
+        detail: { problem: { title: "No DEQ picked", body: "Plug the DEQ in." } },
+      }),
+    );
+    await element.updateComplete;
+
+    const problem = element.shadowRoot!.querySelector(".connect-problem")!;
+    expect(problem.classList.contains("banner")).toBe(true);
+    expect(problem.closest("main")).not.toBeNull();
+  });
+
+  it("dismisses the connect failure", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    element.shadowRoot!.querySelector("connect-device")!.dispatchEvent(
+      new CustomEvent("connect-problem", {
+        detail: { problem: { title: "No DEQ picked", body: "Plug the DEQ in." } },
+      }),
+    );
+    await element.updateComplete;
+
+    (element.shadowRoot!.querySelector(".dismiss") as HTMLButtonElement).click();
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector(".connect-problem")).toBeNull();
+  });
+
   it("keeps the language control in the header outside the phone layout", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
 

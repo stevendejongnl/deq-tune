@@ -4,59 +4,54 @@ export const connectDeviceStyles = css`
   :host {
     display: block;
   }
-  p {
-    margin: 0;
-  }
   .hint {
-    font-size: 0.8125rem;
+    margin: 0;
+    font-size: 13px;
     color: var(--color-muted-foreground);
   }
-  .form {
+  .pill {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: 8px;
+    height: 40px;
+    padding: 0 6px 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-card);
   }
-  button {
-    background: var(--color-gold);
-    border: 1px solid var(--color-gold);
-    border-radius: var(--radius);
-    color: var(--color-on-gold);
+  .dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--color-outline);
+  }
+  .pill.connected .dot {
+    background: var(--color-accent);
+  }
+  .device-label {
+    font-size: 13px;
+    color: var(--color-text-2);
+    white-space: nowrap;
+  }
+  .pill.connected {
+    padding-right: 14px;
+  }
+  .connect {
+    height: 30px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
     font: inherit;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    padding: 0.4rem var(--space-4);
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-
-    &:hover:not(:disabled) {
-      background: var(--color-gold-strong);
-      border-color: var(--color-gold-strong);
-    }
 
     &:disabled {
       opacity: 0.6;
       cursor: default;
     }
-
-    &:focus-visible {
-      outline: 2px solid var(--color-ring);
-      outline-offset: 2px;
-    }
-  }
-  .connected {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: 0.8125rem;
-    color: var(--color-muted-foreground);
-  }
-  .dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: var(--color-accent);
-  }
-  .error {
-    font-size: 0.75rem;
-    color: var(--color-destructive);
   }
 `;

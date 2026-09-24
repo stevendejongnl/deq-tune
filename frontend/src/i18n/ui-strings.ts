@@ -62,6 +62,12 @@ export interface UiStrings {
   speakerStockShort: string;
   factoryGroupLabel: string;
   moreActionsLabel: string;
+  deviceNotConnected: string;
+  connectShort: string;
+  noDevicePickedTitle: string;
+  noDevicePickedBodyDesktop: string;
+  noDevicePickedBodyTouch: string;
+  dismissLabel: string;
 }
 
 const EN: UiStrings = {
@@ -133,6 +139,14 @@ const EN: UiStrings = {
   speakerStockShort: "Stock",
   factoryGroupLabel: "Factory",
   moreActionsLabel: "More actions",
+  deviceNotConnected: "DEQ not connected",
+  connectShort: "Connect",
+  noDevicePickedTitle: "No DEQ picked",
+  noDevicePickedBodyDesktop:
+    "Plug the DEQ into this computer over USB, press Connect, then choose it in the browser's device list.",
+  noDevicePickedBodyTouch:
+    "Plug the DEQ into this device over USB-C, tap Connect, then choose it in the browser's device list.",
+  dismissLabel: "Dismiss",
 };
 
 const JA: UiStrings = {
@@ -204,6 +218,14 @@ const JA: UiStrings = {
   speakerStockShort: "純正",
   factoryGroupLabel: "純正",
   moreActionsLabel: "その他の操作",
+  deviceNotConnected: "DEQ未接続",
+  connectShort: "接続",
+  noDevicePickedTitle: "DEQが選ばれていません",
+  noDevicePickedBodyDesktop:
+    "DEQをUSBでこのパソコンにつなぎ、「接続」を押して、ブラウザのデバイス一覧から選んでください。",
+  noDevicePickedBodyTouch:
+    "DEQをUSB-Cでこの端末につなぎ、「接続」をタップして、ブラウザのデバイス一覧から選んでください。",
+  dismissLabel: "閉じる",
 };
 
 const DE: UiStrings = {
@@ -275,6 +297,14 @@ const DE: UiStrings = {
   speakerStockShort: "Serie",
   factoryGroupLabel: "Werk",
   moreActionsLabel: "Weitere Aktionen",
+  deviceNotConnected: "DEQ nicht verbunden",
+  connectShort: "Verbinden",
+  noDevicePickedTitle: "Kein DEQ gewählt",
+  noDevicePickedBodyDesktop:
+    "Schließe das DEQ per USB an diesen Computer an, drücke Verbinden und wähle es dann in der Geräteliste des Browsers.",
+  noDevicePickedBodyTouch:
+    "Schließe das DEQ per USB-C an dieses Gerät an, tippe auf Verbinden und wähle es dann in der Geräteliste des Browsers.",
+  dismissLabel: "Schließen",
 };
 
 const FR: UiStrings = {
@@ -347,6 +377,14 @@ const FR: UiStrings = {
   speakerStockShort: "Origine",
   factoryGroupLabel: "Usine",
   moreActionsLabel: "Autres actions",
+  deviceNotConnected: "DEQ non connecté",
+  connectShort: "Connecter",
+  noDevicePickedTitle: "Aucun DEQ choisi",
+  noDevicePickedBodyDesktop:
+    "Branchez le DEQ sur cet ordinateur en USB, appuyez sur Connecter, puis choisissez-le dans la liste des appareils du navigateur.",
+  noDevicePickedBodyTouch:
+    "Branchez le DEQ sur cet appareil en USB-C, touchez Connecter, puis choisissez-le dans la liste des appareils du navigateur.",
+  dismissLabel: "Fermer",
 };
 
 const ES: UiStrings = {
@@ -419,6 +457,14 @@ const ES: UiStrings = {
   speakerStockShort: "Serie",
   factoryGroupLabel: "Fábrica",
   moreActionsLabel: "Más acciones",
+  deviceNotConnected: "DEQ no conectado",
+  connectShort: "Conectar",
+  noDevicePickedTitle: "No se eligió ningún DEQ",
+  noDevicePickedBodyDesktop:
+    "Conecta el DEQ a este ordenador por USB, pulsa Conectar y elígelo en la lista de dispositivos del navegador.",
+  noDevicePickedBodyTouch:
+    "Conecta el DEQ a este dispositivo por USB-C, toca Conectar y elígelo en la lista de dispositivos del navegador.",
+  dismissLabel: "Cerrar",
 };
 
 const NL: UiStrings = {
@@ -490,6 +536,14 @@ const NL: UiStrings = {
   speakerStockShort: "Standaard",
   factoryGroupLabel: "Fabriek",
   moreActionsLabel: "Meer acties",
+  deviceNotConnected: "DEQ niet verbonden",
+  connectShort: "Verbinden",
+  noDevicePickedTitle: "Geen DEQ gekozen",
+  noDevicePickedBodyDesktop:
+    "Sluit de DEQ met USB op deze computer aan, druk op Verbinden en kies hem daarna in de apparatenlijst van de browser.",
+  noDevicePickedBodyTouch:
+    "Sluit de DEQ met USB-C op dit apparaat aan, tik op Verbinden en kies hem daarna in de apparatenlijst van de browser.",
+  dismissLabel: "Sluiten",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };
