@@ -5,17 +5,15 @@ import { FakeProfileApi } from "./testing/fake-profile-api.ts";
 import { sampleProfile } from "../dto/testing/sample-profile.ts";
 import { flushMicrotasks } from "../testing/flush-microtasks.ts";
 import { createFakeLocaleStorage } from "../i18n/testing/fake-locale-storage.ts";
-import {
-  createFakePhoneLayoutQuery,
-  type FakePhoneLayoutQuery,
-} from "../testing/fake-phone-layout-query.ts";
+import { createFakeLayoutQuery, type FakeLayoutQuery } from "../testing/fake-layout-query.ts";
+import type { AppLayout } from "../layout-query.ts";
 
-async function mount(api: FakeProfileApi, phoneLayout = false): Promise<AppRoot> {
+async function mount(api: FakeProfileApi, layout: AppLayout = "desktop"): Promise<AppRoot> {
   const element = document.createElement("app-root") as AppRoot;
   element.api = api;
   element.localeStorage = createFakeLocaleStorage({});
   element.browserLanguages = ["en-US"];
-  element.phoneLayoutQuery = createFakePhoneLayoutQuery(phoneLayout);
+  element.layoutQuery = createFakeLayoutQuery(layout);
   document.body.append(element);
   await flushMicrotasks();
   await element.updateComplete;
@@ -110,7 +108,7 @@ describe("app-root", () => {
     element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["ja-JP"];
-    element.phoneLayoutQuery = createFakePhoneLayoutQuery(false);
+    element.layoutQuery = createFakeLayoutQuery("desktop");
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
@@ -126,7 +124,7 @@ describe("app-root", () => {
     element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
     element.localeStorage = storage;
     element.browserLanguages = ["en-US"];
-    element.phoneLayoutQuery = createFakePhoneLayoutQuery(false);
+    element.layoutQuery = createFakeLayoutQuery("desktop");
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
@@ -204,7 +202,7 @@ describe("app-root", () => {
   });
 
   it("renders only the active tab in the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), true);
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
     await click(queryNameButton(element), element);
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();
@@ -214,7 +212,7 @@ describe("app-root", () => {
   });
 
   it("swaps the panel when another phone tab is pressed", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), true);
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
     await click(queryNameButton(element), element);
 
     const speakersTab = element.shadowRoot!.querySelectorAll(".tab")[1] as HTMLButtonElement;
@@ -233,25 +231,25 @@ describe("app-root", () => {
   });
 
   it("moves the language control into the sheet in the phone layout", async () => {
-    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), true);
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
 
     expect(element.shadowRoot!.querySelector("header locale-switcher")).toBeNull();
     expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).not.toBeNull();
   });
 
   it("moves to the phone layout when the viewport becomes narrow", async () => {
-    const phoneLayoutQuery: FakePhoneLayoutQuery = createFakePhoneLayoutQuery(false);
+    const layoutQuery: FakeLayoutQuery = createFakeLayoutQuery("desktop");
     const element = document.createElement("app-root") as AppRoot;
     element.api = new FakeProfileApi([sampleProfile({ id: 1 })]);
     element.localeStorage = createFakeLocaleStorage({});
     element.browserLanguages = ["en-US"];
-    element.phoneLayoutQuery = phoneLayoutQuery;
+    element.layoutQuery = layoutQuery;
     document.body.append(element);
     await flushMicrotasks();
     await element.updateComplete;
     expect(element.shadowRoot!.querySelector(".tab-bar")).toBeNull();
 
-    phoneLayoutQuery.setMatches(true);
+    layoutQuery.setLayout("phone");
     await element.updateComplete;
 
     expect(element.shadowRoot!.querySelector(".tab-bar")).not.toBeNull();

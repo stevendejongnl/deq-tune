@@ -8,7 +8,7 @@ import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } fro
 import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import type { EqStyleId, LiveSimulationId } from "../i18n/dsp-presets.ts";
-import { browserPhoneLayoutQuery, type PhoneLayoutQuery } from "../phone-layout-query.ts";
+import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
@@ -95,7 +95,7 @@ function renderHeadingRow(profile: ProfileDto, locale: Locale): TemplateResult {
  * a drawer on tablet, and a bottom sheet on the phone. The phone layout
  * also renders one tab at a time.
  *
- * `api`, `localeStorage` and `phoneLayoutQuery` default to real
+ * `api`, `localeStorage` and `layoutQuery` default to real
  * implementations but are settable properties so tests can inject fakes
  * instead of mocking `fetch`/`navigator`/`localStorage`/`matchMedia`.
  */
@@ -106,7 +106,7 @@ export class AppRoot extends LitElement {
   @property({ attribute: false }) api: ProfileApi = new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
-  @property({ attribute: false }) phoneLayoutQuery: PhoneLayoutQuery = browserPhoneLayoutQuery;
+  @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
 
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
@@ -115,10 +115,10 @@ export class AppRoot extends LitElement {
   @state() private liveSimulation: LiveSimulationId = "off";
   @state() private applause = false;
   @state() private profilesDrawerOpen = false;
-  @state() private phoneLayout = false;
+  @state() private layout: AppLayout = "desktop";
   @state() private phoneTab: PhoneTab = "eq";
 
-  private unsubscribePhoneLayout: (() => void) | null = null;
+  private unsubscribeLayout: (() => void) | null = null;
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
     if (event.key === "Escape" && this.profilesDrawerOpen) {
@@ -129,9 +129,9 @@ export class AppRoot extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this.locale = resolveInitialLocale(this.localeStorage, this.browserLanguages);
-    this.phoneLayout = this.phoneLayoutQuery.matches();
-    this.unsubscribePhoneLayout = this.phoneLayoutQuery.subscribe((matches) => {
-      this.phoneLayout = matches;
+    this.layout = this.layoutQuery.current();
+    this.unsubscribeLayout = this.layoutQuery.subscribe((layout) => {
+      this.layout = layout;
     });
     this.loadProfiles();
     window.addEventListener("keydown", this.onKeydown);
@@ -140,12 +140,36 @@ export class AppRoot extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this.onKeydown);
-    this.unsubscribePhoneLayout?.();
-    this.unsubscribePhoneLayout = null;
+    this.unsubscribeLayout?.();
+    this.unsubscribeLayout = null;
   }
 
   private get selectedProfile(): ProfileDto | undefined {
     return this.profiles.find((profile) => profile.id === this.selectedId);
+  }
+
+  private get isPhoneLayout(): boolean {
+    return this.layout === "phone";
+  }
+
+  /** The factory curve to draw behind your own. A factory profile
+   * compares against itself. A custom profile compares against the
+   * factory profile for the same car model and speaker type. */
+  private get factoryGains(): number[] {
+    const profile = this.selectedProfile;
+    if (profile === undefined) {
+      return [];
+    }
+    if (profile.source === "factory") {
+      return frontGains(profile.data);
+    }
+    const origin = this.profiles.find(
+      (candidate) =>
+        candidate.source === "factory" &&
+        candidate.car_model === profile.car_model &&
+        candidate.speaker_type === profile.speaker_type,
+    );
+    return origin === undefined ? [] : frontGains(origin.data);
   }
 
   override render() {
@@ -159,7 +183,7 @@ export class AppRoot extends LitElement {
             <div class="wordmark">${renderWordmarkIcon()}<h1>DEQ Tune</h1></div>
           </div>
           <div class="header-controls">
-            ${this.phoneLayout ? nothing : this.renderLocaleSwitcher()}
+            ${this.isPhoneLayout ? nothing : this.renderLocaleSwitcher()}
             <connect-device .locale=${this.locale}></connect-device>
           </div>
         </header>
@@ -167,9 +191,9 @@ export class AppRoot extends LitElement {
           ${this.selectedProfile === undefined
             ? nothing
             : renderHeadingRow(this.selectedProfile, this.locale)}
-          ${this.phoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings)}
+          ${this.isPhoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings)}
         </main>
-        ${this.phoneLayout ? this.renderTabBar(strings) : nothing}
+        ${this.isPhoneLayout ? this.renderTabBar(strings) : nothing}
       </div>
     `;
   }
@@ -192,7 +216,7 @@ export class AppRoot extends LitElement {
             ×
           </button>
         </div>
-        ${this.phoneLayout
+        ${this.isPhoneLayout
           ? html`<div class="sheet-locale">${this.renderLocaleSwitcher()}</div>`
           : nothing}
         <profile-list
@@ -280,8 +304,10 @@ export class AppRoot extends LitElement {
     return html`
       <eq-editor
         class="area-eq"
-        label=${strings.channelFront}
         .gains=${frontGains(profile.data)}
+        .factoryGains=${this.factoryGains}
+        .locale=${this.locale}
+        .layout=${this.layout}
         @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
           this.changeGain(gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
       ></eq-editor>
