@@ -1,38 +1,45 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
-/* Colors copied from the Pioneer Sound Tune app's own res/values/colors.xml
-   (colorAppBackground, colorAppForeground, colorPrimary, colorAccent, ...) —
-   not an invented palette. */
 :root {
-  --color-background: #0e011a;
-  --color-foreground: #f2e3fd;
-  --color-card: #1f1429;
-  --color-card-foreground: #f2e3fd;
-  --color-muted: #261831;
-  --color-muted-foreground: #877d94;
-  --color-border: #382a49;
-  --color-accent: #17af6d;
-  --color-accent-strong: #00985c;
-  --color-on-accent: #0e011a;
-  --color-gold: #e8b502;
-  --color-gold-strong: #cd830f;
-  --color-on-gold: #0e011a;
-  --color-destructive: #ef4444;
-  --color-on-destructive: #0e011a;
-  --color-ring: #17af6d;
+  /* surfaces, back → front */
+  --color-background: #12110f;   /* page */
+  --color-sidebar:    #161512;   /* sidebar, tab bar, cabin body, search field */
+  --color-card:       #1b1916;   /* section panels, pills, header controls */
+  --color-inset:      #221f1b;   /* editor boxes inside panels, selected list rows */
+  --color-badge:      #2a2621;   /* neutral badge bg */
 
-  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* lines */
+  --color-divider:    #2b2722;   /* header/sidebar borders, panel borders */
+  --color-border:     #2f2a24;   /* control borders */
+  --color-border-strong: #3a342c;/* stepper buttons, car outline, segmented selected bg */
+  --color-grid:       #2f2a24;   /* chart grid */
+  --color-zero:       #4a433a;   /* chart 0 dB line */
+  --color-idle:       #5a5247;   /* inactive delay lines */
+  --color-outline:    #6a6155;   /* unselected speaker ring, radio ring, offline dot */
 
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
+  /* text */
+  --color-foreground: #efe9df;
+  --color-text-2:     #cfc7ba;   /* secondary text, unselected tiles */
+  --color-muted-foreground: #a69d8f; /* labels, captions (≥4.5:1 on card) */
 
-  --radius: 0.5rem;
+  /* accents */
+  --color-accent:     #f2a53a;   /* amber "backlight": your curve, selection, primary buttons */
+  --color-on-accent:  #1a1206;
+  --color-reference:  #7fb8d4;   /* factory ghost curve, "reset band" link */
+
+  /* warning surface (connect errors) */
+  --color-warn-bg:    #2a211a;
+  --color-warn-border:#5a4126;
+
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans:    "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono:    "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-sm: 6px;  --radius: 10px;  --radius-md: 12px;  --radius-lg: 16px;  --radius-pill: 999px;
   color-scheme: dark;
 }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+input[type=range] { accent-color: var(--color-accent); }
 
 * {
   box-sizing: border-box;
@@ -52,7 +59,7 @@ body {
 .unsupported-browser {
   max-width: 28rem;
   margin: 4rem auto;
-  padding: var(--space-6);
+  padding: 1.5rem;
   text-align: center;
   color: var(--color-foreground);
 }
