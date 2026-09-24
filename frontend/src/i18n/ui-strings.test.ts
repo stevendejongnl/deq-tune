@@ -12,7 +12,7 @@ describe("uiStrings", () => {
 
   it("returns a distinct dictionary per locale", () => {
     const locales = ["en", "ja", "de", "fr", "es", "nl"] as const;
-    const taglines = new Set(locales.map((locale) => uiStrings(locale).tagline));
-    expect(taglines.size).toBe(locales.length);
+    const prompts = new Set(locales.map((locale) => uiStrings(locale).selectProfilePrompt));
+    expect(prompts.size).toBe(locales.length);
   });
 });

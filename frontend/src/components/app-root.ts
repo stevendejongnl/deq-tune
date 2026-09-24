@@ -1,12 +1,14 @@
-import { html, LitElement, type TemplateResult } from "lit";
+import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { DeqApiClient, type ProfileApi } from "../api/client.ts";
 import type { ProfileDto, Speaker } from "../dto/profile.dto.ts";
 import { frontGains, withFrontGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
+import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
 import type { EqStyleId, LiveSimulationId } from "../i18n/dsp-presets.ts";
+import { browserPhoneLayoutQuery, type PhoneLayoutQuery } from "../phone-layout-query.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
@@ -14,6 +16,9 @@ import "./connect-device.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import { appRootStyles } from "./app-root.styles.ts";
+
+/** The three tabs of the phone layout's bottom tab bar. */
+type PhoneTab = "eq" | "speakers" | "style";
 
 function resolveGlobalLanguages(): readonly string[] {
   return typeof navigator === "undefined" ? [] : navigator.languages;
@@ -25,6 +30,22 @@ function renderNoSelection(strings: UiStrings): TemplateResult {
 
 function renderReadOnlyHint(strings: UiStrings): TemplateResult {
   return html`<p class="hint">${strings.readOnlyHint}</p>`;
+}
+
+function renderWordmarkIcon(): TemplateResult {
+  return html`
+    <svg class="mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+      <rect x="1" y="1" width="26" height="26" rx="7" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path
+        d="M6 17 L9 12 L12 15 L15 8 L18 16 L22 11"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  `;
 }
 
 function renderProfilesToggle(strings: UiStrings, onOpen: () => void): TemplateResult {
@@ -43,14 +64,40 @@ function renderProfilesToggle(strings: UiStrings, onOpen: () => void): TemplateR
   `;
 }
 
+/** The breadcrumb and the model name above the panels. A custom profile
+ * has no car model, so it shows its own name instead. */
+function renderHeadingRow(profile: ProfileDto, locale: Locale): TemplateResult {
+  const brand = profile.brand_name;
+  const speakerType = localizedSpeakerTypeLabel(profile, locale);
+  const title = localizedModelName(profile, locale) ?? profile.name;
+  return html`
+    <div class="heading-row">
+      <div class="heading-text">
+        ${brand === null || speakerType === null
+          ? nothing
+          : html`
+              <div class="breadcrumb">
+                <span>${brand}</span><span aria-hidden="true">/</span><span>${speakerType}</span>
+              </div>
+            `}
+        <h2 class="profile-title">${title}</h2>
+      </div>
+    </div>
+  `;
+}
+
 /**
  * Top-level page: loads profiles from the backend and wires the
- * profile drawer, EQ editor, speaker panel, USB connect stub, and
+ * profile sidebar, EQ editor, speaker panel, USB connect stub, and
  * language switcher together.
  *
- * `api` and `localeStorage` default to real implementations but are
- * settable properties so tests can inject fakes instead of mocking
- * `fetch`/`navigator`/`localStorage`.
+ * One shell serves three layouts. The sidebar is permanent on desktop,
+ * a drawer on tablet, and a bottom sheet on the phone. The phone layout
+ * also renders one tab at a time.
+ *
+ * `api`, `localeStorage` and `phoneLayoutQuery` default to real
+ * implementations but are settable properties so tests can inject fakes
+ * instead of mocking `fetch`/`navigator`/`localStorage`/`matchMedia`.
  */
 @customElement("app-root")
 export class AppRoot extends LitElement {
@@ -59,6 +106,7 @@ export class AppRoot extends LitElement {
   @property({ attribute: false }) api: ProfileApi = new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
+  @property({ attribute: false }) phoneLayoutQuery: PhoneLayoutQuery = browserPhoneLayoutQuery;
 
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
@@ -67,6 +115,10 @@ export class AppRoot extends LitElement {
   @state() private liveSimulation: LiveSimulationId = "off";
   @state() private applause = false;
   @state() private profilesDrawerOpen = false;
+  @state() private phoneLayout = false;
+  @state() private phoneTab: PhoneTab = "eq";
+
+  private unsubscribePhoneLayout: (() => void) | null = null;
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
     if (event.key === "Escape" && this.profilesDrawerOpen) {
@@ -77,6 +129,10 @@ export class AppRoot extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this.locale = resolveInitialLocale(this.localeStorage, this.browserLanguages);
+    this.phoneLayout = this.phoneLayoutQuery.matches();
+    this.unsubscribePhoneLayout = this.phoneLayoutQuery.subscribe((matches) => {
+      this.phoneLayout = matches;
+    });
     this.loadProfiles();
     window.addEventListener("keydown", this.onKeydown);
   }
@@ -84,6 +140,8 @@ export class AppRoot extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this.onKeydown);
+    this.unsubscribePhoneLayout?.();
+    this.unsubscribePhoneLayout = null;
   }
 
   private get selectedProfile(): ProfileDto | undefined {
@@ -93,42 +151,30 @@ export class AppRoot extends LitElement {
   override render() {
     const strings = uiStrings(this.locale);
     return html`
-      <header>
-        <div class="header-start">
-          ${renderProfilesToggle(strings, () => this.openProfilesDrawer())}
-          <div class="title-group">
-            <h1><span class="accent">DEQ</span> Tune</h1>
-            <p class="tagline">${strings.tagline}</p>
-          </div>
-        </div>
-        <div class="header-controls">
-          <locale-switcher
-            .locale=${this.locale}
-            @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>
-              this.changeLocale(localeChangeEvent.detail.locale)}
-          ></locale-switcher>
-          <connect-device .locale=${this.locale}></connect-device>
-        </div>
-      </header>
       ${this.renderProfilesDrawer(strings)}
-      <main>
-        <div class="editor">
-          <dsp-panel
-            .locale=${this.locale}
-            .eqStyle=${this.eqStyle}
-            .liveSimulation=${this.liveSimulation}
-            .applause=${this.applause}
-            @eq-style-change=${(eqStyleChangeEvent: CustomEvent<{ id: EqStyleId }>) =>
-              (this.eqStyle = eqStyleChangeEvent.detail.id)}
-            @live-simulation-change=${(
-              liveSimulationChangeEvent: CustomEvent<{ id: LiveSimulationId }>,
-            ) => (this.liveSimulation = liveSimulationChangeEvent.detail.id)}
-            @applause-change=${(applauseChangeEvent: CustomEvent<{ enabled: boolean }>) =>
-              (this.applause = applauseChangeEvent.detail.enabled)}
-          ></dsp-panel>
-          ${this.renderEditor(strings)}
-        </div>
-      </main>
+      <div class="content">
+        <header>
+          <div class="header-start">
+            ${renderProfilesToggle(strings, () => this.openProfilesDrawer())}
+            <div class="wordmark">${renderWordmarkIcon()}<h1>DEQ Tune</h1></div>
+          </div>
+          <div class="header-controls">
+            <locale-switcher
+              .locale=${this.locale}
+              @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>
+                this.changeLocale(localeChangeEvent.detail.locale)}
+            ></locale-switcher>
+            <connect-device .locale=${this.locale}></connect-device>
+          </div>
+        </header>
+        <main>
+          ${this.selectedProfile === undefined
+            ? nothing
+            : renderHeadingRow(this.selectedProfile, this.locale)}
+          ${this.phoneLayout ? this.renderPhonePanels(strings) : this.renderWidePanels(strings)}
+        </main>
+        ${this.phoneLayout ? this.renderTabBar(strings) : nothing}
+      </div>
     `;
   }
 
@@ -138,6 +184,8 @@ export class AppRoot extends LitElement {
         ? html`<div class="drawer-backdrop" @click=${() => this.closeProfilesDrawer()}></div>`
         : null}
       <aside class="drawer ${this.profilesDrawerOpen ? "open" : ""}">
+        <div class="grab-handle"></div>
+        <div class="sidebar-wordmark">${renderWordmarkIcon()}<h1>DEQ Tune</h1></div>
         <div class="drawer-header">
           <button
             type="button"
@@ -163,36 +211,116 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  private renderEditor(strings: UiStrings): TemplateResult {
+  /** Tablet and desktop show every panel at once. The grid areas in
+   * `app-root.styles.ts` place them per layout. */
+  private renderWidePanels(strings: UiStrings): TemplateResult {
+    return html`
+      <div class="panels">
+        ${this.renderEqPanel(strings)} ${this.renderSpeakerPanel(strings)}
+        ${this.renderStylePanel()}
+      </div>
+    `;
+  }
+
+  /** The phone shows one tab at a time. */
+  private renderPhonePanels(strings: UiStrings): TemplateResult {
+    return html`<div class="panels">${this.renderPhoneTabContent(strings)}</div>`;
+  }
+
+  private renderPhoneTabContent(strings: UiStrings): TemplateResult {
+    if (this.phoneTab === "speakers") {
+      return this.renderSpeakerPanel(strings);
+    }
+    if (this.phoneTab === "style") {
+      return this.renderStylePanel();
+    }
+    return this.renderEqPanel(strings);
+  }
+
+  private renderTabBar(strings: UiStrings): TemplateResult {
+    const tabs: ReadonlyArray<{ id: PhoneTab; label: string }> = [
+      { id: "eq", label: strings.tabEq },
+      { id: "speakers", label: strings.speakers },
+      { id: "style", label: strings.tabStyle },
+    ];
+    return html`
+      <nav class="tab-bar">
+        ${tabs.map(
+          (tab) => html`
+            <button
+              type="button"
+              class="tab"
+              aria-pressed=${this.phoneTab === tab.id}
+              @click=${() => (this.phoneTab = tab.id)}
+            >
+              ${tab.label}
+            </button>
+          `,
+        )}
+      </nav>
+    `;
+  }
+
+  private renderEqPanel(strings: UiStrings): TemplateResult {
     const profile = this.selectedProfile;
     if (profile === undefined) {
-      return renderNoSelection(strings);
+      return html`<div class="area-eq">${renderNoSelection(strings)}</div>`;
     }
-
     return html`
       <eq-editor
+        class="area-eq"
         label=${strings.channelFront}
         .gains=${frontGains(profile.data)}
         @gain-change=${(gainChangeEvent: CustomEvent<{ band: number; value: number }>) =>
           this.changeGain(gainChangeEvent.detail.band, gainChangeEvent.detail.value)}
       ></eq-editor>
-      <speaker-panel
-        .speakers=${profile.data.speakers}
+    `;
+  }
+
+  private renderSpeakerPanel(strings: UiStrings): TemplateResult {
+    const profile = this.selectedProfile;
+    if (profile === undefined) {
+      return html`<div class="area-speakers"></div>`;
+    }
+    return html`
+      <div class="area-speakers">
+        <speaker-panel
+          .speakers=${profile.data.speakers}
+          .locale=${this.locale}
+          @speaker-change=${(
+            speakerChangeEvent: CustomEvent<{
+              channel: string;
+              field: keyof Speaker;
+              value: number | boolean;
+            }>,
+          ) =>
+            this.changeSpeaker(
+              speakerChangeEvent.detail.channel,
+              speakerChangeEvent.detail.field,
+              speakerChangeEvent.detail.value,
+            )}
+        ></speaker-panel>
+        ${profile.source === "factory" ? renderReadOnlyHint(strings) : null}
+      </div>
+    `;
+  }
+
+  private renderStylePanel(): TemplateResult {
+    return html`
+      <dsp-panel
+        class="area-style"
         .locale=${this.locale}
-        @speaker-change=${(
-          speakerChangeEvent: CustomEvent<{
-            channel: string;
-            field: keyof Speaker;
-            value: number | boolean;
-          }>,
-        ) =>
-          this.changeSpeaker(
-            speakerChangeEvent.detail.channel,
-            speakerChangeEvent.detail.field,
-            speakerChangeEvent.detail.value,
-          )}
-      ></speaker-panel>
-      ${profile.source === "factory" ? renderReadOnlyHint(strings) : null}
+        .eqStyle=${this.eqStyle}
+        .liveSimulation=${this.liveSimulation}
+        .applause=${this.applause}
+        @eq-style-change=${(eqStyleChangeEvent: CustomEvent<{ id: EqStyleId }>) =>
+          (this.eqStyle = eqStyleChangeEvent.detail.id)}
+        @live-simulation-change=${(
+          liveSimulationChangeEvent: CustomEvent<{ id: LiveSimulationId }>,
+        ) => (this.liveSimulation = liveSimulationChangeEvent.detail.id)}
+        @applause-change=${(applauseChangeEvent: CustomEvent<{ enabled: boolean }>) =>
+          (this.applause = applauseChangeEvent.detail.enabled)}
+      ></dsp-panel>
     `;
   }
 
