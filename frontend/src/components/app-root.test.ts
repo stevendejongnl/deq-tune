@@ -225,6 +225,20 @@ describe("app-root", () => {
     expect(element.shadowRoot!.querySelector("eq-editor")).toBeNull();
   });
 
+  it("keeps the language control in the header outside the phone layout", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+
+    expect(element.shadowRoot!.querySelector("header locale-switcher")).not.toBeNull();
+    expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).toBeNull();
+  });
+
+  it("moves the language control into the sheet in the phone layout", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), true);
+
+    expect(element.shadowRoot!.querySelector("header locale-switcher")).toBeNull();
+    expect(element.shadowRoot!.querySelector(".drawer locale-switcher")).not.toBeNull();
+  });
+
   it("moves to the phone layout when the viewport becomes narrow", async () => {
     const phoneLayoutQuery: FakePhoneLayoutQuery = createFakePhoneLayoutQuery(false);
     const element = document.createElement("app-root") as AppRoot;

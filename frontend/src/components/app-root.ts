@@ -159,11 +159,7 @@ export class AppRoot extends LitElement {
             <div class="wordmark">${renderWordmarkIcon()}<h1>DEQ Tune</h1></div>
           </div>
           <div class="header-controls">
-            <locale-switcher
-              .locale=${this.locale}
-              @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>
-                this.changeLocale(localeChangeEvent.detail.locale)}
-            ></locale-switcher>
+            ${this.phoneLayout ? nothing : this.renderLocaleSwitcher()}
             <connect-device .locale=${this.locale}></connect-device>
           </div>
         </header>
@@ -196,6 +192,9 @@ export class AppRoot extends LitElement {
             ×
           </button>
         </div>
+        ${this.phoneLayout
+          ? html`<div class="sheet-locale">${this.renderLocaleSwitcher()}</div>`
+          : nothing}
         <profile-list
           .profiles=${this.profiles}
           .selectedId=${this.selectedId}
@@ -208,6 +207,18 @@ export class AppRoot extends LitElement {
             this.deleteProfile(deleteEvent.detail.id)}
         ></profile-list>
       </aside>
+    `;
+  }
+
+  /** The phone header has no room for the language control, so the
+   * phone layout puts it in the profiles sheet instead. */
+  private renderLocaleSwitcher(): TemplateResult {
+    return html`
+      <locale-switcher
+        .locale=${this.locale}
+        @locale-change=${(localeChangeEvent: CustomEvent<{ locale: Locale }>) =>
+          this.changeLocale(localeChangeEvent.detail.locale)}
+      ></locale-switcher>
     `;
   }
 
