@@ -40,6 +40,13 @@ export const appRootStyles = css`
     align-items: center;
     gap: 12px;
     min-width: 0;
+
+    connect-device {
+      white-space: nowrap;
+    }
+  }
+  .sheet-locale {
+    padding-bottom: 8px;
   }
   /* The phone header has too little room for the name next to the
      controls, so it shows the mark alone. */
