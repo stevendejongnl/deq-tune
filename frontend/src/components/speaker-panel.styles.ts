@@ -121,8 +121,8 @@ export const speakerPanelStyles = css`
   }
   .editor-grid {
     display: grid;
-    grid-template-columns: 56px minmax(0, 1fr);
-    gap: 10px 12px;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 10px 8px;
     align-items: center;
   }
   .field-label {
@@ -161,7 +161,7 @@ export const speakerPanelStyles = css`
   }
   .milliseconds {
     color: var(--color-muted-foreground);
-    font-size: 12px;
+    font-size: 11px;
   }
   .segmented {
     display: grid;
@@ -198,6 +198,10 @@ export const speakerPanelStyles = css`
   @media (min-width: 1200px) {
     .editor-grid {
       grid-template-columns: 72px minmax(0, 1fr);
+      gap: 10px 12px;
+    }
+    .milliseconds {
+      font-size: 12px;
     }
     .step {
       width: 36px;

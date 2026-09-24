@@ -7,7 +7,6 @@ export interface UiStrings {
   delete: string;
   duplicateHint: string;
   selectProfilePrompt: string;
-  readOnlyHint: string;
   speakers: string;
   speakerColumn: string;
   levelColumn: string;
@@ -68,6 +67,15 @@ export interface UiStrings {
   noDevicePickedBodyDesktop: string;
   noDevicePickedBodyTouch: string;
   dismissLabel: string;
+  factoryBadge: string;
+  editedBadgeOne: string;
+  editedBadgeMany: string;
+  revertToFactory: string;
+  saveAsMyProfile: string;
+  revertShort: string;
+  saveShort: string;
+  startEditingHint: string;
+  discardDraftConfirm: string;
 }
 
 const EN: UiStrings = {
@@ -77,7 +85,6 @@ const EN: UiStrings = {
   delete: "Delete",
   duplicateHint: "Duplicate a factory preset to start your own.",
   selectProfilePrompt: "Select a profile to see and edit its EQ.",
-  readOnlyHint: "Factory preset — duplicate it in the list to edit.",
   speakers: "Speakers",
   speakerColumn: "Speaker",
   levelColumn: "Level (dB)",
@@ -147,6 +154,15 @@ const EN: UiStrings = {
   noDevicePickedBodyTouch:
     "Plug the DEQ into this device over USB-C, tap Connect, then choose it in the browser's device list.",
   dismissLabel: "Dismiss",
+  factoryBadge: "Factory preset",
+  editedBadgeOne: "Edited · 1 band",
+  editedBadgeMany: "Edited · {count} bands",
+  revertToFactory: "Revert to factory",
+  saveAsMyProfile: "Save as my profile",
+  revertShort: "Revert",
+  saveShort: "Save as mine",
+  startEditingHint: "Drag any point to start your own version",
+  discardDraftConfirm: "You have unsaved changes. Leave them?",
 };
 
 const JA: UiStrings = {
@@ -156,7 +172,6 @@ const JA: UiStrings = {
   delete: "削除",
   duplicateHint: "純正プリセットを複製して自分用に編集できます。",
   selectProfilePrompt: "プロファイルを選ぶとEQを編集できます。",
-  readOnlyHint: "純正プリセットは編集できません。複製してください。",
   speakers: "スピーカー",
   speakerColumn: "スピーカー",
   levelColumn: "レベル (dB)",
@@ -226,6 +241,15 @@ const JA: UiStrings = {
   noDevicePickedBodyTouch:
     "DEQをUSB-Cでこの端末につなぎ、「接続」をタップして、ブラウザのデバイス一覧から選んでください。",
   dismissLabel: "閉じる",
+  factoryBadge: "純正プリセット",
+  editedBadgeOne: "編集済み · 1バンド",
+  editedBadgeMany: "編集済み · {count}バンド",
+  revertToFactory: "純正に戻す",
+  saveAsMyProfile: "マイプロファイルとして保存",
+  revertShort: "戻す",
+  saveShort: "保存",
+  startEditingHint: "点をドラッグすると自分用の設定を作れます",
+  discardDraftConfirm: "保存していない変更があります。破棄しますか？",
 };
 
 const DE: UiStrings = {
@@ -235,7 +259,6 @@ const DE: UiStrings = {
   delete: "Löschen",
   duplicateHint: "Dupliziere ein Werkspreset, um ein eigenes zu erstellen.",
   selectProfilePrompt: "Wähle ein Profil aus, um dessen EQ zu bearbeiten.",
-  readOnlyHint: "Werkspreset — zum Bearbeiten in der Liste duplizieren.",
   speakers: "Lautsprecher",
   speakerColumn: "Lautsprecher",
   levelColumn: "Pegel (dB)",
@@ -305,6 +328,15 @@ const DE: UiStrings = {
   noDevicePickedBodyTouch:
     "Schließe das DEQ per USB-C an dieses Gerät an, tippe auf Verbinden und wähle es dann in der Geräteliste des Browsers.",
   dismissLabel: "Schließen",
+  factoryBadge: "Werkspreset",
+  editedBadgeOne: "Bearbeitet · 1 Band",
+  editedBadgeMany: "Bearbeitet · {count} Bänder",
+  revertToFactory: "Auf Werk zurücksetzen",
+  saveAsMyProfile: "Als mein Profil speichern",
+  revertShort: "Zurücksetzen",
+  saveShort: "Speichern",
+  startEditingHint: "Ziehe einen Punkt, um deine eigene Version zu starten",
+  discardDraftConfirm: "Du hast ungespeicherte Änderungen. Verwerfen?",
 };
 
 const FR: UiStrings = {
@@ -314,7 +346,6 @@ const FR: UiStrings = {
   delete: "Supprimer",
   duplicateHint: "Dupliquez un préréglage d'usine pour créer le vôtre.",
   selectProfilePrompt: "Sélectionnez un profil pour modifier son EQ.",
-  readOnlyHint: "Préréglage d'usine — dupliquez-le dans la liste pour l'éditer.",
   speakers: "Haut-parleurs",
   speakerColumn: "Haut-parleur",
   levelColumn: "Niveau (dB)",
@@ -385,6 +416,15 @@ const FR: UiStrings = {
   noDevicePickedBodyTouch:
     "Branchez le DEQ sur cet appareil en USB-C, touchez Connecter, puis choisissez-le dans la liste des appareils du navigateur.",
   dismissLabel: "Fermer",
+  factoryBadge: "Préréglage d'usine",
+  editedBadgeOne: "Modifié · 1 bande",
+  editedBadgeMany: "Modifié · {count} bandes",
+  revertToFactory: "Revenir à l'usine",
+  saveAsMyProfile: "Enregistrer comme mon profil",
+  revertShort: "Revenir",
+  saveShort: "Enregistrer",
+  startEditingHint: "Faites glisser un point pour créer votre version",
+  discardDraftConfirm: "Vous avez des modifications non enregistrées. Les abandonner ?",
 };
 
 const ES: UiStrings = {
@@ -394,7 +434,6 @@ const ES: UiStrings = {
   delete: "Eliminar",
   duplicateHint: "Duplica un preajuste de fábrica para crear el tuyo.",
   selectProfilePrompt: "Selecciona un perfil para editar su EQ.",
-  readOnlyHint: "Preajuste de fábrica — duplícalo en la lista para editarlo.",
   speakers: "Altavoces",
   speakerColumn: "Altavoz",
   levelColumn: "Nivel (dB)",
@@ -465,6 +504,15 @@ const ES: UiStrings = {
   noDevicePickedBodyTouch:
     "Conecta el DEQ a este dispositivo por USB-C, toca Conectar y elígelo en la lista de dispositivos del navegador.",
   dismissLabel: "Cerrar",
+  factoryBadge: "Preajuste de fábrica",
+  editedBadgeOne: "Editado · 1 banda",
+  editedBadgeMany: "Editado · {count} bandas",
+  revertToFactory: "Volver a fábrica",
+  saveAsMyProfile: "Guardar como mi perfil",
+  revertShort: "Volver",
+  saveShort: "Guardar",
+  startEditingHint: "Arrastra un punto para crear tu propia versión",
+  discardDraftConfirm: "Tienes cambios sin guardar. ¿Descartarlos?",
 };
 
 const NL: UiStrings = {
@@ -474,7 +522,6 @@ const NL: UiStrings = {
   delete: "Verwijderen",
   duplicateHint: "Dupliceer een fabriekspreset om je eigen profiel te maken.",
   selectProfilePrompt: "Kies een profiel om de EQ ervan te bewerken.",
-  readOnlyHint: "Fabriekspreset — dupliceer deze in de lijst om te bewerken.",
   speakers: "Luidsprekers",
   speakerColumn: "Luidspreker",
   levelColumn: "Niveau (dB)",
@@ -544,6 +591,15 @@ const NL: UiStrings = {
   noDevicePickedBodyTouch:
     "Sluit de DEQ met USB-C op dit apparaat aan, tik op Verbinden en kies hem daarna in de apparatenlijst van de browser.",
   dismissLabel: "Sluiten",
+  factoryBadge: "Fabriekspreset",
+  editedBadgeOne: "Bewerkt · 1 band",
+  editedBadgeMany: "Bewerkt · {count} banden",
+  revertToFactory: "Terug naar fabriek",
+  saveAsMyProfile: "Opslaan als mijn profiel",
+  revertShort: "Terug",
+  saveShort: "Opslaan",
+  startEditingHint: "Sleep een punt om je eigen versie te maken",
+  discardDraftConfirm: "Je hebt niet-opgeslagen wijzigingen. Weggooien?",
 };
 
 const UI_STRINGS: Record<Locale, UiStrings> = { en: EN, ja: JA, de: DE, fr: FR, es: ES, nl: NL };

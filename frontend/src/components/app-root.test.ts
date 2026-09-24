@@ -65,7 +65,7 @@ describe("app-root", () => {
     expect(element.shadowRoot!.textContent).toContain("Select a profile");
   });
 
-  it("shows the EQ editor for the selected profile and marks factory presets read-only", async () => {
+  it("shows the EQ editor for the selected profile", async () => {
     const api = new FakeProfileApi([
       sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
     ]);
@@ -74,7 +74,6 @@ describe("app-root", () => {
     await click(queryFirstChip(element), element);
 
     expect(element.shadowRoot!.querySelector("eq-editor")).not.toBeNull();
-    expect(element.shadowRoot!.textContent).toContain("duplicate it in the list to edit");
   });
 
   it("persists a gain change through the api for a custom profile", async () => {
@@ -107,7 +106,6 @@ describe("app-root", () => {
     await element.updateComplete;
 
     expect(queryProfileList(element).shadowRoot!.querySelectorAll(".custom-row")).toHaveLength(1);
-    expect(element.shadowRoot!.textContent).not.toContain("duplicate it in the list to edit");
   });
 
   it("starts in the browser's detected language when nothing is saved", async () => {
@@ -226,6 +224,119 @@ describe("app-root", () => {
     expect(speakersTab.getAttribute("aria-pressed")).toBe("true");
     expect(element.shadowRoot!.querySelector("speaker-panel")).not.toBeNull();
     expect(element.shadowRoot!.querySelector("eq-editor")).toBeNull();
+  });
+
+  it("edits a factory preset without saving it", async () => {
+    const api = new FakeProfileApi([
+      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+    ]);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+
+    element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
+      new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    const stored = await api.getProfile(1);
+    expect(stored.data.foundationEq.expandEq.FRONT.banks.gain[2]).toBe(0);
+    expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Edited · 1 band");
+  });
+
+  it("shows the neutral badge and the hint before any edit", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    await click(queryFirstChip(element), element);
+
+    expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Factory preset");
+    expect(element.shadowRoot!.querySelector(".start-hint")).not.toBeNull();
+  });
+
+  it("counts every changed band in the badge", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    await click(queryFirstChip(element), element);
+    const editor = element.shadowRoot!.querySelector("eq-editor")!;
+
+    for (const band of [0, 1, 2]) {
+      editor.dispatchEvent(new CustomEvent("gain-change", { detail: { band, value: 3 } }));
+      await flushMicrotasks();
+      await element.updateComplete;
+    }
+
+    expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Edited · 3 bands");
+  });
+
+  it("reverts a draft back to the factory data", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
+    await click(queryFirstChip(element), element);
+    element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
+      new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    await click(element.shadowRoot!.querySelector(".secondary") as HTMLButtonElement, element);
+
+    expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Factory preset");
+  });
+
+  it("saves a draft as a new profile and selects the copy", async () => {
+    const api = new FakeProfileApi([
+      sampleProfile({ id: 1, name: "Factory preset", source: "factory" }),
+    ]);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+    element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
+      new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    await click(element.shadowRoot!.querySelector(".primary") as HTMLButtonElement, element);
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    const copies = queryProfileList(element).shadowRoot!.querySelectorAll(".custom-row");
+    expect(copies).toHaveLength(1);
+    const saved = await api.getProfile(2);
+    expect(saved.data.foundationEq.expandEq.FRONT.banks.gain[2]).toBe(4.5);
+  });
+
+  it("asks before it drops a draft for another profile", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 }), sampleProfile({ id: 2, car_model: "mazda_6" })]));
+    const questions: string[] = [];
+    element.confirmDiscard = (question) => {
+      questions.push(question);
+      return false;
+    };
+    await click(queryFirstChip(element), element);
+    element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
+      new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    const otherChip = queryProfileList(element).shadowRoot!.querySelectorAll(".chip")[1];
+    await click(otherChip as HTMLButtonElement, element);
+
+    expect(questions).toHaveLength(1);
+    expect(element.shadowRoot!.querySelector(".badge")!.textContent).toContain("Edited");
+  });
+
+  it("puts the save actions in a bar on the phone", async () => {
+    const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
+    await click(queryFirstChip(element), element);
+    expect(element.shadowRoot!.querySelector(".save-bar")).toBeNull();
+
+    element.shadowRoot!.querySelector("eq-editor")!.dispatchEvent(
+      new CustomEvent("gain-change", { detail: { band: 2, value: 4.5 } }),
+    );
+    await flushMicrotasks();
+    await element.updateComplete;
+
+    const saveBar = element.shadowRoot!.querySelector(".save-bar")!;
+    expect(saveBar.textContent).toContain("Edited · 1 band");
+    expect(saveBar.querySelector(".primary")).not.toBeNull();
   });
 
   it("shows a connect failure as a toast outside the phone layout", async () => {
