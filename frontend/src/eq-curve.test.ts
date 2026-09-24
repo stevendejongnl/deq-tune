@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   bandX,
   clampGain,
+  gainFromY,
   formatGain,
   fullFrequencyLabel,
   gainY,
@@ -54,6 +55,19 @@ describe("chart axes", () => {
     expect(gainY(BOX, 12)).toBeCloseTo(24, 5);
     expect(gainY(BOX, 0)).toBeCloseTo(150, 5);
     expect(gainY(BOX, -12)).toBeCloseTo(276, 5);
+  });
+});
+
+describe("gainFromY", () => {
+  it("is the inverse of gainY", () => {
+    expect(gainFromY(BOX, 24)).toBeCloseTo(12, 5);
+    expect(gainFromY(BOX, 150)).toBeCloseTo(0, 5);
+    expect(gainFromY(BOX, 276)).toBeCloseTo(-12, 5);
+  });
+
+  it("keeps going past the chart edges, so the clamp decides the limit", () => {
+    expect(clampGain(gainFromY(BOX, 0))).toBe(12);
+    expect(clampGain(gainFromY(BOX, 400))).toBe(-12);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   bandX,
   clampGain,
   curvePoints,
+  gainFromY,
   formatGain,
   fullFrequencyLabel,
   gainY,
@@ -110,6 +111,7 @@ export class EqEditor extends LitElement {
   @state() private chartWidth = 0;
 
   private resizeObserver: ResizeObserver | null = null;
+  private draggingBand: number | null = null;
 
   override disconnectedCallback() {
     super.disconnectedCallback();
@@ -240,6 +242,10 @@ export class EqEditor extends LitElement {
             aria-pressed=${selected}
             @click=${() => this.selectBand(band)}
             @keydown=${(event: KeyboardEvent) => this.onBandKeydown(event, band)}
+            @pointerdown=${(event: PointerEvent) => this.startDrag(event, band)}
+            @pointermove=${(event: PointerEvent) => this.dragTo(event)}
+            @pointerup=${(event: PointerEvent) => this.endDrag(event)}
+            @pointercancel=${(event: PointerEvent) => this.endDrag(event)}
           >
             <span
               class="dot ${selected ? "selected" : this.isChanged(band) ? "changed" : ""}"
@@ -411,6 +417,40 @@ export class EqEditor extends LitElement {
 
   private selectBand(band: number): void {
     this.selectedBand = band;
+  }
+
+  /** Dragging a dot up and down sets the gain of its band. The pointer
+   * is captured, so the drag continues outside the dot. */
+  private startDrag(event: PointerEvent, band: number): void {
+    this.selectedBand = band;
+    this.draggingBand = band;
+    (event.target as Element).setPointerCapture(event.pointerId);
+  }
+
+  private dragTo(event: PointerEvent): void {
+    const band = this.draggingBand;
+    if (band === null) {
+      return;
+    }
+    const frame = this.shadowRoot?.querySelector(".chart-frame");
+    if (frame === null || frame === undefined) {
+      return;
+    }
+    event.preventDefault();
+    const box = chartBox(this.layout, this.chartWidth);
+    const offsetY = event.clientY - frame.getBoundingClientRect().top;
+    this.changeGain(band, gainFromY(box, offsetY));
+  }
+
+  private endDrag(event: PointerEvent): void {
+    if (this.draggingBand === null) {
+      return;
+    }
+    this.draggingBand = null;
+    const target = event.target as Element;
+    if (target.hasPointerCapture(event.pointerId)) {
+      target.releasePointerCapture(event.pointerId);
+    }
   }
 
   private changeGain(band: number, gain: number): void {

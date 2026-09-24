@@ -105,7 +105,14 @@ export const eqEditorStyles = css`
     border: 0;
     border-radius: 50%;
     background: transparent;
-    cursor: pointer;
+    cursor: grab;
+    /* The drag reads the pointer itself, so the browser must not pan
+       or scroll the page instead. */
+    touch-action: none;
+
+    &:active {
+      cursor: grabbing;
+    }
   }
   .dot {
     position: absolute;
