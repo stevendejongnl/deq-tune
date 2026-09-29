@@ -62,4 +62,9 @@ def test_rejects_a_frame_with_an_unknown_direction_byte():
 
 
 def test_unknown_parameter_id_falls_back_to_a_raw_name():
-    assert parameter_name(0x0D) == "unknown_parameter_0x0d"
+    assert parameter_name(0x99) == "unknown_parameter_0x99"
+
+
+def test_known_parameter_id_returns_its_tentative_name():
+    assert parameter_name(0x0D) == "volume_or_band_6_3khz_gain_by_screen_context"
+    assert parameter_name(0x0F) == "mute_toggle"
