@@ -85,10 +85,25 @@ def parse_deq_frame(frame: bytes) -> DeqFrame:
     return DeqFrame(direction=direction, parameterId=parameterId, payload=payload)
 
 
-# Parameter ids seen in the 2026-09-28 car capture, not yet mapped to a
-# named control. Fill in as a session correlates a tapped UI control with
-# its captured parameter id (see USB_CAPTURE_NOTES.md, "Not yet decoded").
-KNOWN_PARAMETER_NAMES: dict[int, str] = {}
+# Parameter ids seen in the 2026-09-28 and 2026-09-29 car captures.
+# TENTATIVE mapping, inferred from timing correlation with narrated
+# controls. 0x0f and 0x0d were confirmed with an isolated capture (one
+# control at a time, no other screen open); 0x02 and 0x05 are still from a
+# mixed capture session (presets, edits, and a reset in one continuous
+# log) - lower confidence, re-check those two in isolation before relying
+# on them. See USB_CAPTURE_NOTES.md for the full reasoning.
+#
+# 0x0d is a multiplexed id, confirmed reused for more than one logical
+# control depending on which screen is open: plain volume up/down on the
+# overview screen (2026-09-29, isolated capture), and a 6.3kHz band gain
+# edit inside the Custom A editor (2026-09-28). Same id, different meaning
+# by context - not a mapping error.
+KNOWN_PARAMETER_NAMES: dict[int, str] = {
+    0x02: "band_4khz_gain_tentative",
+    0x05: "preset_or_bank_apply_tentative",
+    0x0D: "volume_or_band_6_3khz_gain_by_screen_context",
+    0x0F: "mute_toggle",
+}
 
 
 def parameter_name(parameterId: int) -> str:
