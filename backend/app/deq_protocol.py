@@ -17,6 +17,21 @@ start and end markers:
     bytes 10-13   : 0x00 0x00 0x00 <parameter id>
     bytes 14-15   : length/flavor field (differs between write and read)
     last byte     : 0xf7 (SysEx end marker)
+
+Parameter id 0x05 carries a large (~4209 byte) full-array payload, not yet
+decoded into per-band gain values. Its body is confirmed nibble-packed: every
+body byte is <= 0x0f, the classic MIDI SysEx trick of splitting each real
+data byte into two 4-bit nibbles so the payload never touches the 0x80+
+status-byte range. Denibbling (pack every 2 body bytes into 1 real byte,
+high-nibble-first) halves the payload to its real size, but nibblization
+alone does not explain the byte layout: nearly the whole buffer changes
+content on every single write, even for one isolated single-band edit, so
+a flat "byte N = band M's gain" table has been ruled out by direct diffing.
+The decompiled APK's Java/smali layer does not contain the encode/decode
+logic either (checked jp.pioneer.mle.pmg's PMGPlayer/PMGJni classes) - it
+lives in native .so libraries not yet disassembled. See
+USB_CAPTURE_NOTES.md, "Plan for the next car session," for the disciplined
+capture protocol designed to crack this.
 """
 
 from __future__ import annotations
