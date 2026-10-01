@@ -225,3 +225,14 @@ def test_spreading_never_leaves_a_band_past_the_slider_range() -> None:
     fitted = fit_equalizer_gains(gains)
     assert max(fitted) == 12.0
     assert min(fitted) >= -12.0
+
+
+def test_a_delay_stops_at_the_longest_distance_the_screen_offers() -> None:
+    # The screen stops at 350 cm of spread, which earns 453 samples. A wider
+    # spread than that adds nothing, and the library clamps the delay rather
+    # than the distance: the same spread gives the same delays however far
+    # away both speakers sit.
+    assert time_alignment_delays([3500, 0, 0, 0, 0])[1] == 453
+    assert time_alignment_delays([10000, 0, 0, 0, 0])[1] == 453
+    assert (time_alignment_delays([10000, 9000, 8000, 7000, 6000])
+            == time_alignment_delays([4000, 3000, 2000, 1000, 0]))
