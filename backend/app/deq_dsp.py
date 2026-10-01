@@ -88,6 +88,12 @@ SPEED_OF_SOUND_MM_PER_SECOND = 340_000
 TIME_ALIGNMENT_SLOT_COUNT = 5
 TIME_ALIGNMENT_BLOCK_WORDS = 8
 
+# The screen stops at 350 cm between the nearest and the farthest speaker, so
+# the library never writes a longer delay than that distance earns. It clamps
+# the delay itself, not the distance: two layouts with the same spread give
+# the same delays however far away both speakers are.
+TIME_ALIGNMENT_MAX_DELAY_SAMPLES = 453
+
 
 # The library does not design each equalizer band straight from its slider.
 # It first spreads every band's gain over its neighbours, then designs the
@@ -218,24 +224,24 @@ def fit_equalizer_gains(band_gains_db: list[float]) -> list[float]:
     at zero stays at zero. Spreading can push a band past the slider range,
     so the result is clamped to the range the sliders allow.
     """
+    # The order of these multiplies and adds follows the library's own, step
+    # for step. Collecting the terms algebraically gives the same number in
+    # real arithmetic but a different last bit in float64, and the equalizer
+    # truncates, so a last bit can change a stored coefficient.
     fitted_gains_db = list(band_gains_db)
-    for band in range(len(band_gains_db)):
-        if band_gains_db[band] == 0:
+    for source in range(len(band_gains_db)):
+        if band_gains_db[source] == 0:
             continue
-        for other_band in range(len(band_gains_db)):
-            if other_band == band or band_gains_db[other_band] == 0:
+        for target in range(len(band_gains_db)):
+            if target == source or band_gains_db[target] == 0:
                 continue
-            if (band_gains_db[band] > 0) != (band_gains_db[other_band] > 0):
+            if (band_gains_db[source] > 0) != (band_gains_db[target] > 0):
                 continue
-            decay = EQUALIZER_PUSH_DECAY[abs(band - other_band) - 1]
-            fitted_gains_db[band] -= decay * (
-                EQUALIZER_PUSH_SHARE
-                * equalizer_band_push(band_gains_db[other_band])
-                * EQUALIZER_BAND_REACTION[band]
-                - EQUALIZER_KEEP_SHARE
-                * equalizer_band_push(band_gains_db[band])
-                * EQUALIZER_BAND_REACTION[other_band]
-            )
+            spread = equalizer_band_push(band_gains_db[source])
+            spread *= EQUALIZER_PUSH_DECAY[abs(source - target) - 1]
+            spread *= EQUALIZER_BAND_REACTION[target]
+            fitted_gains_db[target] -= EQUALIZER_PUSH_SHARE * spread
+            fitted_gains_db[source] += EQUALIZER_KEEP_SHARE * spread
     return [
         max(-EQUALIZER_GAIN_LIMIT_DB, min(EQUALIZER_GAIN_LIMIT_DB, gain_db))
         for gain_db in fitted_gains_db
@@ -403,7 +409,8 @@ def time_alignment_delays(distances_mm: list[int]) -> list[int]:
 
     The farthest speaker gets no delay; every nearer speaker waits for it. The
     library subtracts the distances first and scales afterwards, and truncates
-    rather than rounds.
+    rather than rounds. It also stops at the delay the screen's longest
+    distance earns, so a wider spread than that adds nothing.
     """
     if len(distances_mm) != TIME_ALIGNMENT_SLOT_COUNT:
         raise ValueError(
@@ -411,8 +418,11 @@ def time_alignment_delays(distances_mm: list[int]) -> list[int]:
         )
     farthest = max(distances_mm)
     return [
-        (farthest - distance_mm) * EQUALIZER_SAMPLE_RATE
-        // SPEED_OF_SOUND_MM_PER_SECOND
+        min(
+            (farthest - distance_mm) * EQUALIZER_SAMPLE_RATE
+            // SPEED_OF_SOUND_MM_PER_SECOND,
+            TIME_ALIGNMENT_MAX_DELAY_SAMPLES,
+        )
         for distance_mm in distances_mm
     ]
 
