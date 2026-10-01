@@ -27,6 +27,8 @@ from app.deq_dsp import (
     decode_sections,
     design_crossover,
     design_equalizer_band,
+    equalizer_band_push,
+    fit_equalizer_gains,
     encode_sections,
     time_alignment_delays,
 )
@@ -175,3 +177,51 @@ def test_the_cutoff_list_matches_the_eleven_positions_the_unit_offers() -> None:
     assert len(CROSSOVER_CUTOFFS_HZ) == 11
     assert CROSSOVER_CUTOFFS_HZ[0] == 25
     assert CROSSOVER_CUTOFFS_HZ[-1] == 250
+
+
+def test_a_lone_band_keeps_its_own_gain() -> None:
+    # Nothing pushes a band that has no same-sign neighbour, so the gain the
+    # slider sends is the gain the library designs from.
+    gains = [0.0] * EQUALIZER_BAND_COUNT
+    gains[0] = 3.0
+    assert fit_equalizer_gains(gains) == gains
+
+
+def test_a_band_left_at_zero_stays_at_zero() -> None:
+    # Two bands only interact when they share a sign, so a band at zero never
+    # moves, however loud its neighbours are.
+    gains = [6.0, 4.5, 3.0, 1.5] + [0.0] * (EQUALIZER_BAND_COUNT - 4)
+    fitted = fit_equalizer_gains(gains)
+    assert fitted[4:] == [0.0] * (EQUALIZER_BAND_COUNT - 4)
+
+
+def test_two_bands_of_opposite_sign_do_not_interact() -> None:
+    gains = [0.0] * EQUALIZER_BAND_COUNT
+    gains[6], gains[7] = 6.0, -6.0
+    assert fit_equalizer_gains(gains) == gains
+
+
+def test_a_same_sign_neighbour_pulls_a_band_towards_zero() -> None:
+    gains = [0.0] * EQUALIZER_BAND_COUNT
+    gains[6], gains[7] = 6.0, 6.0
+    fitted = fit_equalizer_gains(gains)
+    assert fitted[6] == pytest.approx(5.8218)
+    assert fitted[7] == pytest.approx(5.8218)
+
+
+def test_a_band_at_one_db_or_less_pushes_nothing() -> None:
+    assert equalizer_band_push(1.0) == 0.0
+    assert equalizer_band_push(-0.5) == 0.0
+    assert equalizer_band_push(1.5) != 0.0
+
+
+def test_spreading_never_leaves_a_band_past_the_slider_range() -> None:
+    # A band keeps a share of its own push, so a band at the top of the range
+    # with quiet same-sign neighbours ends up above 12 dB before the clamp.
+    # The library clamps there and so does this code; without the clamp the
+    # designed coefficient differs from the library's.
+    gains = [12.0, 1.5, -6.0, 5.0, -12.0, -4.0, -4.5, -8.5, 8.5, 6.5, 12.0,
+             -6.0, -2.0]
+    fitted = fit_equalizer_gains(gains)
+    assert max(fitted) == 12.0
+    assert min(fitted) >= -12.0
