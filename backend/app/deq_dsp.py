@@ -96,10 +96,12 @@ SPEED_OF_SOUND_MM_PER_SECOND = 340_000
 TIME_ALIGNMENT_SLOT_COUNT = 5
 TIME_ALIGNMENT_BLOCK_WORDS = 8
 
-# The screen stops at 350 cm between the nearest and the farthest speaker, so
-# the library never writes a longer delay than that distance earns. It clamps
-# the delay itself, not the distance: two layouts with the same spread give
+# The screen stops at 350 cm between the nearest and the farthest speaker.
+# Exactly that spread earns 453 samples, and the library refuses a wider one
+# rather than clamping it, so this module refuses it too. What the library does
+# clamp is the delay, not the distance: two layouts with the same spread give
 # the same delays however far away both speakers are.
+TIME_ALIGNMENT_MAX_SPREAD_MM = 3500
 TIME_ALIGNMENT_MAX_DELAY_SAMPLES = 453
 
 
@@ -425,12 +427,19 @@ def time_alignment_delays(distances_mm: list[int]) -> list[int]:
 
     The farthest speaker gets no delay; every nearer speaker waits for it. The
     library subtracts the distances first and scales afterwards, and truncates
-    rather than rounds. It also stops at the delay the screen's longest
-    distance earns, so a wider spread than that adds nothing.
+    rather than rounds. It stops at the delay the screen's longest distance
+    earns. A wider spread than the screen offers is an error, not something to
+    clamp: the library refuses it, so this function raises.
     """
     if len(distances_mm) != TIME_ALIGNMENT_SLOT_COUNT:
         raise ValueError(
             f"expected {TIME_ALIGNMENT_SLOT_COUNT} distances, got {len(distances_mm)}"
+        )
+    spread_mm = max(distances_mm) - min(distances_mm)
+    if spread_mm > TIME_ALIGNMENT_MAX_SPREAD_MM:
+        raise ValueError(
+            f"the nearest and the farthest speaker are {spread_mm} mm apart; "
+            f"the unit accepts at most {TIME_ALIGNMENT_MAX_SPREAD_MM} mm"
         )
     farthest = max(distances_mm)
     return [
