@@ -1,0 +1,1323 @@
+{
+ "0x00": {
+  "request": {
+   "apk_class": "b/e/q",
+   "field_enum": "?",
+   "fields": [],
+   "payload_bytes": null
+  },
+  "reply": {
+   "apk_class": "b/f/b",
+   "field_enum": "e$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "SYSNCWORD",
+     "width": 16
+    },
+    {
+     "offset": 36,
+     "name": "ASP_STATE_VOLUME",
+     "width": 4
+    },
+    {
+     "offset": 40,
+     "name": "ASP_STATE_MUTE_STATE",
+     "width": 4
+    },
+    {
+     "offset": 44,
+     "name": "ASP_STATE_DRIVING_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 48
+  }
+ },
+ "0x01": {
+  "request": {
+   "apk_class": "b/e/y",
+   "field_enum": "ac$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "DATA",
+     "width": 0
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/w",
+   "field_enum": "ac$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x02": {
+  "request": {
+   "apk_class": "b/e/r",
+   "field_enum": "v$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/q",
+   "field_enum": "v$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x03": {
+  "request": {
+   "apk_class": "b/e/n",
+   "field_enum": "r$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/n",
+   "field_enum": "r$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "FW_VERSION",
+     "width": 2
+    }
+   ],
+   "payload_bytes": 22
+  }
+ },
+ "0x04": {
+  "request": {
+   "apk_class": "b/e/f",
+   "field_enum": "j$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/f",
+   "field_enum": "j$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "DEVICE_ID",
+     "width": 12
+    },
+    {
+     "offset": 32,
+     "name": "RESERVED",
+     "width": 4
+    },
+    {
+     "offset": 36,
+     "name": "SPEAKER_MODE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 40
+  }
+ },
+ "0x05": {
+  "request": {
+   "apk_class": "b/e/ab",
+   "field_enum": "af$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "CONFIG_ID",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "CONFIGURATION",
+     "width": 16
+    }
+   ],
+   "payload_bytes": 36
+  },
+  "reply": {
+   "apk_class": "b/f/z",
+   "field_enum": "af$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "Config_ID",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x06": {
+  "request": {
+   "apk_class": "b/e/i",
+   "field_enum": "m$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "CONFIG_ID",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/i",
+   "field_enum": "m$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "CONFIG_ID",
+     "width": 4
+    },
+    {
+     "offset": 24,
+     "name": "CONFIGURATION",
+     "width": 0
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x07": {
+  "request": {
+   "apk_class": "b/e/w",
+   "field_enum": "aa$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/u",
+   "field_enum": "aa$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x08": {
+  "request": {
+   "apk_class": "b/e/ag",
+   "field_enum": "am$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "USER_CONFIGURATION",
+     "width": 2028
+    }
+   ],
+   "payload_bytes": 2044
+  },
+  "reply": {
+   "apk_class": "b/f/ad",
+   "field_enum": "am$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x09": {
+  "request": {
+   "apk_class": "b/e/t",
+   "field_enum": "x$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/s",
+   "field_enum": "x$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "USER_CONFIGURATION",
+     "width": 2028
+    }
+   ],
+   "payload_bytes": 2048
+  }
+ },
+ "0x0a": {
+  "request": {
+   "apk_class": "b/e/m",
+   "field_enum": "q$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/m",
+   "field_enum": "q$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "BOOT_UP_COUNT",
+     "width": 4
+    },
+    {
+     "offset": 24,
+     "name": "TOTAL_OPERATING_TIME",
+     "width": 4
+    },
+    {
+     "offset": 28,
+     "name": "IOS_CAR_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 32,
+     "name": "IOS_SP_GENUINE_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 36,
+     "name": "IOS_SP_OTHER_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 40,
+     "name": "OTG_CAR_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 44,
+     "name": "OTG_SP_GENUINE_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 48,
+     "name": "OTG_SP_OTHER_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 52,
+     "name": "AOA_CAR_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 56,
+     "name": "AOA_SP_GENUINE_SOURCE_TIME",
+     "width": 4
+    },
+    {
+     "offset": 60,
+     "name": "AOA_SP_OTHER_SOURCE_TIME",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 64
+  }
+ },
+ "0x0b": {
+  "request": {
+   "apk_class": "b/e/z",
+   "field_enum": "ad$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "MODE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/x",
+   "field_enum": "ad$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "MODE",
+     "width": 4
+    },
+    {
+     "offset": 24,
+     "name": "ASP_STATE_VOLUME",
+     "width": 4
+    },
+    {
+     "offset": 28,
+     "name": "ASP_STATE_MUTE_STATE",
+     "width": 4
+    },
+    {
+     "offset": 32,
+     "name": "ASP_STATE_DRIVING_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 36
+  }
+ },
+ "0x0c": {
+  "request": {
+   "apk_class": "b/e/g",
+   "field_enum": "k$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/g",
+   "field_enum": "k$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "MODE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x0d": {
+  "request": {
+   "apk_class": "b/e/ae",
+   "field_enum": "ai$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "VOLUME",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/ac",
+   "field_enum": "ai$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "VOLUME",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x0e": {
+  "request": {
+   "apk_class": "b/e/o",
+   "field_enum": "s$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/o",
+   "field_enum": "s$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "VOLUME",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x0f": {
+  "request": {
+   "apk_class": "b/e/aa",
+   "field_enum": "ae$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "MUTE_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/y",
+   "field_enum": "ae$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "MUTE_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x10": {
+  "request": {
+   "apk_class": "b/e/h",
+   "field_enum": "l$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/h",
+   "field_enum": "l$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "MUTE_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x11": {
+  "request": {
+   "apk_class": "b/e/e",
+   "field_enum": "i$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/e",
+   "field_enum": "i$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "DRIVING_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x12": {
+  "request": {
+   "apk_class": "b/e/v",
+   "field_enum": "y$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/-",
+   "field_enum": "-",
+   "fields": [],
+   "payload_bytes": null
+  }
+ },
+ "0x13": {
+  "request": {
+   "apk_class": "b/e/ac",
+   "field_enum": "ag$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "SPEAKER_MUTE_STATES",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/aa",
+   "field_enum": "ag$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "SPEAKER_MUTE_STATES",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x14": {
+  "request": {
+   "apk_class": "b/e/j",
+   "field_enum": "n$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/j",
+   "field_enum": "n$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "SPEAKER_MUTE_STATES",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x15": {
+  "request": {
+   "apk_class": "b/e/d",
+   "field_enum": "h$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/d",
+   "field_enum": "h$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "CRASH_REPORT",
+     "width": 256
+    }
+   ],
+   "payload_bytes": 276
+  }
+ },
+ "0x16": {
+  "request": {
+   "apk_class": "b/e/c",
+   "field_enum": "g$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/c",
+   "field_enum": "g$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x17": {
+  "request": {
+   "apk_class": "b/e/k",
+   "field_enum": "o$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/k",
+   "field_enum": "o$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "SYSTEM_ERROR_FLAGS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x18": {
+  "request": {
+   "apk_class": "b/e/af",
+   "field_enum": "ak$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/-",
+   "field_enum": "-",
+   "fields": [],
+   "payload_bytes": null
+  }
+ },
+ "0x19": {
+  "request": {
+   "apk_class": "b/e/x",
+   "field_enum": "ab$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "ENABLE_FLAG",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/v",
+   "field_enum": "ab$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x1a": {
+  "request": {
+   "apk_class": "b/e/s",
+   "field_enum": "w$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/r",
+   "field_enum": "w$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x1b": {
+  "request": {
+   "apk_class": "b/e/ad",
+   "field_enum": "ah$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "MUTE_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/ab",
+   "field_enum": "ah$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "MUTE_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x1c": {
+  "request": {
+   "apk_class": "b/e/l",
+   "field_enum": "p$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/l",
+   "field_enum": "p$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "MUTE_STATE",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x1d": {
+  "request": {
+   "apk_class": "b/e/p",
+   "field_enum": "t$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "ALERT",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/p",
+   "field_enum": "t$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x1e": {
+  "request": {
+   "apk_class": "b/e/u",
+   "field_enum": "z$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/t",
+   "field_enum": "z$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  }
+ },
+ "0x1f": {
+  "request": {
+   "apk_class": "b/e/aj",
+   "field_enum": "ap$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "CONFIGURATION_TABLE",
+     "width": 12
+    },
+    {
+     "offset": 28,
+     "name": "ENUMERATION_TIMEOUT",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 32
+  },
+  "reply": {
+   "apk_class": "b/f/ag",
+   "field_enum": "ai$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "VOLUME",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ },
+ "0x20": {
+  "request": {
+   "apk_class": "b/e/ah",
+   "field_enum": "an$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    }
+   ],
+   "payload_bytes": 16
+  },
+  "reply": {
+   "apk_class": "b/f/ae",
+   "field_enum": "an$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "CONFIGURATION_TABLE",
+     "width": 12
+    },
+    {
+     "offset": 32,
+     "name": "ENUMERATION_TIMEOUT",
+     "width": 4
+    },
+    {
+     "offset": 36,
+     "name": "TABLE_INDEX",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 40
+  }
+ },
+ "0x21": {
+  "request": {
+   "apk_class": "b/e/ai",
+   "field_enum": "ao$a$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "TIMEOUT_INTERVAL",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 20
+  },
+  "reply": {
+   "apk_class": "b/f/af",
+   "field_enum": "ai$b$a",
+   "fields": [
+    {
+     "offset": 8,
+     "name": "TRANSACTION_ID",
+     "width": 8
+    },
+    {
+     "offset": 16,
+     "name": "STATUS",
+     "width": 4
+    },
+    {
+     "offset": 20,
+     "name": "VOLUME",
+     "width": 4
+    }
+   ],
+   "payload_bytes": 24
+  }
+ }
+}
