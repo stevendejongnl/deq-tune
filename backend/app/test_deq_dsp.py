@@ -26,6 +26,7 @@ from app.deq_dsp import (
     build_time_alignment_payload,
     decode_sections,
     design_crossover,
+    crossover_cutoff_hz,
     design_equalizer_band,
     equalizer_band_push,
     fit_equalizer_gains,
@@ -236,3 +237,17 @@ def test_a_delay_stops_at_the_longest_distance_the_screen_offers() -> None:
     assert time_alignment_delays([10000, 0, 0, 0, 0])[1] == 453
     assert (time_alignment_delays([10000, 9000, 8000, 7000, 6000])
             == time_alignment_delays([4000, 3000, 2000, 1000, 0]))
+
+
+def test_the_high_crossover_range_is_its_own_series() -> None:
+    # The high range is not fifty times the low one. Nine positions happen to
+    # match, but 31.5 Hz pairs with 1600 Hz and 125 Hz with 6300 Hz. Scaling by
+    # fifty gives 1575 and 6250, which design a different filter than the app's.
+    assert crossover_cutoff_hz(1, False) == 31.5
+    assert crossover_cutoff_hz(1, True) == 1600
+    assert crossover_cutoff_hz(7, False) == 125
+    assert crossover_cutoff_hz(7, True) == 6300
+    # the other nine do line up with fifty times the low value
+    for position in (0, 2, 3, 4, 5, 6, 8, 9, 10):
+        assert (crossover_cutoff_hz(position, True)
+                == crossover_cutoff_hz(position, False) * 50)
