@@ -11,6 +11,13 @@ Frida with known inputs, and the output of this module matches it to within
 one Q27 step. `deq_dsp_reference.json` holds those captured input/output
 pairs; `test_deq_dsp.py` checks every one of them.
 
+The equalizer needs one step more than a filter design. The library spreads
+every band's gain over the other bands before it designs a biquad, so a
+curve with two raised bands is not two independent peakers. Its
+`fittingEqGain` function does that step, from three constant tables. This
+module reproduces it in `fit_equalizer_gains`, and matches the library's own
+output to 1e-14 dB over every gain the sliders can send.
+
 See `USB_CAPTURE_NOTES.md` in the outer repo for how the values were read
 off the unit and the library.
 """
@@ -52,11 +59,105 @@ CROSSOVER_CUTOFFS_HZ = (
 )
 CROSSOVER_HIGH_RANGE_FACTOR = 50
 
+# A crossover payload is several blocks, concatenated in config-id order.
+# Each block is a run of biquads; one block also carries a spare word.
+CROSSOVER_BLOCK_BIQUADS = {3: 6, 4: 3, 5: 12}
+CROSSOVER_BLOCK_SPARE_WORDS = {4: 1}
+
+# Which blocks each speaker layout sends.
+CROSSOVER_LAYOUT_BLOCKS = {
+    "standard": (3, 4),
+    "standard_rear": (3, 4),
+    "network": (3, 4, 5),
+}
+
+# Which block and biquad each filter slot writes into. A slot owns that
+# biquad and the next one: a shallow slope uses the first, a steeper one
+# brings in the second. Slots absent from a layout are never written.
+CROSSOVER_SLOT_POSITIONS = {
+    "standard": {0: (3, 2), 1: (3, 4), 4: (4, 0)},
+    "standard_rear": {0: (3, 2), 4: (4, 0)},
+    "network": {0: (3, 2), 1: (3, 4), 2: (5, 6), 3: (5, 9), 4: (4, 0)},
+}
+
+CROSSOVER_SLOT_COUNT = 5
+
 # Distances travel as millimetres and come back as sample delays. The library
 # takes the speed of sound as exactly 340 m/s.
 SPEED_OF_SOUND_MM_PER_SECOND = 340_000
 TIME_ALIGNMENT_SLOT_COUNT = 5
 TIME_ALIGNMENT_BLOCK_WORDS = 8
+
+
+# The library does not design each equalizer band straight from its slider.
+# It first spreads every band's gain over its neighbours, then designs the
+# biquads from the spread gains. `fit_equalizer_gains` below does that step.
+# The three tables come from the library's own constant pool; the comments
+# say what each one controls.
+
+# How hard a band pushes, by its gain rounded up to whole dB. A band at
+# 1 dB or less pushes nothing, so the table starts at 2 dB.
+# Several entries are not the decimal they look like. They are the exact
+# doubles the library holds, and the equalizer truncates towards zero, so a
+# rounded constant here changes real bytes. Do not tidy them.
+EQUALIZER_PUSH_WEIGHTS = (
+    0.05,
+    0.065,
+    0.08,
+    0.095,
+    0.11,
+    0.125,
+    0.14,
+    0.155,
+    0.17,
+    0.185,
+    0.19999999999999998,
+    0.215,
+    0.23,
+    0.245,
+    0.26,
+    0.275,
+    0.29000000000000004,
+    0.30500000000000005,
+    0.31999999999999995,
+    0.33499999999999996,
+    0.35,
+    0.365,
+    0.38,
+    0.395,
+)
+
+# How the push falls off with the distance between two bands, in band steps.
+EQUALIZER_PUSH_DECAY = (
+    1.0,
+    0.47619047619047616,
+    0.22675736961451246,
+    0.1079796998164345,
+    0.051418904674492616,
+    0.02448519270213934,
+    0.011659615572447303,
+    0.005552197891641572,
+    0.002643903757924558,
+    0.0012590017894878848,
+    0.0005995246616608976,
+    0.0002854879341242369,
+)
+
+# How strongly each band reacts. The outer bands move more than the middle.
+EQUALIZER_BAND_REACTION = (
+    1.9, 1.3, 1.12, 1.05, 1.02,
+    1.0, 1.0, 1.0, 1.02, 1.05,
+    1.12, 1.3, 1.9,
+)
+
+# A band loses this share of its neighbour's push and keeps this share of
+# its own.
+EQUALIZER_PUSH_SHARE = 0.3
+EQUALIZER_KEEP_SHARE = 0.03
+
+# The sliders stop at 12 dB, and spreading the gains can carry a band past
+# that. The library clamps before it designs, so this module clamps too.
+EQUALIZER_GAIN_LIMIT_DB = 12.0
 
 
 class FilterKind(str, Enum):
@@ -95,6 +196,50 @@ class CrossoverSetting:
     kind: FilterKind
     cutoff_hz: float
     slope: FilterSlope
+
+
+def equalizer_band_push(gain_db: float) -> float:
+    """Returns how hard one band pushes the other bands.
+
+    The library picks the weight by the gain rounded up to whole dB. A band at
+    one dB or less pushes nothing.
+    """
+    weight_index = min(math.ceil(abs(gain_db)), len(EQUALIZER_PUSH_WEIGHTS)) - 2
+    if weight_index < 0:
+        return 0.0
+    return EQUALIZER_PUSH_WEIGHTS[weight_index] * gain_db
+
+
+def fit_equalizer_gains(band_gains_db: list[float]) -> list[float]:
+    """Returns the gains the library designs its biquads from.
+
+    A band that shares its sign with another band pulls that band towards
+    zero. Two bands of opposite sign do not interact at all, so a band left
+    at zero stays at zero. Spreading can push a band past the slider range,
+    so the result is clamped to the range the sliders allow.
+    """
+    fitted_gains_db = list(band_gains_db)
+    for band in range(len(band_gains_db)):
+        if band_gains_db[band] == 0:
+            continue
+        for other_band in range(len(band_gains_db)):
+            if other_band == band or band_gains_db[other_band] == 0:
+                continue
+            if (band_gains_db[band] > 0) != (band_gains_db[other_band] > 0):
+                continue
+            decay = EQUALIZER_PUSH_DECAY[abs(band - other_band) - 1]
+            fitted_gains_db[band] -= decay * (
+                EQUALIZER_PUSH_SHARE
+                * equalizer_band_push(band_gains_db[other_band])
+                * EQUALIZER_BAND_REACTION[band]
+                - EQUALIZER_KEEP_SHARE
+                * equalizer_band_push(band_gains_db[band])
+                * EQUALIZER_BAND_REACTION[other_band]
+            )
+    return [
+        max(-EQUALIZER_GAIN_LIMIT_DB, min(EQUALIZER_GAIN_LIMIT_DB, gain_db))
+        for gain_db in fitted_gains_db
+    ]
 
 
 def design_equalizer_band(centre_hz: float, gain_db: float) -> Biquad:
@@ -138,9 +283,10 @@ def build_equalizer_block(band_gains_db: list[float]) -> list[Biquad]:
         raise ValueError(
             f"expected {EQUALIZER_BAND_COUNT} band gains, got {len(band_gains_db)}"
         )
+    fitted_gains_db = fit_equalizer_gains(band_gains_db)
     one_channel = [
         design_equalizer_band(centre_hz, gain_db)
-        for centre_hz, gain_db in zip(EQUALIZER_BAND_CENTRES_HZ, band_gains_db)
+        for centre_hz, gain_db in zip(EQUALIZER_BAND_CENTRES_HZ, fitted_gains_db)
     ]
     return one_channel * EQUALIZER_CHANNELS_PER_BLOCK
 
@@ -158,7 +304,7 @@ def build_equalizer_payload(
         build_equalizer_block(cancelled_band_gains_db)
         + build_equalizer_block(plain_band_gains_db)
     )
-    return encode_sections(sections)
+    return encode_sections(sections, Rounding.TRUNCATE)
 
 
 def _design_first_order(kind: FilterKind, cutoff_hz: float) -> Biquad:
@@ -213,6 +359,45 @@ def design_crossover(setting: CrossoverSetting) -> tuple[Biquad, Biquad]:
     return (sections[0], sections[1])
 
 
+def build_crossover_payload(
+    layout: str, settings: list[CrossoverSetting | None]
+) -> bytes:
+    """Returns the body of the crossover command for one speaker layout.
+
+    `settings` holds one entry per filter slot, or None for a slot the layout
+    does not use. A slot set to Pass leaves its two biquads as identity.
+    """
+    if layout not in CROSSOVER_LAYOUT_BLOCKS:
+        raise ValueError(f"unknown speaker layout {layout!r}")
+    if len(settings) != CROSSOVER_SLOT_COUNT:
+        raise ValueError(
+            f"expected {CROSSOVER_SLOT_COUNT} slots, got {len(settings)}"
+        )
+
+    blocks = {
+        block_id: [list(IDENTITY_SECTION) for _ in range(CROSSOVER_BLOCK_BIQUADS[block_id])]
+        for block_id in CROSSOVER_LAYOUT_BLOCKS[layout]
+    }
+    positions = CROSSOVER_SLOT_POSITIONS[layout]
+    for slot, setting in enumerate(settings):
+        if setting is None:
+            continue
+        if slot not in positions:
+            raise ValueError(f"layout {layout!r} has no slot {slot}")
+        block_id, first_biquad = positions[slot]
+        first, second = design_crossover(setting)
+        blocks[block_id][first_biquad] = list(first)
+        blocks[block_id][first_biquad + 1] = list(second)
+
+    payload = bytearray()
+    for block_id in CROSSOVER_LAYOUT_BLOCKS[layout]:
+        payload += encode_sections(
+            [tuple(section) for section in blocks[block_id]], Rounding.NEAREST
+        )
+        payload += bytes(4 * CROSSOVER_BLOCK_SPARE_WORDS.get(block_id, 0))
+    return bytes(payload)
+
+
 def time_alignment_delays(distances_mm: list[int]) -> list[int]:
     """Returns one delay in samples per speaker.
 
@@ -239,15 +424,32 @@ def build_time_alignment_payload(distances_mm: list[int]) -> bytes:
     return b"".join(word.to_bytes(2, "little") for word in words)
 
 
-def to_q27(value: float) -> int:
+class Rounding(str, Enum):
+    """How a coefficient reaches its stored integer.
+
+    The library does not pick one rule. Its equalizer builder truncates
+    towards zero and its crossover builder rounds to nearest, and the two
+    disagree on about two coefficients in five. Each builder below passes the
+    rule its own payload needs; getting it wrong changes the bytes.
+    """
+
+    TRUNCATE = "truncate"
+    NEAREST = "nearest"
+
+
+def to_q27(value: float, rounding: Rounding = Rounding.NEAREST) -> int:
     """Returns one coefficient as the unit stores it."""
+    if rounding is Rounding.TRUNCATE:
+        return int(value * Q27_UNITY)
     return round(value * Q27_UNITY)
 
 
-def encode_sections(sections: list[Biquad]) -> bytes:
+def encode_sections(
+    sections: list[Biquad], rounding: Rounding = Rounding.NEAREST
+) -> bytes:
     """Returns biquad sections as little-endian Q27, five words per section."""
     return b"".join(
-        to_q27(coefficient).to_bytes(4, "little", signed=True)
+        to_q27(coefficient, rounding).to_bytes(4, "little", signed=True)
         for section in sections
         for coefficient in section
     )
