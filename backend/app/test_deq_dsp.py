@@ -228,15 +228,22 @@ def test_spreading_never_leaves_a_band_past_the_slider_range() -> None:
     assert min(fitted) >= -12.0
 
 
-def test_a_delay_stops_at_the_longest_distance_the_screen_offers() -> None:
-    # The screen stops at 350 cm of spread, which earns 453 samples. A wider
-    # spread than that adds nothing, and the library clamps the delay rather
-    # than the distance: the same spread gives the same delays however far
-    # away both speakers sit.
+def test_the_widest_spread_the_screen_offers_earns_453_samples() -> None:
     assert time_alignment_delays([3500, 0, 0, 0, 0])[1] == 453
-    assert time_alignment_delays([10000, 0, 0, 0, 0])[1] == 453
-    assert (time_alignment_delays([10000, 9000, 8000, 7000, 6000])
-            == time_alignment_delays([4000, 3000, 2000, 1000, 0]))
+
+
+def test_a_delay_counts_only_the_spread_not_the_distance() -> None:
+    # The library works on the differences, so moving every speaker further
+    # away changes nothing.
+    assert (time_alignment_delays([3500, 3000, 2000, 1000, 500])
+            == time_alignment_delays([3000, 2500, 1500, 500, 0]))
+
+
+def test_a_spread_wider_than_the_screen_offers_is_an_error() -> None:
+    # The library answers 100 instead of coefficients, so this is a bad input
+    # rather than something to clamp quietly.
+    with pytest.raises(ValueError):
+        time_alignment_delays([3501, 0, 0, 0, 0])
 
 
 def test_the_high_crossover_range_is_its_own_series() -> None:
