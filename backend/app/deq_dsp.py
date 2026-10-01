@@ -57,7 +57,15 @@ IDENTITY_SECTION = (1.0, 0.0, 0.0, 0.0, 0.0)
 CROSSOVER_CUTOFFS_HZ = (
     25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250,
 )
-CROSSOVER_HIGH_RANGE_FACTOR = 50
+# The high range is its own 1/3-octave series, not fifty times the low one.
+# Nine of the eleven positions happen to match fifty times the low value, but
+# 31.5 Hz pairs with 1600 Hz and 125 Hz with 6300 Hz, not 1575 and 6250. The
+# app's own enum names say so (FREQUENCY_1_6KHZ, FREQUENCY_6_3KHZ), and the
+# library confirms it: those two cutoffs design a different filter.
+CROSSOVER_HIGH_CUTOFFS_HZ = (
+    1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500,
+)
+
 
 # A crossover payload is several blocks, concatenated in config-id order.
 # Each block is a run of biquads; one block also carries a spare word.
@@ -202,6 +210,14 @@ class CrossoverSetting:
     kind: FilterKind
     cutoff_hz: float
     slope: FilterSlope
+
+
+def crossover_cutoff_hz(position: int, uses_high_range: bool) -> float:
+    """Returns the cutoff one position means, for a low or a high speaker."""
+    table = (
+        CROSSOVER_HIGH_CUTOFFS_HZ if uses_high_range else CROSSOVER_CUTOFFS_HZ
+    )
+    return float(table[position])
 
 
 def equalizer_band_push(gain_db: float) -> float:

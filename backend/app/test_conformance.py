@@ -25,6 +25,7 @@ from app.deq_dsp import (
     FilterSlope,
     build_crossover_payload,
     build_equalizer_payload,
+    crossover_cutoff_hz,
     build_time_alignment_payload,
 )
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
@@ -53,8 +54,7 @@ CUTOFF_POSITIONS = {
     "FREQUENCY_5kHZ": 6, "FREQUENCY_6_3KHZ": 7, "FREQUENCY_8KHZ": 8,
     "FREQUENCY_10KHZ": 9, "FREQUENCY_12_5KHZ": 10,
 }
-CUTOFF_HZ = (25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250)
-HIGH_RANGE_FACTOR = 50
+# The two ranges are separate series. See `crossover_cutoff_hz`.
 
 SLOPES = {
     "SLOPE_PASS": FilterSlope.PASS,
@@ -143,9 +143,9 @@ def test_a_crossover_flow_writes_the_bytes_the_app_wrote(flow: dict) -> None:
             settings.append(None)
             continue
         kind, uses_high_range = role
-        cutoff_hz = CUTOFF_HZ[CUTOFF_POSITIONS[raw["cutoff"]]]
-        if uses_high_range:
-            cutoff_hz *= HIGH_RANGE_FACTOR
+        cutoff_hz = crossover_cutoff_hz(
+            CUTOFF_POSITIONS[raw["cutoff"]], uses_high_range
+        )
         settings.append(CrossoverSetting(kind=kind, cutoff_hz=cutoff_hz, slope=slope))
     assert build_crossover_payload(layout, settings).hex() == flow["bytesHex"]
 
