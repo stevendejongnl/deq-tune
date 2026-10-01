@@ -1,0 +1,177 @@
+"""Checks the DSP maths against the app's own library.
+
+`deq_dsp_reference.json` holds coefficients captured from
+`jp.pioneer.mle.pmg.util.OpalParameter` on a running Sound & Tune app, with
+the input that produced each one. A coefficient is stored as Q27, so two
+designs that agree to one Q27 step produce the same bytes.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from app.deq_dsp import (
+    CROSSOVER_CUTOFFS_HZ,
+    EQUALIZER_BAND_CENTRES_HZ,
+    EQUALIZER_BAND_COUNT,
+    Q27_UNITY,
+    CrossoverSetting,
+    FilterKind,
+    FilterSlope,
+    build_equalizer_block,
+    build_equalizer_payload,
+    build_time_alignment_payload,
+    decode_sections,
+    design_crossover,
+    design_equalizer_band,
+    encode_sections,
+    time_alignment_delays,
+)
+
+ONE_Q27_STEP = 1 / Q27_UNITY
+
+CUTOFF_NAMES_HZ = {
+    "FREQUENCY_25HZ": 25,
+    "FREQUENCY_31_5HZ": 31.5,
+    "FREQUENCY_40HZ": 40,
+    "FREQUENCY_50HZ": 50,
+    "FREQUENCY_63HZ": 63,
+    "FREQUENCY_80HZ": 80,
+    "FREQUENCY_100HZ": 100,
+    "FREQUENCY_125HZ": 125,
+    "FREQUENCY_160HZ": 160,
+    "FREQUENCY_200HZ": 200,
+    "FREQUENCY_250HZ": 250,
+}
+
+SLOPE_NAMES = {
+    "SLOPE_6DB": FilterSlope.SLOPE_6,
+    "SLOPE_12DB": FilterSlope.SLOPE_12,
+    "SLOPE_18DB": FilterSlope.SLOPE_18,
+    "SLOPE_24DB": FilterSlope.SLOPE_24,
+}
+
+SPEAKER_FILTER_KINDS = {
+    "front": FilterKind.HIGH_PASS,
+    "sub": FilterKind.LOW_PASS,
+}
+
+
+def load_reference() -> dict:
+    path = Path(__file__).parent / "deq_dsp_reference.json"
+    return json.loads(path.read_text())
+
+
+REFERENCE = load_reference()
+
+
+@pytest.mark.parametrize(
+    "row",
+    REFERENCE["equalizer"],
+    ids=lambda row: f"band{row['band']}@{row['gain_db']:+g}dB",
+)
+def test_equalizer_band_matches_the_library(row: dict) -> None:
+    designed = design_equalizer_band(
+        EQUALIZER_BAND_CENTRES_HZ[row["band"]], row["gain_db"]
+    )
+    for ours, theirs in zip(designed, row["coefficients"]):
+        assert abs(ours - theirs) <= ONE_Q27_STEP
+
+
+@pytest.mark.parametrize(
+    "row",
+    [row for row in REFERENCE["crossover"]
+     if row["cutoff"] in CUTOFF_NAMES_HZ],
+    ids=lambda row: f"{row['speaker']}-{row['cutoff']}-{row['slope']}",
+)
+def test_crossover_pair_matches_the_library(row: dict) -> None:
+    setting = CrossoverSetting(
+        kind=SPEAKER_FILTER_KINDS[row["speaker"]],
+        cutoff_hz=CUTOFF_NAMES_HZ[row["cutoff"]],
+        slope=SLOPE_NAMES[row["slope"]],
+    )
+    first, second = design_crossover(setting)
+    for ours, theirs in zip(first + second, row["coefficients"]):
+        assert abs(ours - theirs) <= ONE_Q27_STEP
+
+
+def test_a_flat_band_passes_the_signal_but_keeps_its_shape() -> None:
+    forward_outer, forward_middle, forward_last, feedback_first, feedback_second = (
+        design_equalizer_band(800, 0)
+    )
+    assert forward_outer == pytest.approx(1.0)
+    # The numerator mirrors the denominator, so the section is a pass-through
+    # without being the identity section a Pass crossover slot uses.
+    assert forward_middle == pytest.approx(-feedback_first)
+    assert forward_last == pytest.approx(-feedback_second)
+    assert forward_middle != 0.0
+
+
+def test_a_pass_crossover_slot_is_the_identity_section() -> None:
+    first, second = design_crossover(
+        CrossoverSetting(FilterKind.HIGH_PASS, 100, FilterSlope.PASS)
+    )
+    assert first == (1.0, 0.0, 0.0, 0.0, 0.0)
+    assert second == first
+
+
+def test_a_shallow_slope_leaves_the_second_slot_free() -> None:
+    _, second = design_crossover(
+        CrossoverSetting(FilterKind.LOW_PASS, 80, FilterSlope.SLOPE_12)
+    )
+    assert second == (1.0, 0.0, 0.0, 0.0, 0.0)
+
+
+def test_an_equalizer_block_repeats_one_curve_over_four_channels() -> None:
+    gains = [float(band) for band in range(EQUALIZER_BAND_COUNT)]
+    block = build_equalizer_block(gains)
+    assert len(block) == 52
+    assert block[:13] == block[13:26] == block[26:39] == block[39:]
+
+
+def test_an_equalizer_block_rejects_the_wrong_band_count() -> None:
+    with pytest.raises(ValueError):
+        build_equalizer_block([0.0] * 12)
+
+
+def test_the_equalizer_payload_is_two_blocks_of_1040_bytes() -> None:
+    flat = [0.0] * EQUALIZER_BAND_COUNT
+    boosted = [6.0] + [0.0] * (EQUALIZER_BAND_COUNT - 1)
+    payload = build_equalizer_payload(boosted, flat)
+    assert len(payload) == 2080
+    assert payload[:1040] != payload[1040:]
+
+
+def test_coefficients_survive_a_round_trip_through_q27() -> None:
+    sections = build_equalizer_block([3.0] * EQUALIZER_BAND_COUNT)
+    for original, restored in zip(sections, decode_sections(encode_sections(sections))):
+        for ours, theirs in zip(original, restored):
+            assert abs(ours - theirs) <= ONE_Q27_STEP
+
+
+def test_the_farthest_speaker_gets_no_delay() -> None:
+    # Captured from the library: [100,200,300,400,500] -> [51,38,25,12,0].
+    assert time_alignment_delays([100, 200, 300, 400, 500]) == [51, 38, 25, 12, 0]
+    assert time_alignment_delays([7, 15, 23, 31, 39]) == [4, 3, 2, 1, 0]
+    assert time_alignment_delays([500, 0, 0, 0, 0]) == [0, 64, 64, 64, 64]
+    assert time_alignment_delays([1000] * 5) == [0] * 5
+
+
+def test_the_time_alignment_block_is_eight_little_endian_words() -> None:
+    payload = build_time_alignment_payload([0, 0, 0, 0, 500])
+    assert len(payload) == 16
+    assert payload == bytes([64, 0, 64, 0, 64, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+
+def test_time_alignment_rejects_the_wrong_speaker_count() -> None:
+    with pytest.raises(ValueError):
+        time_alignment_delays([0, 0, 0])
+
+
+def test_the_cutoff_list_matches_the_eleven_positions_the_unit_offers() -> None:
+    assert len(CROSSOVER_CUTOFFS_HZ) == 11
+    assert CROSSOVER_CUTOFFS_HZ[0] == 25
+    assert CROSSOVER_CUTOFFS_HZ[-1] == 250
