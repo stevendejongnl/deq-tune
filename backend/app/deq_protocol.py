@@ -1,126 +1,272 @@
-"""Parser for the DEQ's USB SysEx-style protocol.
+"""Reads and writes the Pioneer DEQ's USB message format.
 
-Decoded from a real USB capture between the Sound & Tune Android app and a
-physical Pioneer DEQ-S1000A2 unit (see USB_CAPTURE_NOTES.md in the outer
-repo for the capture session and the byte-level reasoning behind this
-frame layout). The capture is partial: the parameter-id-to-control mapping
-and the value encoding are not yet fully confirmed. Extend
-KNOWN_PARAMETER_NAMES as more parameter ids get identified.
+The DEQ speaks a SysEx-style framing over Android Open Accessory. The DEQ is
+the accessory and the phone, or this app, is the host.
 
-Frame layout, all offsets 0-indexed into the full frame including the
-start and end markers:
+The rules here come from the Sound & Tune app's own codec, `b/g/d.pack()` and
+`b/g/c.unpack()` in the decompiled APK, and were then checked against captured
+traffic between the real app and a real unit. An earlier version of this
+module guessed the layout from raw byte offsets; those offsets landed inside
+the nibble-packed payload and happened to read correctly for two cases. This
+version is the decoded rule.
 
-    byte 0        : 0xf0 (SysEx start marker)
-    bytes 1-7     : fixed prefix, identical on every frame seen so far
-    byte 8        : always 0x00 seen so far
-    byte 9        : 0x01 for a write (app -> DEQ), 0x02 for a read (DEQ -> app)
-    bytes 10-13   : 0x00 0x00 0x00 <parameter id>
-    bytes 14-15   : length/flavor field (differs between write and read)
-    last byte     : 0xf7 (SysEx end marker)
+A frame on the wire:
 
-Parameter id 0x05 carries a large (~4209 byte) full-array payload, not yet
-decoded into per-band gain values. Its body is confirmed nibble-packed: every
-body byte is <= 0x0f, the classic MIDI SysEx trick of splitting each real
-data byte into two 4-bit nibbles so the payload never touches the 0x80+
-status-byte range. Denibbling (pack every 2 body bytes into 1 real byte,
-high-nibble-first) halves the payload to its real size, but nibblization
-alone does not explain the byte layout: nearly the whole buffer changes
-content on every single write, even for one isolated single-band edit, so
-a flat "byte N = band M's gain" table has been ruled out by direct diffing.
-The decompiled APK's Java/smali layer does not contain the encode/decode
-logic either (checked jp.pioneer.mle.pmg's PMGPlayer/PMGJni classes) - it
-lives in native .so libraries not yet disassembled. See
-USB_CAPTURE_NOTES.md, "Plan for the next car session," for the disciplined
-capture protocol designed to crack this.
+    0xf0
+    header A, 3 bytes: 00 40 06
+    header B, 4 bytes: 00 00 00 01
+    the payload, nibble-expanded: each payload byte becomes two bytes,
+        high nibble first, each in the range 0x00..0x0f
+    0xf7
+    one 0x00, but only when the frame would otherwise be an exact
+        multiple of 512 bytes
+
+Nibble expansion keeps every payload byte below 0x80, so the payload can never
+look like a MIDI status byte. The payload length is not written anywhere; a
+reader derives it from the frame size.
+
+A payload, once unpacked, is little-endian throughout:
+
+    0..1    direction: 1 for host to DEQ, 2 for DEQ to host
+    2..3    command id
+    4..7    length, which is the payload length minus 8
+    8..15   transaction id, mirrored unchanged into the reply
+    16..    the command's own fields
+
+`deq_commands.json` lists every command's fields for both directions. It is
+generated from the field enums in the APK, so it covers commands this app has
+never seen on the wire.
+
+Two traps in that table:
+
+- A declared field width is a floor, not the truth. Command 0x05 says its
+  CONFIGURATION is 16 bytes; a real equalizer write carries 2080. Read a
+  configuration as "the rest of the payload".
+- The pad rule above can never fire with the 7-byte header this unit uses,
+  because a frame is then always an odd number of bytes. The codec keeps the
+  rule because the header comes from a config object that another unit could
+  set differently.
 """
 
 from __future__ import annotations
 
-from enum import Enum
-
-from pydantic import BaseModel
+import json
+from dataclasses import dataclass, field
+from enum import IntEnum
+from pathlib import Path
 
 FRAME_START_MARKER = 0xF0
 FRAME_END_MARKER = 0xF7
-FIXED_PREFIX = bytes([0x00, 0x40, 0x06, 0x00, 0x00, 0x00, 0x01])
+FRAME_HEADER_A = bytes([0x00, 0x40, 0x06])
+FRAME_HEADER_B = bytes([0x00, 0x00, 0x00, 0x01])
 
-DIRECTION_BYTE_OFFSET = 9
-PARAMETER_ID_BYTE_OFFSET = 13
-PAYLOAD_START_OFFSET = 16
+# A frame whose length is an exact multiple of this gets one extra 0x00.
+FRAME_PAD_MULTIPLE = 512
 
-WRITE_DIRECTION_BYTE = 0x01
-READ_DIRECTION_BYTE = 0x02
+DIRECTION_OFFSET = 0
+COMMAND_ID_OFFSET = 2
+LENGTH_OFFSET = 4
+TRANSACTION_ID_OFFSET = 8
+BODY_OFFSET = 16
+
+# The length field counts the payload from the transaction id onwards.
+LENGTH_FIELD_BIAS = 8
+
+TRANSACTION_ID_BYTES = 8
 
 
-class FrameDirection(str, Enum):
-    WRITE = "write"
-    READ = "read"
+class Direction(IntEnum):
+    TO_DEVICE = 1
+    FROM_DEVICE = 2
 
 
 class InvalidFrameError(ValueError):
-    """Raised when a byte sequence is not a valid DEQ protocol frame."""
+    """Raised when a byte string is not a frame this codec can read."""
 
 
-class DeqFrame(BaseModel):
-    direction: FrameDirection
-    parameterId: int
-    payload: bytes
+def pack_frame(payload: bytes) -> bytes:
+    """Returns the frame that carries one payload."""
+    frame = bytearray()
+    frame.append(FRAME_START_MARKER)
+    frame += FRAME_HEADER_A
+    frame += FRAME_HEADER_B
+    for payload_byte in payload:
+        frame.append((payload_byte >> 4) & 0x0F)
+        frame.append(payload_byte & 0x0F)
+    frame.append(FRAME_END_MARKER)
+    if len(frame) % FRAME_PAD_MULTIPLE == 0:
+        frame.append(0x00)
+    return bytes(frame)
 
-    model_config = {"arbitrary_types_allowed": True}
 
+def unpack_frame(frame: bytes) -> bytes:
+    """Returns the payload a frame carries.
 
-def parse_deq_frame(frame: bytes) -> DeqFrame:
-    """Parse one captured SysEx-style frame from the DEQ's USB protocol.
-
-    Raises InvalidFrameError if the frame does not match the known
-    start/end markers, fixed prefix, or direction byte.
+    Header A is 3 bytes when the byte after the start marker is zero, and 1
+    byte otherwise. Every frame seen so far takes the 3-byte form, but the
+    app's own reader handles both, so this one does too.
     """
-    if len(frame) < PAYLOAD_START_OFFSET + 1:
-        raise InvalidFrameError(f"frame too short: {len(frame)} bytes")
-    if frame[0] != FRAME_START_MARKER:
-        raise InvalidFrameError(f"missing start marker: got {frame[0]:#x}")
-    if frame[-1] != FRAME_END_MARKER:
-        raise InvalidFrameError(f"missing end marker: got {frame[-1]:#x}")
-
-    prefix = frame[1:1 + len(FIXED_PREFIX)]
-    if prefix != FIXED_PREFIX:
-        raise InvalidFrameError(f"unexpected fixed prefix: {prefix.hex()}")
-
-    directionByte = frame[DIRECTION_BYTE_OFFSET]
-    if directionByte == WRITE_DIRECTION_BYTE:
-        direction = FrameDirection.WRITE
-    elif directionByte == READ_DIRECTION_BYTE:
-        direction = FrameDirection.READ
-    else:
-        raise InvalidFrameError(f"unknown direction byte: {directionByte:#x}")
-
-    parameterId = frame[PARAMETER_ID_BYTE_OFFSET]
-    payload = frame[PAYLOAD_START_OFFSET:-1]
-
-    return DeqFrame(direction=direction, parameterId=parameterId, payload=payload)
+    if len(frame) < 10 or frame[0] != FRAME_START_MARKER:
+        raise InvalidFrameError("frame does not start with 0xf0")
+    header_a_length = 3 if frame[1] == 0x00 else 1
+    body_start = 1 + header_a_length + len(FRAME_HEADER_B)
+    nibble_count = len(frame) - body_start - 1
+    payload = bytearray()
+    for position in range(nibble_count // 2):
+        index = body_start + position * 2
+        payload.append(((frame[index] & 0x0F) << 4) | (frame[index + 1] & 0x0F))
+    return bytes(payload)
 
 
-# Parameter ids seen in the 2026-09-28 and 2026-09-29 car captures.
-# TENTATIVE mapping, inferred from timing correlation with narrated
-# controls. 0x0f and 0x0d were confirmed with an isolated capture (one
-# control at a time, no other screen open); 0x02 and 0x05 are still from a
-# mixed capture session (presets, edits, and a reset in one continuous
-# log) - lower confidence, re-check those two in isolation before relying
-# on them. See USB_CAPTURE_NOTES.md for the full reasoning.
-#
-# 0x0d is a multiplexed id, confirmed reused for more than one logical
-# control depending on which screen is open: plain volume up/down on the
-# overview screen (2026-09-29, isolated capture), and a 6.3kHz band gain
-# edit inside the Custom A editor (2026-09-28). Same id, different meaning
-# by context - not a mapping error.
-KNOWN_PARAMETER_NAMES: dict[int, str] = {
-    0x02: "band_4khz_gain_tentative",
-    0x05: "preset_or_bank_apply_tentative",
-    0x0D: "volume_or_band_6_3khz_gain_by_screen_context",
-    0x0F: "mute_toggle",
-}
+@dataclass(frozen=True)
+class Message:
+    """One decoded payload."""
+
+    direction: Direction
+    command_id: int
+    transaction_id: bytes
+    body: bytes = b""
+    # The length the payload claimed. It should equal the real one; a frame
+    # that disagrees is kept as-is so a caller can see the disagreement.
+    declared_length: int | None = field(default=None, compare=False)
+
+    @property
+    def payload_length(self) -> int:
+        return BODY_OFFSET + len(self.body)
+
+    @property
+    def length_field_is_consistent(self) -> bool:
+        if self.declared_length is None:
+            return True
+        return self.declared_length == self.payload_length - LENGTH_FIELD_BIAS
 
 
-def parameter_name(parameterId: int) -> str:
-    """Human-readable name for a parameter id, or the raw id if unknown."""
-    return KNOWN_PARAMETER_NAMES.get(parameterId, f"unknown_parameter_{parameterId:#04x}")
+def encode_message(message: Message) -> bytes:
+    """Returns the payload for one message, with its length field filled in."""
+    if len(message.transaction_id) != TRANSACTION_ID_BYTES:
+        raise ValueError(
+            f"transaction id must be {TRANSACTION_ID_BYTES} bytes, "
+            f"got {len(message.transaction_id)}"
+        )
+    payload = bytearray(BODY_OFFSET)
+    payload[DIRECTION_OFFSET:DIRECTION_OFFSET + 2] = int(
+        message.direction
+    ).to_bytes(2, "little")
+    payload[COMMAND_ID_OFFSET:COMMAND_ID_OFFSET + 2] = message.command_id.to_bytes(
+        2, "little"
+    )
+    payload[LENGTH_OFFSET:LENGTH_OFFSET + 4] = (
+        BODY_OFFSET + len(message.body) - LENGTH_FIELD_BIAS
+    ).to_bytes(4, "little")
+    payload[TRANSACTION_ID_OFFSET:BODY_OFFSET] = message.transaction_id
+    return bytes(payload) + message.body
+
+
+def decode_message(payload: bytes) -> Message:
+    """Returns the message one payload carries."""
+    if len(payload) < BODY_OFFSET:
+        raise InvalidFrameError(
+            f"payload of {len(payload)} bytes is shorter than its header"
+        )
+    direction_value = int.from_bytes(payload[DIRECTION_OFFSET:DIRECTION_OFFSET + 2], "little")
+    try:
+        direction = Direction(direction_value)
+    except ValueError as caught_error:
+        raise InvalidFrameError(f"unknown direction {direction_value}") from caught_error
+    return Message(
+        direction=direction,
+        command_id=int.from_bytes(payload[COMMAND_ID_OFFSET:COMMAND_ID_OFFSET + 2], "little"),
+        transaction_id=payload[TRANSACTION_ID_OFFSET:BODY_OFFSET],
+        body=payload[BODY_OFFSET:],
+        declared_length=int.from_bytes(payload[LENGTH_OFFSET:LENGTH_OFFSET + 4], "little"),
+    )
+
+
+def encode_frame(message: Message) -> bytes:
+    """Returns the wire frame for one message."""
+    return pack_frame(encode_message(message))
+
+
+def decode_frame(frame: bytes) -> Message:
+    """Returns the message one wire frame carries."""
+    return decode_message(unpack_frame(frame))
+
+
+@dataclass(frozen=True)
+class CommandField:
+    """One named field of a command, as the APK's own enum describes it."""
+
+    offset: int
+    name: str
+    width: int
+
+    @property
+    def is_variable_length(self) -> bool:
+        """A width of zero marks a field that fills the rest of the payload."""
+        return self.width == 0
+
+
+@dataclass(frozen=True)
+class CommandSide:
+    """One direction of one command."""
+
+    apk_class: str
+    fields: tuple[CommandField, ...]
+    payload_bytes: int | None
+
+    def field_named(self, name: str) -> CommandField | None:
+        for command_field in self.fields:
+            if command_field.name == name:
+                return command_field
+        return None
+
+
+@dataclass(frozen=True)
+class CommandSpec:
+    """Both directions of one command."""
+
+    command_id: int
+    request: CommandSide | None
+    reply: CommandSide | None
+
+
+def _load_command_specs() -> dict[int, CommandSpec]:
+    path = Path(__file__).parent / "deq_commands.json"
+    raw = json.loads(path.read_text())
+    specs: dict[int, CommandSpec] = {}
+    for command_key, sides in raw.items():
+        command_id = int(command_key, 16)
+        specs[command_id] = CommandSpec(
+            command_id=command_id,
+            request=_load_side(sides.get("request")),
+            reply=_load_side(sides.get("reply")),
+        )
+    return specs
+
+
+def _load_side(side: dict | None) -> CommandSide | None:
+    if side is None:
+        return None
+    return CommandSide(
+        apk_class=side["apk_class"],
+        fields=tuple(
+            CommandField(offset=one["offset"], name=one["name"], width=one["width"])
+            for one in side["fields"]
+        ),
+        payload_bytes=side["payload_bytes"],
+    )
+
+
+COMMAND_SPECS: dict[int, CommandSpec] = _load_command_specs()
+
+
+def read_field(payload: bytes, command_field: CommandField) -> int:
+    """Returns one fixed-width field of a payload as an unsigned integer."""
+    if command_field.is_variable_length:
+        raise ValueError(f"{command_field.name} has no fixed width")
+    end = command_field.offset + command_field.width
+    if len(payload) < end:
+        raise InvalidFrameError(
+            f"payload of {len(payload)} bytes does not reach {command_field.name}"
+        )
+    return int.from_bytes(payload[command_field.offset:end], "little")
