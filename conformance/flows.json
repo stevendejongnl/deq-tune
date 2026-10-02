@@ -27,7 +27,7 @@
    "bytesHex": "f0004006000000010002000000020000000c000000000000030b00000000000000000000000000000000000000000000f7"
   },
   {
-   "name": "frame-driving-state-request",
+   "name": "frame-volume-request",
    "kind": "frame",
    "oracle": "device-capture",
    "input": {
@@ -39,7 +39,7 @@
    "bytesHex": "f00040060000000100010000000d0000000c000000000000030c00000000000000000000000000000f020f0f0f0f0f0ff7"
   },
   {
-   "name": "frame-driving-state-reply",
+   "name": "frame-volume-reply",
    "kind": "frame",
    "oracle": "device-capture",
    "input": {

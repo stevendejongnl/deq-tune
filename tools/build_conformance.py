@@ -22,6 +22,17 @@ from pathlib import Path
 
 CORPUS_PATH = Path(__file__).resolve().parent.parent / "conformance" / "flows.json"
 
+# Four frames from traffic between the app and a physical DEQ-S1000A2.
+#
+# The two volume frames are a matched pair: the same command id and the same
+# transaction id (0x3c), so a reply builder can be checked against them end
+# to end. The two status frames are not a pair. Their transaction ids are
+# 0x3a and 0x3b, because the unit never answered the first keepalive and the
+# app sent it again. Each frame is still a valid frame, so each is worth
+# checking on its own, but do not expect one to be the other's reply.
+#
+# Command 0x0d is VOLUME, per `deq_commands.json`. These two were named
+# "driving-state" at first, which was wrong; driving state is command 0x04.
 CAPTURED_FRAMES = {
     "frame-status-request":
         "f000400600000001000100000002000000080000000000000"
@@ -29,10 +40,10 @@ CAPTURED_FRAMES = {
     "frame-status-reply":
         "f0004006000000010002000000020000000c0000000000000"
         "30b00000000000000000000000000000000000000000000f7",
-    "frame-driving-state-request":
+    "frame-volume-request":
         "f00040060000000100010000000d0000000c000000000000030c"
         "00000000000000000000000000000f020f0f0f0f0f0ff7",
-    "frame-driving-state-reply":
+    "frame-volume-reply":
         "f00040060000000100020000000d00000100000000000000030c"
         "000000000000000000000000000000000000000000000f020f0f0f0f0f0ff7",
 }

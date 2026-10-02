@@ -3,11 +3,14 @@
 `conformance/flows.json` holds every flow the DEQ needs, with the exact
 bytes the Pioneer Sound & Tune app produces for it. Those bytes come from
 the app's own code on a running device, so the app is the oracle and this
-code is the thing under test. `frontend/src/deq/conformance.test.ts` runs the
-same corpus against the TypeScript implementation, which is the one that
-actually talks to the unit over WebUSB.
+code is the thing under test.
 
-Both runners check both directions wherever a flow can be read back, so a
+The backend owns the link to the unit, on a laptop now and on an ESP later,
+so this is the only runner. `app/testing/test_fake_deq.py` uses the same
+corpus from the other side: it checks that the fake unit the tests talk to
+answers a captured request with the real unit's own captured reply.
+
+This runner checks both directions wherever a flow can be read back, so a
 drift in either direction fails.
 """
 
