@@ -105,3 +105,34 @@ export function eqStyleName(locale: Locale, id: EqStyleId): string {
 export function liveSimulationName(locale: Locale, id: LiveSimulationId): string {
   return LIVE_SIMULATION_NAMES[locale][id];
 }
+
+/**
+ * The APK name each of these ids means on the wire.
+ *
+ * The ids above were chosen before the protocol was decoded. The unit's own
+ * value sets live in the Pioneer app, and the backend reads them from there
+ * (`backend/app/deq_enums.json`), so this map is what joins the two. The
+ * device endpoints take the APK name.
+ *
+ * `custom_a` and `custom_b` have no entry on purpose. They are not EQ
+ * styles: the app's `p$c` enum makes Custom A and B a separate bank axis,
+ * and `CUSTOM` is the single style that uses the selected bank.
+ */
+export const EQ_STYLE_DEVICE_NAMES: Partial<Record<EqStyleId, string>> = {
+  super_bass: "SUPER_BASS",
+  powerful: "POWERFUL",
+  natural: "NATURAL",
+  vocal: "VOCAL",
+  vivid: "VIVID",
+  dynamic: "DYNAMIC",
+  custom_a: "CUSTOM",
+  custom_b: "CUSTOM",
+};
+
+export const LIVE_SIMULATION_DEVICE_NAMES: Record<LiveSimulationId, string> = {
+  off: "OFF",
+  concert_hall: "CONCERT_HALL",
+  open_air: "OPEN_AIR",
+  club: "CLUB",
+  cafe: "CAFE",
+};

@@ -1,14 +1,58 @@
-import type { ProfileApi } from "../../api/client.ts";
-import type { ProfileCreateDto, ProfileDto, ProfileUpdateDto } from "../../dto/profile.dto.ts";
+import type { DeviceApi, ProfileApi } from "../../api/client.ts";
+import type {
+  DeviceDto,
+  DeviceOptionsDto,
+  ProfileCreateDto,
+  ProfileDto,
+  ProfileUpdateDto,
+} from "../../dto/profile.dto.ts";
+import { FakeDeviceApi } from "./fake-device-api.ts";
 
-/** An in-memory ProfileApi fixture: real behavior, no network, no mocking. */
-export class FakeProfileApi implements ProfileApi {
+/**
+ * An in-memory fixture for both halves of the API: real behaviour, no
+ * network, no mocking.
+ *
+ * `app-root` takes one object that serves profiles and the unit, so this
+ * holds a `FakeDeviceApi` and forwards the device calls to it. Read
+ * `device` in a test to see what the app sent to the unit.
+ */
+export class FakeProfileApi implements ProfileApi, DeviceApi {
+  readonly device = new FakeDeviceApi();
+
   private profiles: ProfileDto[];
   private nextId: number;
 
   constructor(initialProfiles: ProfileDto[]) {
     this.profiles = initialProfiles;
     this.nextId = Math.max(0, ...initialProfiles.map((profile) => profile.id)) + 1;
+  }
+
+  readDevice(): Promise<DeviceDto> {
+    return this.device.readDevice();
+  }
+
+  connectDevice(): Promise<DeviceDto> {
+    return this.device.connectDevice();
+  }
+
+  disconnectDevice(): Promise<DeviceDto> {
+    return this.device.disconnectDevice();
+  }
+
+  readDeviceOptions(): Promise<DeviceOptionsDto> {
+    return this.device.readDeviceOptions();
+  }
+
+  writeTuning(profileId: number): Promise<DeviceDto> {
+    return this.device.writeTuning(profileId);
+  }
+
+  selectEqStyle(name: string): Promise<DeviceDto> {
+    return this.device.selectEqStyle(name);
+  }
+
+  selectLiveSimulation(name: string): Promise<DeviceDto> {
+    return this.device.selectLiveSimulation(name);
   }
 
   private requireProfile(id: number): ProfileDto {

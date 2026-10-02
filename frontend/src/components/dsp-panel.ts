@@ -26,7 +26,7 @@ function renderLockIcon(): TemplateResult {
  * (Super Bass, Powerful, Concert hall, ...). These run on the device's
  * own firmware. This panel only tracks which one is selected locally.
  * A selection has no effect until the USB command protocol is known
- * (see connect-device.ts).
+ * (see device-status.ts).
  *
  * It emits `eq-style-change` ({ id }), `live-simulation-change`
  * ({ id }) and `applause-change` ({ enabled }).
