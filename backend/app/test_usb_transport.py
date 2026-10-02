@@ -57,7 +57,7 @@ class FakeEndpoint:
 
     def read(self, packet_bytes: int, timeout_milliseconds: int) -> bytes:
         if self.stream == bytearray():
-            raise FakeTimeout("nothing to read")
+            raise USBTimeoutError("nothing to read")
         packet = bytes(self.stream[:packet_bytes])
         del self.stream[:packet_bytes]
         return packet
@@ -67,8 +67,14 @@ class FakeEndpoint:
         return len(data)
 
 
-class FakeTimeout(Exception):
-    """Stands in for `usb.core.USBTimeoutError`."""
+class USBTimeoutError(Exception):
+    """Stands in for `usb.core.USBTimeoutError`.
+
+    The transport tells a timeout apart by the exception's name, so this
+    fixture carries the same name rather than the real class. That is what
+    lets the framing be tested without `pyusb` installed, which is how CI
+    runs.
+    """
 
 
 def build_transport(stream: bytes = b"") -> UsbTransport:
@@ -132,11 +138,24 @@ def test_a_frame_that_fills_whole_packets_keeps_its_pad_byte():
 
 
 def test_a_silent_unit_times_out():
+    """A timeout means the unit had nothing to send, which the session
+    reports differently from a broken link."""
     transport = build_transport(b"")
-    # The fake endpoint raises its own timeout, which the transport does not
-    # know; it reports the failure rather than hanging.
-    with pytest.raises((TransportTimeout, TransportError)):
+    with pytest.raises(TransportTimeout, match="sent nothing"):
         transport.receive_frame(0.01)
+
+
+def test_a_read_that_fails_for_another_reason_is_not_a_timeout():
+    transport = build_transport()
+
+    class BrokenEndpoint:
+        def read(self, packet_bytes: int, timeout_milliseconds: int) -> bytes:
+            raise OSError("the device went away")
+
+    transport.in_endpoint = BrokenEndpoint()
+    with pytest.raises(TransportError, match="reading from the unit failed") as caught:
+        transport.receive_frame(1.0)
+    assert not isinstance(caught.value, TransportTimeout)
 
 
 def test_a_stream_with_no_frame_end_is_reported_not_buffered_forever():

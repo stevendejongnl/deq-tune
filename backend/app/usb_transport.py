@@ -128,14 +128,20 @@ class UsbTransport:
         return frame
 
     def read_one_packet(self, timeout_milliseconds: int) -> bytes:
-        usb_core = find_usb_core()
+        """Reads one bulk packet, or says why it could not.
+
+        A timeout is told apart by the name of the exception rather than by
+        importing `pyusb` to get the class. That keeps the framing above
+        this method working without the optional dependency, which is how
+        it is tested.
+        """
         try:
             return bytes(self.in_endpoint.read(BULK_PACKET_BYTES, timeout_milliseconds))
-        except usb_core.USBTimeoutError as caught_error:
-            raise TransportTimeout(
-                f"the unit sent nothing within {timeout_milliseconds} ms"
-            ) from caught_error
         except Exception as caught_error:
+            if is_timeout(caught_error):
+                raise TransportTimeout(
+                    f"the unit sent nothing within {timeout_milliseconds} ms"
+                ) from caught_error
             raise TransportError(f"reading from the unit failed: {caught_error}") from (
                 caught_error
             )
@@ -154,6 +160,16 @@ class UsbTransport:
             # The link is being given up anyway, so a failure here is not
             # worth raising over.
             pass
+
+
+def is_timeout(caught_error: BaseException) -> bool:
+    """Says whether one exception is a USB read timeout.
+
+    `pyusb` raises `usb.core.USBTimeoutError`, and this reads its name so
+    the check needs no import. A timeout means the unit simply had nothing
+    to send, which is not the same as a broken link.
+    """
+    return type(caught_error).__name__ == "USBTimeoutError"
 
 
 def find_deq():
