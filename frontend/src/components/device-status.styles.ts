@@ -1,13 +1,8 @@
 import { css } from "lit";
 
-export const connectDeviceStyles = css`
+export const deviceStatusStyles = css`
   :host {
     display: block;
-  }
-  .hint {
-    margin: 0;
-    font-size: 13px;
-    color: var(--color-muted-foreground);
   }
   .pill {
     display: flex;
@@ -18,6 +13,10 @@ export const connectDeviceStyles = css`
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
     background: var(--color-card);
+
+    &.connected {
+      padding-right: 14px;
+    }
   }
   .dot {
     width: 8px;
@@ -25,17 +24,20 @@ export const connectDeviceStyles = css`
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--color-outline);
-  }
-  .pill.connected .dot {
-    background: var(--color-accent);
+
+    .pill.connected & {
+      background: var(--color-accent);
+    }
   }
   .device-label {
     font-size: 13px;
     color: var(--color-text-2);
     white-space: nowrap;
   }
-  .pill.connected {
-    padding-right: 14px;
+  .firmware {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted-foreground);
   }
   .connect {
     height: 30px;

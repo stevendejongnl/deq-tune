@@ -1,20 +1,25 @@
 import { html, LitElement, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { DeqApiClient, type ProfileApi } from "../api/client.ts";
+import { DeqApiClient, type DeviceApi, type ProfileApi } from "../api/client.ts";
 import type { ProfileDto, Speaker, TuningDataDto } from "../dto/profile.dto.ts";
 import { frontGains, withFrontGain, withSpeakerField } from "../dto/tuning-data-edits.ts";
 import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
 import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
-import type { EqStyleId, LiveSimulationId } from "../i18n/dsp-presets.ts";
+import {
+  EQ_STYLE_DEVICE_NAMES,
+  LIVE_SIMULATION_DEVICE_NAMES,
+  type EqStyleId,
+  type LiveSimulationId,
+} from "../i18n/dsp-presets.ts";
 import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
 import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
-import "./connect-device.ts";
-import type { ConnectProblem } from "./connect-device.ts";
+import "./device-status.ts";
+import type { ConnectProblem } from "./device-status.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import { appRootStyles } from "./app-root.styles.ts";
@@ -90,7 +95,7 @@ function editBadgeText(strings: UiStrings, editCount: number): string {
 export class AppRoot extends LitElement {
   static override styles = appRootStyles;
 
-  @property({ attribute: false }) api: ProfileApi = new DeqApiClient();
+  @property({ attribute: false }) api: ProfileApi & DeviceApi = new DeqApiClient();
   @property({ attribute: false }) localeStorage: LocaleStorage = browserLocaleStorage;
   @property({ attribute: false }) browserLanguages: readonly string[] = resolveGlobalLanguages();
   @property({ attribute: false }) layoutQuery: LayoutQuery = browserLayoutQuery;
@@ -204,12 +209,13 @@ export class AppRoot extends LitElement {
             ${this.isPhoneLayout
               ? nothing
               : html`${this.renderLocaleSwitcher()}<span class="header-divider"></span>`}
-            <connect-device
+            <device-status
+              .api=${this.api}
               .locale=${this.locale}
               .layout=${this.layout}
               @connect-problem=${(problemEvent: CustomEvent<{ problem: ConnectProblem | null }>) =>
                 (this.connectProblem = problemEvent.detail.problem)}
-            ></connect-device>
+            ></device-status>
             ${this.isPhoneLayout ? nothing : this.renderConnectProblem(strings, "toast")}
           </div>
         </header>
@@ -518,6 +524,34 @@ export class AppRoot extends LitElement {
     `;
   }
 
+  /** The unit's DSP runs these, so the choice goes to the device as well as
+   * to local state. A unit that is not connected answers 503, which is not
+   * worth a message: the panel still shows the choice. */
+  private async changeEqStyle(id: EqStyleId): Promise<void> {
+    this.eqStyle = id;
+    const deviceName = EQ_STYLE_DEVICE_NAMES[id];
+    if (deviceName === undefined) {
+      return;
+    }
+    await this.sendToUnit(() => this.api.selectEqStyle(deviceName));
+  }
+
+  private async changeLiveSimulation(id: LiveSimulationId): Promise<void> {
+    this.liveSimulation = id;
+    await this.sendToUnit(() =>
+      this.api.selectLiveSimulation(LIVE_SIMULATION_DEVICE_NAMES[id]),
+    );
+  }
+
+  private async sendToUnit(send: () => Promise<unknown>): Promise<void> {
+    try {
+      await send();
+    } catch {
+      // The unit is not reachable. The panel keeps the local choice, and
+      // the header already says the unit is not connected.
+    }
+  }
+
   private renderStylePanel(): TemplateResult {
     return html`
       <dsp-panel
@@ -527,10 +561,10 @@ export class AppRoot extends LitElement {
         .liveSimulation=${this.liveSimulation}
         .applause=${this.applause}
         @eq-style-change=${(eqStyleChangeEvent: CustomEvent<{ id: EqStyleId }>) =>
-          (this.eqStyle = eqStyleChangeEvent.detail.id)}
+          this.changeEqStyle(eqStyleChangeEvent.detail.id)}
         @live-simulation-change=${(
           liveSimulationChangeEvent: CustomEvent<{ id: LiveSimulationId }>,
-        ) => (this.liveSimulation = liveSimulationChangeEvent.detail.id)}
+        ) => this.changeLiveSimulation(liveSimulationChangeEvent.detail.id)}
         @applause-change=${(applauseChangeEvent: CustomEvent<{ enabled: boolean }>) =>
           (this.applause = applauseChangeEvent.detail.enabled)}
       ></dsp-panel>

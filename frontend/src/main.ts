@@ -1,7 +1,3 @@
-import { isBrowserSupported, unsupportedBrowserMessageHtml } from "./browser-support.ts";
-
-if (isBrowserSupported("usb" in navigator)) {
-  import("./components/app-root.ts");
-} else {
-  document.body.innerHTML = unsupportedBrowserMessageHtml();
-}
+// The backend owns the USB link to the DEQ unit, so the app has no browser
+// requirement of its own and mounts everywhere.
+import "./components/app-root.ts";

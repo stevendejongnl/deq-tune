@@ -204,6 +204,46 @@ describe("app-root", () => {
     expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
   });
 
+  it("sends an EQ style choice to the unit, under the name the unit knows", async () => {
+    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+
+    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
+      new CustomEvent("eq-style-change", { detail: { id: "super_bass" } }),
+    );
+    await element.updateComplete;
+
+    expect(api.device.selectedEqStyles).toEqual(["SUPER_BASS"]);
+  });
+
+  it("sends a live simulation choice to the unit", async () => {
+    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+
+    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
+      new CustomEvent("live-simulation-change", { detail: { id: "concert_hall" } }),
+    );
+    await element.updateComplete;
+
+    expect(api.device.selectedLiveSimulations).toEqual(["CONCERT_HALL"]);
+  });
+
+  it("keeps the choice when the unit is not reachable", async () => {
+    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    api.device.selectEqStyle = () => Promise.reject(new Error("the unit is not connected"));
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+
+    element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
+      new CustomEvent("eq-style-change", { detail: { id: "powerful" } }),
+    );
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
+  });
+
   it("renders only the active tab in the phone layout", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
     await click(queryFirstChip(element), element);
@@ -342,7 +382,7 @@ describe("app-root", () => {
   it("shows a connect failure as a toast outside the phone layout", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
 
-    element.shadowRoot!.querySelector("connect-device")!.dispatchEvent(
+    element.shadowRoot!.querySelector("device-status")!.dispatchEvent(
       new CustomEvent("connect-problem", {
         detail: { problem: { title: "No DEQ picked", body: "Plug the DEQ in." } },
       }),
@@ -357,7 +397,7 @@ describe("app-root", () => {
   it("shows a connect failure as a banner in the content on the phone", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]), "phone");
 
-    element.shadowRoot!.querySelector("connect-device")!.dispatchEvent(
+    element.shadowRoot!.querySelector("device-status")!.dispatchEvent(
       new CustomEvent("connect-problem", {
         detail: { problem: { title: "No DEQ picked", body: "Plug the DEQ in." } },
       }),
@@ -371,7 +411,7 @@ describe("app-root", () => {
 
   it("dismisses the connect failure", async () => {
     const element = await mount(new FakeProfileApi([sampleProfile({ id: 1 })]));
-    element.shadowRoot!.querySelector("connect-device")!.dispatchEvent(
+    element.shadowRoot!.querySelector("device-status")!.dispatchEvent(
       new CustomEvent("connect-problem", {
         detail: { problem: { title: "No DEQ picked", body: "Plug the DEQ in." } },
       }),
