@@ -44,5 +44,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: false,
     fsModuleCache: true,
+    // `e2e/` belongs to Playwright. Without this, vitest loads those specs
+    // too and Playwright's own `test.beforeEach` throws.
+    include: ["src/**/*.test.ts"],
   },
 });

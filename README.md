@@ -2,19 +2,18 @@
 
 A web app for the equalizer and sound-profile part of Pioneer's Sound & Tune app.
 
-This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level and time alignment, the high-pass filter, and fader/balance. It ships with the factory Mazda presets, extracted from the official Android app, and the device's built-in EQ-style and Live-Simulation DSP presets (Powerful, Super Bass, Concert hall, ...). The UI works in English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser. The profile list is a permanent sidebar on a desktop screen, a drawer on a tablet, and a bottom sheet on a phone. You can edit a factory preset directly, then revert it or save it as your own profile. It's also a PWA — installable, with an offline app shell. USB connect to the physical Pioneer DEQ unit is stubbed in the UI; the app does not yet speak the device's USB protocol (see [Status](#status)).
-
-**Browser requirement:** this app needs [WebUSB](https://developer.chrome.com/docs/capabilities/usb) — Chrome or Edge, on desktop or Android. It does not work in Safari, Firefox, or any browser on iOS (WebUSB isn't available there at all), and shows a blocking message rather than a broken page in those browsers.
+This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level and time alignment, the high-pass filter, and fader/balance. It ships with the factory Mazda presets, extracted from the official Android app, and the device's built-in EQ-style and Live-Simulation DSP presets (Powerful, Super Bass, Concert hall, ...). The UI works in English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser. The profile list is a permanent sidebar on a desktop screen, a drawer on a tablet, and a bottom sheet on a phone. You can edit a factory preset directly, then revert it or save it as your own profile. It's also a PWA — installable, with an offline app shell. The backend speaks the DEQ's USB protocol and drives the unit; the USB transport itself is the last piece missing (see [Status](#status)).
 
 ## Project layout
 
 ```
 backend/    FastAPI + SQLite. Serves and stores profiles.
-frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and USB connect UI. Also a PWA.
+frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and device header. Also a PWA.
+            `e2e/` holds the Playwright tests, which drive a real browser.
 data/presets/  The bundled factory preset JSON files, extracted from the Pioneer APK.
 openapi.json   The backend's exported API schema. The frontend generates its DTOs from this file.
 conformance/   Shared test corpus: inputs plus the exact bytes the Pioneer app produces for them.
-tools/         Builds the conformance corpus from a capture run.
+tools/         Builds the conformance corpus and the device's value sets from the Pioneer APK.
 Makefile       Shortcuts for install/dev/test/generate-dto/clean. Run `make help`.
 ```
 
@@ -38,6 +37,8 @@ A `Makefile` at the repo root wraps the commands below. Run `make` or `make help
 make install        # install backend and frontend dependencies
 make dev             # run backend (8420) and frontend (5173) dev servers together
 make test            # run backend and frontend tests
+make e2e             # run the end-to-end tests in a real browser
+make e2e-install     # install the browser those tests need, once
 make typecheck       # type-check the frontend
 make generate-dto    # regenerate frontend DTOs from the backend schema
 make clean           # remove .venv, node_modules, and the local database
@@ -74,6 +75,18 @@ cd frontend && npm test
 
 Every test file lives next to the code it tests (`app/foo.py` → `app/test_foo.py`, `src/foo.ts` → `src/foo.test.ts`).
 
+The end-to-end tests run in a real browser, which is the only place real
+rendering and real CSS can be checked. They start the backend and the
+frontend themselves, with `DEQ_TRANSPORT=fake`, so they need no hardware:
+
+```bash
+make e2e-install    # once, to fetch Chromium
+make e2e
+```
+
+Those specs live in `frontend/e2e/` and end in `.spec.ts`, so `vitest` and
+Playwright never pick up each other's files.
+
 ## Regenerating the frontend DTOs
 
 The backend's Pydantic models are the source of truth for the data shape. After changing `backend/app/eq_data.py` or `backend/app/schemas.py`, run `make generate-dto`, or by hand:
@@ -89,7 +102,11 @@ Commit the updated `openapi.json` and `frontend/src/dto/generated/openapi.d.ts` 
 
 - **Profile editing** — works. Factory Mazda presets plus your own custom profiles, backed by the FastAPI backend.
 - **Localization** — works. English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser on first visit and remembered after (`frontend/src/i18n/`). Preset and DSP-preset names are copied from the APK's own string resources per locale (`backend/app/preset_translations.py`, `frontend/src/i18n/preset-names.ts`, `frontend/src/i18n/dsp-presets.ts`) — the bundled preset JSON itself only carries Japanese display text. Note: Pioneer never localized the car/speaker-type names for German/French/Spanish/Dutch, so those show the same English text there; the EQ-style and Live-Simulation DSP preset names are genuinely translated in all six locales.
-- **EQ Style / Live Simulation** — UI only, not yet wired to a device. These are the DEQ hardware's own built-in DSP presets (Powerful, Super Bass, Concert hall, ...), selected on the device itself over USB, not computed locally. Selecting one in the UI only updates local state for now — see `frontend/src/components/dsp-panel.ts`.
-- **Browser gate** — works. `frontend/src/browser-support.ts` checks for WebUSB (`"usb" in navigator`) before mounting the app; Safari/Firefox/iOS visitors see a blocking message explaining why, instead of a half-working page.
+- **EQ Style / Live Simulation** — works, against a connected unit. These are the DEQ hardware's own built-in DSP presets (Powerful, Super Bass, Concert hall, ...), which the unit runs itself. Neither has a command of its own: both live in the settings blob, as `preset_index_a` and `sound_field`, so selecting one reads the blob, changes that byte and writes it back. The lists come from the Pioneer app's own enums — 21 EQ styles and 8 live-simulation modes — read out of the APK by `tools/build_enums.py` into `backend/app/deq_enums.json`. An earlier version of this app had 8 and 5, chosen before the protocol was decoded.
+- **Browsers** — all of them. The backend owns the USB link, so the frontend needs no WebUSB and the app has no browser requirement. It once blocked Safari, Firefox and iOS for a capability it no longer uses.
 - **DSP coefficients** — works. `backend/app/deq_dsp.py` computes the numbers the DEQ expects: the 13-band equalizer, the crossover filters, and the time alignment. The DEQ designs no filters of its own; the Android app sends finished coefficients, so this app has to produce the same ones. The maths is checked against coefficients captured from the Android app's own designer library (`backend/app/deq_dsp_reference.json`, 253 cases) and matches to within one Q27 step. The equalizer needs one step beyond filter design: the library spreads every band's gain over the other bands before it designs a biquad, so two raised bands are not two independent peakers. `fit_equalizer_gains` reproduces that step from the library's own constant tables. `conformance/flows.json` then checks whole payloads, byte for byte, against what the Android app produces (`backend/app/test_conformance.py`).
-- **USB connect** — pairing only. The Connect button in the header requests a Pioneer-vendor USB device over WebUSB (Chrome/Edge) and reports it once paired, but the app does not yet read or write EQ settings, or select an EQ Style / Live Simulation preset, over USB. The command protocol itself is now decoded. `backend/app/deq_protocol.py` reads and writes the wire format, round-tripping captured real-device traffic byte for byte, and `backend/app/deq_commands.json` lists every command's fields in both directions, generated from the Android app's own field enums. `backend/app/deq_blob.py` reads and writes the device's settings blob — speaker mode, both equalizer banks, crossovers, per-speaker values; a blob it builds round-trips through the Android app's own codec byte for byte. What is missing is the USB transport and the startup handshake.
+- **Driving the unit** — works, apart from the wire. `backend/app/deq_session.py` runs the unit's own startup sequence, matches every reply to its request, and sends a profile's DSP settings as the three blocks of command `0x05` the unit wants: the equalizer under CONFIG_ID 13, the time alignment under 10, and the crossover under 11 or 12. Each of those CONFIG_IDs comes from the APK's own dispatch table, and each payload size matches the field width that table declares. `backend/app/deq_protocol.py` reads and writes the wire format, and `backend/app/deq_commands.json` lists every command's fields in both directions, generated from the Android app's field enums. `backend/app/deq_blob.py` reads and writes the settings blob — speaker mode, both equalizer banks, crossovers, per-speaker values.
+
+  The frontend asks for all of this over `/api/device`, so the browser never touches USB.
+
+  **What is missing is the USB transport itself.** `backend/app/deq_transport.py` holds the seam, and `DEQ_TRANSPORT=fake` — the default — talks to `backend/app/testing/fake_deq.py` instead of hardware. That fake answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic, and `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it is a stand-in for the unit rather than for our own guesses. No real unit has been driven yet: the DEQ has never enumerated on the development laptop, so a driver written now could not be checked.

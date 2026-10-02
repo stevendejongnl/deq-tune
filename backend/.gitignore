@@ -11,3 +11,7 @@ wheels/
 
 # Runtime DB
 *.db
+
+# End-to-end test database
+e2e.db
+manual.db
