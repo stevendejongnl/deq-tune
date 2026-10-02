@@ -201,8 +201,9 @@ def claim_bulk_interface(device):
     except Exception as caught_error:
         raise UsbUnavailable(
             f"could not configure the unit: {caught_error}. "
-            "On Linux this usually means another driver holds it, or the "
-            "user cannot open the device."
+            "On Linux this usually means the user cannot open the device; "
+            "try a udev rule for "
+            f"{PIONEER_VENDOR_ID:04x}:{DEQ_PRODUCT_ID:04x}."
         ) from caught_error
 
     configuration = device.get_active_configuration()
@@ -211,12 +212,35 @@ def claim_bulk_interface(device):
         out_endpoint = find_bulk_endpoint(interface, usb.util.ENDPOINT_OUT)
         if in_endpoint is None or out_endpoint is None:
             continue
+        detach_kernel_driver(device, interface.bInterfaceNumber)
         usb.util.claim_interface(device, interface.bInterfaceNumber)
         return interface.bInterfaceNumber, in_endpoint, out_endpoint
 
     raise UsbUnavailable(
         "the unit offers no interface with a bulk endpoint in each direction"
     )
+
+
+def detach_kernel_driver(device, interface_number: int) -> None:
+    """Takes an interface off the kernel, if the kernel holds it.
+
+    A unit that presents itself as audio or as a serial port gets a kernel
+    driver bound to it, and `claim_interface` then fails. The Pioneer app
+    meets the same problem: its own libusb exports
+    `libusb_detach_kernel_driver` and `libusb_kernel_driver_active`.
+
+    A kernel that cannot answer the question is not an error here. The
+    claim that follows is what decides, and it reports the real reason.
+    """
+    try:
+        if device.is_kernel_driver_active(interface_number):
+            device.detach_kernel_driver(interface_number)
+    except NotImplementedError:
+        # No kernel driver concept on this platform, so nothing to detach.
+        pass
+    except Exception:
+        # Let the claim report what is actually wrong.
+        pass
 
 
 def find_bulk_endpoint(interface, direction):

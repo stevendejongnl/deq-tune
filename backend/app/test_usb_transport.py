@@ -22,6 +22,7 @@ from app.usb_transport import (
     BULK_PACKET_BYTES,
     MAX_FRAME_BYTES,
     UsbTransport,
+    detach_kernel_driver,
 )
 
 CORPUS_PATH = Path(__file__).resolve().parents[2] / "conformance" / "flows.json"
@@ -190,3 +191,51 @@ def test_closing_twice_is_safe():
     transport.close()
     transport.close()
     assert transport.closed
+
+
+class FakeDevice:
+    """A device that reports whether the kernel holds its interface.
+
+    It answers `is_kernel_driver_active` and records a detach; you set
+    `kernel_holds_it`; it depends on nothing.
+    """
+
+    def __init__(self, kernel_holds_it: bool, raises: Exception | None = None) -> None:
+        self.kernel_holds_it = kernel_holds_it
+        self.raises = raises
+        self.detached: list[int] = []
+
+    def is_kernel_driver_active(self, interface_number: int) -> bool:
+        if self.raises is not None:
+            raise self.raises
+        return self.kernel_holds_it
+
+    def detach_kernel_driver(self, interface_number: int) -> None:
+        self.detached.append(interface_number)
+
+
+def test_a_kernel_held_interface_is_detached_before_the_claim():
+    """A unit that looks like an audio device gets a kernel driver bound,
+    and the claim then fails. The Pioneer app's own libusb exports
+    `libusb_detach_kernel_driver` for the same reason."""
+    device = FakeDevice(kernel_holds_it=True)
+
+    detach_kernel_driver(device, 0)
+
+    assert device.detached == [0]
+
+
+def test_an_interface_the_kernel_does_not_hold_is_left_alone():
+    device = FakeDevice(kernel_holds_it=False)
+
+    detach_kernel_driver(device, 0)
+
+    assert device.detached == []
+
+
+def test_a_platform_without_kernel_drivers_is_not_an_error():
+    device = FakeDevice(kernel_holds_it=False, raises=NotImplementedError())
+
+    detach_kernel_driver(device, 0)
+
+    assert device.detached == []
