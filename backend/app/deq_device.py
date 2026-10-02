@@ -7,9 +7,12 @@ frontend reads device state over HTTP like any other data.
 
 Which transport that link uses is configuration. `DEQ_TRANSPORT=fake` is
 the default, which talks to `testing/fake_deq.py` so the whole app runs end
-to end with no hardware. No other transport exists yet: the real USB
-driver is the next piece of work, and the DEQ has never enumerated on the
-development laptop, so writing one now could not be checked.
+to end with no hardware. `DEQ_TRANSPORT=usb` talks to a real unit through
+`usb_transport.py`, which needs the `usb` extra (`uv sync --extra usb`).
+
+No real unit has answered that USB transport yet, because the DEQ has never
+enumerated on the development laptop. `scripts/check_real_deq.py` is the
+script to run once one does.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from app.eq_data import TuningData
 
 TRANSPORT_ENVIRONMENT_VARIABLE = "DEQ_TRANSPORT"
 FAKE_TRANSPORT_NAME = "fake"
+USB_TRANSPORT_NAME = "usb"
 
 
 class DeviceUnavailable(Exception):
@@ -44,9 +48,9 @@ class DeviceState:
 def build_transport(name: str | None = None) -> Transport:
     """Returns the transport named by the environment.
 
-    Only the fake exists today. An unknown name is an error rather than a
-    silent fall back to the fake: a deployment that asks for real hardware
-    and quietly gets a simulation is worse than one that refuses to start.
+    An unknown name is an error rather than a silent fall back to the fake:
+    a deployment that asks for real hardware and quietly gets a simulation
+    is worse than one that refuses to start.
     """
     if name is None:
         name = os.environ.get(TRANSPORT_ENVIRONMENT_VARIABLE, FAKE_TRANSPORT_NAME)
@@ -54,10 +58,14 @@ def build_transport(name: str | None = None) -> Transport:
         from app.testing.fake_deq import FakeDeq
 
         return FakeDeq()
+    if name == USB_TRANSPORT_NAME:
+        from app.usb_transport import UsbTransport
+
+        return UsbTransport()
     raise DeviceUnavailable(
         f"no transport named {name!r}. "
-        f"Set {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME} "
-        "until the USB transport lands."
+        f"Use {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME} "
+        f"or {TRANSPORT_ENVIRONMENT_VARIABLE}={USB_TRANSPORT_NAME}."
     )
 
 

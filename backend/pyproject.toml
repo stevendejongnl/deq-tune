@@ -9,6 +9,11 @@ dependencies = [
     "uvicorn[standard]>=0.53.0",
 ]
 
+[project.optional-dependencies]
+# Talking to a real DEQ over USB. The app runs without this: the default
+# transport is the fake unit, and CI never touches hardware.
+usb = ["pyusb>=1.3.1"]
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
