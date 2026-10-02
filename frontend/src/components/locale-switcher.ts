@@ -1,17 +1,8 @@
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import { SUPPORTED_LOCALES, type Locale } from "../i18n/locale.ts";
+import { LOCALE_NAMES, SUPPORTED_LOCALES, type Locale } from "../i18n/locale.ts";
 import { uiStrings } from "../i18n/ui-strings.ts";
 import { localeSwitcherStyles } from "./locale-switcher.styles.ts";
-
-const LOCALE_NAMES: Record<Locale, string> = {
-  en: "English",
-  ja: "日本語",
-  de: "Deutsch",
-  fr: "Français",
-  es: "Español",
-  nl: "Nederlands",
-};
 
 /** A `<select>` of the supported locales. Emits `locale-change` with
  * `{ locale }` on selection. */

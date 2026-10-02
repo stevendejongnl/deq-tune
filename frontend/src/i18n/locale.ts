@@ -1,5 +1,22 @@
+/**
+ * The locales the app offers.
+ *
+ * A new locale needs three edits: this list, its own name in LOCALE_NAMES
+ * below, and its catalog in ui-strings.ts. The compiler asks for each one.
+ */
 export const SUPPORTED_LOCALES = ["en", "ja", "de", "fr", "es", "nl"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
+
+/** Each locale's name in that locale. The language picker shows these, so
+ * they stay the same text for every reader. */
+export const LOCALE_NAMES: Record<Locale, string> = {
+  en: "English",
+  ja: "日本語",
+  de: "Deutsch",
+  fr: "Français",
+  es: "Español",
+  nl: "Nederlands",
+};
 
 export const DEFAULT_LOCALE: Locale = "en";
 
