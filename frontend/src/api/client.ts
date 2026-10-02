@@ -1,5 +1,13 @@
 import typia from "typia";
-import type { ProfileCreateDto, ProfileDto, ProfileUpdateDto } from "../dto/profile.dto.ts";
+import type {
+  DeviceDto,
+  DeviceOptionsDto,
+  EqStyleWriteDto,
+  LiveSimulationWriteDto,
+  ProfileCreateDto,
+  ProfileDto,
+  ProfileUpdateDto,
+} from "../dto/profile.dto.ts";
 
 export class ApiError extends Error {
   status: number;
@@ -52,7 +60,19 @@ export interface ProfileApi {
   duplicateProfile(id: number): Promise<ProfileDto>;
 }
 
-export class DeqApiClient implements ProfileApi {
+/** The unit, as the backend presents it. The backend owns the USB link,
+ * so this is plain HTTP; tests inject a hand-written fake. */
+export interface DeviceApi {
+  readDevice(): Promise<DeviceDto>;
+  connectDevice(): Promise<DeviceDto>;
+  disconnectDevice(): Promise<DeviceDto>;
+  readDeviceOptions(): Promise<DeviceOptionsDto>;
+  writeTuning(profileId: number): Promise<DeviceDto>;
+  selectEqStyle(name: string): Promise<DeviceDto>;
+  selectLiveSimulation(name: string): Promise<DeviceDto>;
+}
+
+export class DeqApiClient implements ProfileApi, DeviceApi {
   private baseUrl: string;
   private fetchImpl: FetchLike;
 
@@ -91,5 +111,37 @@ export class DeqApiClient implements ProfileApi {
 
   async duplicateProfile(id: number): Promise<ProfileDto> {
     return typia.assert<ProfileDto>(await this.call("POST", `/profiles/${id}/duplicate`));
+  }
+
+  async readDevice(): Promise<DeviceDto> {
+    return typia.assert<DeviceDto>(await this.call("GET", "/device"));
+  }
+
+  async connectDevice(): Promise<DeviceDto> {
+    return typia.assert<DeviceDto>(await this.call("POST", "/device/connect"));
+  }
+
+  async disconnectDevice(): Promise<DeviceDto> {
+    return typia.assert<DeviceDto>(await this.call("POST", "/device/disconnect"));
+  }
+
+  async readDeviceOptions(): Promise<DeviceOptionsDto> {
+    return typia.assert<DeviceOptionsDto>(await this.call("GET", "/device/options"));
+  }
+
+  async writeTuning(profileId: number): Promise<DeviceDto> {
+    return typia.assert<DeviceDto>(await this.call("POST", `/device/tuning/${profileId}`));
+  }
+
+  async selectEqStyle(name: string): Promise<DeviceDto> {
+    const validBody = typia.assert<EqStyleWriteDto>({ name });
+    return typia.assert<DeviceDto>(await this.call("POST", "/device/eq-style", validBody));
+  }
+
+  async selectLiveSimulation(name: string): Promise<DeviceDto> {
+    const validBody = typia.assert<LiveSimulationWriteDto>({ name });
+    return typia.assert<DeviceDto>(
+      await this.call("POST", "/device/live-simulation", validBody),
+    );
   }
 }

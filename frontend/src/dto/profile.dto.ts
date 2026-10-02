@@ -112,3 +112,31 @@ export interface ProfileUpdateDto {
   name?: string;
   data?: TuningDataDto;
 }
+
+// The unit itself. The backend owns the USB link, so the frontend reads
+// these over HTTP instead of talking to the device.
+
+export interface DeviceDto {
+  connected: boolean;
+  firmware_version: string | null;
+  serial: string | null;
+  problem: string | null;
+}
+
+export interface DeqEnumValueDto {
+  name: string;
+  wire_value: number;
+}
+
+export interface DeviceOptionsDto {
+  eq_styles: DeqEnumValueDto[];
+  live_simulations: DeqEnumValueDto[];
+}
+
+export interface EqStyleWriteDto {
+  name: string;
+}
+
+export interface LiveSimulationWriteDto {
+  name: string;
+}

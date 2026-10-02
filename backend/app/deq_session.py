@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.deq_blob import UserConfiguration, decode_blob, encode_blob
+from app.deq_enums import EQ_STYLE, LIVE_SIMULATION
 from app.deq_dsp import (
     CROSSOVER_SLOT_COUNT,
     TIME_ALIGNMENT_SLOT_COUNT,
@@ -300,6 +301,29 @@ class DeqSession:
             CROSSOVER_CONFIG_IDS[layout],
             build_crossover_payload(layout, settings),
         )
+
+    def select_eq_style(self, style_name: str) -> None:
+        """Picks one of the unit's built-in EQ styles.
+
+        No command carries a style as its own field. The style lives in the
+        settings blob, as `preset_index_a`, so selecting one means reading
+        the blob, changing that byte and writing it back.
+        """
+        wire_value = EQ_STYLE.by_name(style_name).wire_value
+        configuration = self.read_user_configuration()
+        configuration.preset_index_a = wire_value
+        self.write_user_configuration(configuration)
+
+    def select_live_simulation(self, mode_name: str) -> None:
+        """Picks one of the unit's built-in live-simulation modes.
+
+        Same story as the EQ style: it is `sound_field` in the blob, not a
+        command of its own.
+        """
+        wire_value = LIVE_SIMULATION.by_name(mode_name).wire_value
+        configuration = self.read_user_configuration()
+        configuration.sound_field = wire_value
+        self.write_user_configuration(configuration)
 
     def set_volume(self, volume_db: int) -> None:
         """Sets the master volume, in dB. The unit takes a signed value."""
