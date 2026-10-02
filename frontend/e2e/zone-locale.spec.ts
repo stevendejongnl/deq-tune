@@ -1,0 +1,29 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/** The zone names sit in the EQ editor, which needs a profile open. */
+async function openFirstProfile(page: Page): Promise<void> {
+  await page.goto("/");
+  await expect(page.locator("app-root")).toBeVisible();
+  await page.locator("profile-list li button").first().click();
+  await expect(page.locator("eq-editor")).toBeVisible();
+}
+
+async function openInLocale(page: Page, locale: string): Promise<void> {
+  await page.goto("/");
+  await page.evaluate((chosen) => localStorage.setItem("deq-tune-locale", chosen), locale);
+  await openFirstProfile(page);
+}
+
+test("the zone names and hints follow the chosen locale", async ({ page }) => {
+  await openInLocale(page, "en");
+  await expect(page.getByText("Sub-bass").first()).toBeVisible();
+  await expect(page.getByText("Low mids").first()).toBeVisible();
+  await expect(page.getByText("Cymbals, detail and sense of space.").first()).toBeAttached();
+
+  await openInLocale(page, "nl");
+  await expect(page.getByText("Sublaag").first()).toBeVisible();
+  await expect(page.getByText("Laag midden").first()).toBeVisible();
+
+  await openInLocale(page, "ja");
+  await expect(page.getByText("超低音").first()).toBeVisible();
+});
