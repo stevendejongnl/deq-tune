@@ -105,7 +105,6 @@ export class AppRoot extends LitElement {
   @state() private locale: Locale = "en";
   @state() private eqStyle: EqStyleId | null = null;
   @state() private liveSimulation: LiveSimulationId = "off";
-  @state() private applause = false;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
   @state() private phoneTab: PhoneTab = "eq";
@@ -559,14 +558,11 @@ export class AppRoot extends LitElement {
         .locale=${this.locale}
         .eqStyle=${this.eqStyle}
         .liveSimulation=${this.liveSimulation}
-        .applause=${this.applause}
         @eq-style-change=${(eqStyleChangeEvent: CustomEvent<{ id: EqStyleId }>) =>
           this.changeEqStyle(eqStyleChangeEvent.detail.id)}
         @live-simulation-change=${(
           liveSimulationChangeEvent: CustomEvent<{ id: LiveSimulationId }>,
         ) => this.changeLiveSimulation(liveSimulationChangeEvent.detail.id)}
-        @applause-change=${(applauseChangeEvent: CustomEvent<{ enabled: boolean }>) =>
-          (this.applause = applauseChangeEvent.detail.enabled)}
       ></dsp-panel>
     `;
   }

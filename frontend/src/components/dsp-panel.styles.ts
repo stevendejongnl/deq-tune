@@ -107,52 +107,6 @@ export const dspPanelStyles = css`
       color: var(--color-foreground);
     }
   }
-  .applause {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    align-self: flex-start;
-    border: 0;
-    background: transparent;
-    padding: 4px 0;
-    color: var(--color-text-2);
-    font: inherit;
-    font-size: 14px;
-    cursor: pointer;
-
-    .track {
-      box-sizing: border-box;
-      width: 40px;
-      height: 22px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 2px;
-      border-radius: var(--radius-pill);
-      background: var(--color-border-strong);
-    }
-
-    .knob {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: var(--color-muted-foreground);
-    }
-
-    &.on {
-      color: var(--color-foreground);
-
-      .track {
-        justify-content: flex-end;
-        background: var(--color-accent);
-      }
-
-      .knob {
-        background: var(--color-on-accent);
-      }
-    }
-  }
 
   @media (min-width: 700px) {
     .panel {
@@ -199,14 +153,6 @@ export const dspPanelStyles = css`
         background: var(--color-border-strong);
         color: var(--color-foreground);
       }
-    }
-    .applause .track {
-      width: 36px;
-      height: 20px;
-    }
-    .applause .knob {
-      width: 16px;
-      height: 16px;
     }
   }
 `;

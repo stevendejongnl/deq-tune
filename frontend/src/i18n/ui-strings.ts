@@ -29,7 +29,6 @@ export type UiStrings = {
   languageLabel: string;
   eqStyleTitle: string;
   liveSimulationTitle: string;
-  applauseLabel: string;
   dspDeviceHint: string;
   profilesButton: string;
   closeLabel: string;
