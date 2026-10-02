@@ -13,7 +13,7 @@
   "deviceConnected": "DEQ verbonden",
   "deviceNotConnected": "DEQ niet verbonden",
   "deviceUnreachable": "De backend kon het apparaat niet bereiken.",
-  "discardDraftConfirm": "Je hebt niet-opgeslagen wijzigingen. Weggooien?",
+  "discardDraftConfirm": "Je hebt niet-opgeslagen wijzigingen. Verwijderen?",
   "dismissLabel": "Sluiten",
   "dspDeviceHint": "Geldt zodra de DEQ is verbonden",
   "duplicate": "Dupliceren",
