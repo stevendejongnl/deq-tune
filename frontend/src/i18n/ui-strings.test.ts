@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { uiStrings } from "./ui-strings.ts";
+import { SUPPORTED_LOCALES } from "./locale.ts";
+import { loadCatalogFiles, placeholdersIn, TEMPLATE_LOCALE } from "./testing/catalog-files.ts";
+import { mergeOverEnglish, uiStrings, type UiStrings } from "./ui-strings.ts";
+
+function englishFixture(): UiStrings {
+  return { factoryPresets: "Factory presets", rename: "Rename" } as UiStrings;
+}
 
 describe("uiStrings", () => {
   it("returns the English strings for the en locale", () => {
@@ -9,10 +15,65 @@ describe("uiStrings", () => {
   it("returns the Japanese strings for the ja locale", () => {
     expect(uiStrings("ja").connectDevice).toBe("DEQデバイスに接続");
   });
+});
 
-  it("returns a distinct dictionary per locale", () => {
-    const locales = ["en", "ja", "de", "fr", "es", "nl"] as const;
-    const prompts = new Set(locales.map((locale) => uiStrings(locale).selectProfilePrompt));
-    expect(prompts.size).toBe(locales.length);
+describe("mergeOverEnglish", () => {
+  it("uses the translated value", () => {
+    const merged = mergeOverEnglish(englishFixture(), { rename: "Naam wijzigen" });
+
+    expect(merged.rename).toBe("Naam wijzigen");
+  });
+
+  it("falls back to English for a key the translation misses", () => {
+    const merged = mergeOverEnglish(englishFixture(), { rename: "Naam wijzigen" });
+
+    expect(merged.factoryPresets).toBe("Factory presets");
+  });
+
+  it("falls back to English for a value the translator left empty", () => {
+    const merged = mergeOverEnglish(englishFixture(), { rename: "   " });
+
+    expect(merged.rename).toBe("Rename");
+  });
+});
+
+describe("translation catalogs", () => {
+  const catalogs = loadCatalogFiles();
+  const template = catalogs.get(TEMPLATE_LOCALE);
+  const translations = [...catalogs].filter(([locale]) => locale !== TEMPLATE_LOCALE);
+
+  it("has one file per supported locale, and no other", () => {
+    expect([...catalogs.keys()].sort()).toEqual([...SUPPORTED_LOCALES].sort());
+  });
+
+  it.each(translations)("%s holds no key the template lacks", (_locale, catalog) => {
+    const unknownKeys = Object.keys(catalog).filter((key) => !(key in (template ?? {})));
+
+    expect(unknownKeys).toEqual([]);
+  });
+
+  it.each(translations)("%s keeps every placeholder", (_locale, catalog) => {
+    const lostPlaceholders: string[] = [];
+    for (const [key, englishValue] of Object.entries(template ?? {})) {
+      const translatedValue = catalog[key];
+      if (typeof englishValue !== "string" || typeof translatedValue !== "string") {
+        continue;
+      }
+      for (const placeholder of placeholdersIn(englishValue)) {
+        if (!placeholdersIn(translatedValue).has(placeholder)) {
+          lostPlaceholders.push(`${key}: ${placeholder}`);
+        }
+      }
+    }
+
+    expect(lostPlaceholders).toEqual([]);
+  });
+
+  it.each([...catalogs])("%s has no blank value", (_locale, catalog) => {
+    const blankKeys = Object.entries(catalog)
+      .filter(([, value]) => typeof value !== "string" || value.trim() === "")
+      .map(([key]) => key);
+
+    expect(blankKeys).toEqual([]);
   });
 });
