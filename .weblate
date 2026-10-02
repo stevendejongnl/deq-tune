@@ -1,4 +1,4 @@
 [weblate]
-url = https://weblate.madebysteven.nl/api/
+url = https://hosted.weblate.org/api/
 
 [component "deq-tune/frontend-ui-strings"]
