@@ -62,28 +62,6 @@ describe("dsp-panel", () => {
     expect(detail).toEqual({ id: "club" });
   });
 
-  it("emits applause-change from the switch", async () => {
-    const element = await mount();
-    let detail: { enabled: boolean } | undefined;
-    element.addEventListener("applause-change", (rawEvent) => {
-      detail = (rawEvent as CustomEvent).detail;
-    });
-
-    const applauseSwitch = element.shadowRoot!.querySelector(".applause") as HTMLButtonElement;
-    applauseSwitch.click();
-
-    expect(detail).toEqual({ enabled: true });
-  });
-
-  it("marks the applause switch as pressed when it is on", async () => {
-    const element = await mount();
-    element.applause = true;
-    await element.updateComplete;
-
-    const applauseSwitch = element.shadowRoot!.querySelector(".applause")!;
-    expect(applauseSwitch.getAttribute("aria-pressed")).toBe("true");
-  });
-
   it("shows the lock note instead of a footer hint", async () => {
     const element = await mount();
     expect(element.shadowRoot!.querySelector(".lock-note")!.textContent).toContain(

@@ -10,7 +10,7 @@ import {
   eqStyleName,
   liveSimulationName,
 } from "../i18n/dsp-presets.ts";
-import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
+import { uiStrings } from "../i18n/ui-strings.ts";
 
 function renderLockIcon(): TemplateResult {
   return html`
@@ -29,7 +29,7 @@ function renderLockIcon(): TemplateResult {
  * (see device-status.ts).
  *
  * It emits `eq-style-change` ({ id }), `live-simulation-change`
- * ({ id }) and `applause-change` ({ enabled }).
+ * ({ id }).
  */
 @customElement("dsp-panel")
 export class DspPanel extends LitElement {
@@ -38,7 +38,6 @@ export class DspPanel extends LitElement {
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) eqStyle: EqStyleId | null = null;
   @property({ type: String }) liveSimulation: LiveSimulationId = "off";
-  @property({ type: Boolean }) applause = false;
 
   override render() {
     const strings = uiStrings(this.locale);
@@ -61,7 +60,6 @@ export class DspPanel extends LitElement {
           <div class="options">
             ${LIVE_SIMULATION_IDS.map((id) => this.renderLiveSimulationOption(id))}
           </div>
-          ${this.renderApplauseSwitch(strings)}
         </div>
       </section>
     `;
@@ -92,23 +90,6 @@ export class DspPanel extends LitElement {
           this.dispatchEvent(new CustomEvent("live-simulation-change", { detail: { id } }))}
       >
         ${liveSimulationName(this.locale, id)}
-      </button>
-    `;
-  }
-
-  private renderApplauseSwitch(strings: UiStrings): TemplateResult {
-    return html`
-      <button
-        type="button"
-        class="applause ${this.applause ? "on" : ""}"
-        aria-pressed=${this.applause}
-        @click=${() =>
-          this.dispatchEvent(
-            new CustomEvent("applause-change", { detail: { enabled: !this.applause } }),
-          )}
-      >
-        <span class="track"><span class="knob"></span></span>
-        ${strings.applauseLabel}
       </button>
     `;
   }
