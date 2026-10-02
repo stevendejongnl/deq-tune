@@ -31,8 +31,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.deq_blob import UserConfiguration, decode_blob, encode_blob
+from app.deq_dsp import (
+    CROSSOVER_SLOT_COUNT,
+    TIME_ALIGNMENT_SLOT_COUNT,
+    FilterSlope,
+    build_crossover_payload,
+    build_equalizer_payload,
+    build_time_alignment_payload,
+    crossover_slot_settings,
+)
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_transport import Transport, TransportTimeout
+from app.eq_data import TuningData
 
 # Command ids, named so a reader does not have to hold the table in mind.
 # Every one of these is in `deq_commands.json`, generated from the APK.
@@ -50,6 +60,33 @@ COMMAND_VOLUME = 0x0D
 COMMAND_SPEAKER_MUTE_STATES = 0x1F
 COMMAND_MUTE_STATE = 0x20
 COMMAND_SET_TIMEOUT_INTERVAL = 0x21
+
+# Which CONFIG_ID carries which block of command 0x05. Read from the APK:
+# `b/e/ab`'s dispatch maps each id to the field enum that declares its
+# CONFIGURATION size, and the sizes settle the mapping.
+#
+#   id 10 -> af$a$g, 0x20 = 32 bytes, two 16-byte time-alignment blocks
+#   id 11 -> af$a$e, 0xb8 = 184 bytes, the standard crossover
+#   id 12 -> af$a$f, 0x1a8 = 424 bytes, the network crossover
+#   id 13 -> af$a$h, 0x82c = 2080 bytes, the equalizer
+#
+# The 2080 and the two crossover sizes match `conformance/flows.json` byte
+# for byte, so the mapping is checked, not assumed.
+CONFIG_ID_TIME_ALIGNMENT = 10
+CONFIG_ID_CROSSOVER_STANDARD = 11
+CONFIG_ID_CROSSOVER_NETWORK = 12
+CONFIG_ID_EQUALIZER = 13
+
+# A crossover layout and the CONFIG_ID that carries it.
+CROSSOVER_CONFIG_IDS = {
+    "standard": CONFIG_ID_CROSSOVER_STANDARD,
+    "standard_rear": CONFIG_ID_CROSSOVER_STANDARD,
+    "network": CONFIG_ID_CROSSOVER_NETWORK,
+}
+
+# The order the unit's time-alignment slots sit in, from `w$a` in the APK.
+# A profile that drives no subwoofer still fills the fifth slot.
+TIME_ALIGNMENT_CHANNELS = ("FL", "FR", "RL", "RR")
 
 STATUS_OFFSET = 0
 STATUS_BYTES = 4
@@ -224,12 +261,129 @@ class DeqSession:
             config_id.to_bytes(4, "little") + configuration,
         )
 
+    def write_tuning(self, tuning: TuningData, layout: str = "standard") -> None:
+        """Sends one profile's whole DSP state to the unit.
+
+        Three blocks of command 0x05, each under its own CONFIG_ID: the
+        equalizer, the time alignment, and the crossover. `deq_dsp` builds
+        every one of them; this method only says which CONFIG_ID carries
+        which and in what order.
+        """
+        self.write_equalizer(tuning)
+        self.write_time_alignment(tuning)
+        self.write_crossover(tuning, layout)
+
+    def write_equalizer(self, tuning: TuningData) -> None:
+        """Sends the 13 band gains, cancelled curve first."""
+        plain_gains_db = selected_band_gains_db(tuning)
+        cancelled_gains_db = cancelled_band_gains_db(tuning, plain_gains_db)
+        self.write_coefficients(
+            CONFIG_ID_EQUALIZER,
+            build_equalizer_payload(cancelled_gains_db, plain_gains_db),
+        )
+
+    def write_time_alignment(self, tuning: TuningData) -> None:
+        """Sends the per-speaker delays, as two blocks."""
+        distances_mm = speaker_distances_mm(tuning)
+        self.write_coefficients(
+            CONFIG_ID_TIME_ALIGNMENT,
+            build_time_alignment_payload(distances_mm),
+        )
+
+    def write_crossover(self, tuning: TuningData, layout: str) -> None:
+        """Sends the high-pass filters for one speaker layout."""
+        if layout not in CROSSOVER_CONFIG_IDS:
+            raise ValueError(f"unknown crossover layout {layout!r}")
+        cutoff_positions, slopes = crossover_slot_inputs(tuning)
+        settings = crossover_slot_settings(layout, cutoff_positions, slopes)
+        self.write_coefficients(
+            CROSSOVER_CONFIG_IDS[layout],
+            build_crossover_payload(layout, settings),
+        )
+
     def set_volume(self, volume_db: int) -> None:
         """Sets the master volume, in dB. The unit takes a signed value."""
         self.exchange(COMMAND_VOLUME, volume_db.to_bytes(4, "little", signed=True))
 
     def close(self) -> None:
         self.transport.close()
+
+
+def selected_band_gains_db(tuning: TuningData) -> list[float]:
+    """Returns the 13 band gains the profile has active.
+
+    `foundationEq.eqs` holds one slot per channel group, and each slot
+    stores several banks with `selectedBank` naming the live one. A profile
+    in LR mode keeps one combined slot; the unit still wants one curve.
+    """
+    slots = tuning.foundationEq.eqs
+    if slots == {}:
+        raise ValueError("the profile carries no equalizer slot")
+    slot = slots.get("LR") or next(iter(slots.values()))
+    if slot.selectedBank >= len(slot.banks):
+        raise ValueError(
+            f"the profile selects bank {slot.selectedBank}, "
+            f"but carries only {len(slot.banks)}"
+        )
+    return list(slot.banks[slot.selectedBank])
+
+
+def cancelled_band_gains_db(
+    tuning: TuningData, plain_band_gains_db: list[float]
+) -> list[float]:
+    """Returns the curve with the factory cancelling equalizer added in.
+
+    The unit wants two curves: one with the cancelling equalizer applied
+    and one without. A profile that has no cancelling data, or has it
+    switched off, sends the same curve twice.
+    """
+    cancel = tuning.factoryCancel
+    if not cancel.available or not cancel.enabled:
+        return list(plain_band_gains_db)
+    left = cancel.data.cancellingEQ.L
+    return [
+        plain_gain_db + cancel_gain_db
+        for plain_gain_db, cancel_gain_db in zip(plain_band_gains_db, left)
+    ]
+
+
+def speaker_distances_mm(tuning: TuningData) -> list[int]:
+    """Returns one distance per time-alignment slot, in millimetres.
+
+    The profile stores centimetres, and the library works in whole
+    millimetres. A layout with no subwoofer still fills the fifth slot, and
+    it takes the farthest distance so the unit delays it by nothing.
+    """
+    distances_mm = [
+        round(tuning.speakers[channel].timeAlignmentCm * 10)
+        for channel in TIME_ALIGNMENT_CHANNELS
+        if channel in tuning.speakers
+    ]
+    if distances_mm == []:
+        raise ValueError("the profile names no speaker this unit drives")
+    while len(distances_mm) < TIME_ALIGNMENT_SLOT_COUNT:
+        distances_mm.append(max(distances_mm))
+    return distances_mm
+
+
+def crossover_slot_inputs(tuning: TuningData) -> tuple[list[int], list[FilterSlope]]:
+    """Returns one cutoff position and one slope per filter slot.
+
+    The unit addresses five slots. The profile carries a front and a rear
+    high-pass filter, which are slots 0 and 1; it has no value for the
+    other three, so they stay at Pass and the unit leaves them alone.
+
+    Both profile fields are positions, not physical units: `cutoff_hpf` is
+    an index into the 11-entry cutoff table and `slope_hpf` is the filter
+    order. A factory preset stores 9 and 2 for its rear filter, which is
+    200 Hz at 12 dB per octave.
+    """
+    cutoff_positions = [0] * CROSSOVER_SLOT_COUNT
+    slopes = [FilterSlope.PASS] * CROSSOVER_SLOT_COUNT
+    for slot, band in enumerate((tuning.filter.front, tuning.filter.rear)):
+        cutoff_positions[slot] = int(band.cutoff_hpf)
+        slopes[slot] = FilterSlope(int(band.slope_hpf))
+    return cutoff_positions, slopes
 
 
 def read_field(reply: Message, offset: int, width: int) -> int:

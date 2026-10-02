@@ -222,6 +222,73 @@ def crossover_cutoff_hz(position: int, uses_high_range: bool) -> float:
     return float(table[position])
 
 
+# The unit addresses five filter slots whatever the layout drives. This says
+# which side of the crossover each slot is, and which cutoff range its
+# position code means. Both were read back out of the library's own output,
+# and `conformance/flows.json` checks them byte for byte.
+#
+# A slot missing from a layout's table is one that layout does not drive.
+SLOT_ROLES: dict[str, dict[int, tuple[FilterKind, bool]]] = {
+    "standard": {
+        0: (FilterKind.HIGH_PASS, False),
+        1: (FilterKind.HIGH_PASS, False),
+        4: (FilterKind.LOW_PASS, False),
+    },
+    "standard_rear": {
+        0: (FilterKind.HIGH_PASS, False),
+        4: (FilterKind.LOW_PASS, False),
+    },
+    "network": {
+        0: (FilterKind.HIGH_PASS, True),
+        1: (FilterKind.HIGH_PASS, False),
+        2: (FilterKind.LOW_PASS, True),
+        3: (FilterKind.LOW_PASS, True),
+        4: (FilterKind.LOW_PASS, False),
+    },
+}
+
+CROSSOVER_SLOT_COUNT = 5
+
+
+def crossover_slot_settings(
+    layout: str,
+    cutoff_positions: list[int],
+    slopes: list[FilterSlope],
+) -> list[CrossoverSetting | None]:
+    """Turns each slot's cutoff position and slope into a filter setting.
+
+    A slot the layout does not drive, and a slot set to Pass, both give
+    None, which `build_crossover_payload` leaves as an identity biquad.
+
+    `cutoff_positions` holds a position in the 11-entry table, not a
+    frequency. The same position means a low or a high cutoff depending on
+    the slot's role, so the role picks the table.
+    """
+    if layout not in SLOT_ROLES:
+        raise ValueError(f"unknown crossover layout {layout!r}")
+    for name, values in (("cutoff positions", cutoff_positions), ("slopes", slopes)):
+        if len(values) != CROSSOVER_SLOT_COUNT:
+            raise ValueError(
+                f"expected {CROSSOVER_SLOT_COUNT} {name}, got {len(values)}"
+            )
+
+    settings: list[CrossoverSetting | None] = []
+    for slot in range(CROSSOVER_SLOT_COUNT):
+        role = SLOT_ROLES[layout].get(slot)
+        if role is None or slopes[slot] is FilterSlope.PASS:
+            settings.append(None)
+            continue
+        kind, uses_high_range = role
+        settings.append(
+            CrossoverSetting(
+                kind=kind,
+                cutoff_hz=crossover_cutoff_hz(cutoff_positions[slot], uses_high_range),
+                slope=slopes[slot],
+            )
+        )
+    return settings
+
+
 def equalizer_band_push(gain_db: float) -> float:
     """Returns how hard one band pushes the other bands.
 
@@ -452,11 +519,31 @@ def time_alignment_delays(distances_mm: list[int]) -> list[int]:
     ]
 
 
-def build_time_alignment_payload(distances_mm: list[int]) -> bytes:
-    """Returns the 16-byte time-alignment block: eight uint16, five of them used."""
+def build_time_alignment_block(distances_mm: list[int]) -> bytes:
+    """Returns one 16-byte time-alignment block: eight uint16, five used."""
     words = time_alignment_delays(distances_mm)
     words += [0] * (TIME_ALIGNMENT_BLOCK_WORDS - len(words))
     return b"".join(word.to_bytes(2, "little") for word in words)
+
+
+def build_time_alignment_payload(
+    cancelled_distances_mm: list[int],
+    plain_distances_mm: list[int] | None = None,
+) -> bytes:
+    """Returns the body of command 0x05 CONFIG_ID 10: two blocks, 32 bytes.
+
+    The app calls the library's `MakeTimeAlignment` twice and sends both
+    results in one payload, the first argument's block first. Its CONFIG_ID
+    10 field enum declares 0x20 bytes, which is these two blocks together.
+
+    Pass one set of distances to send it as both blocks, which is what a
+    profile with no cancelling data does.
+    """
+    if plain_distances_mm is None:
+        plain_distances_mm = cancelled_distances_mm
+    return build_time_alignment_block(cancelled_distances_mm) + build_time_alignment_block(
+        plain_distances_mm
+    )
 
 
 class Rounding(str, Enum):

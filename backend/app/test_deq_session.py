@@ -2,18 +2,30 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from app.deq_blob import UserConfiguration
+from app.deq_dsp import FilterSlope, build_equalizer_payload
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_session import (
     COMMAND_KEEPALIVE,
+    CONFIG_ID_CROSSOVER_STANDARD,
+    CONFIG_ID_EQUALIZER,
+    CONFIG_ID_TIME_ALIGNMENT,
     STARTUP_STEPS,
     DeqSession,
     DeviceStatusError,
     ReplyMismatchError,
     SessionTimeoutError,
+    cancelled_band_gains_db,
+    crossover_slot_inputs,
+    selected_band_gains_db,
+    speaker_distances_mm,
 )
+from app.eq_data import TuningData
 from app.deq_transport import TransportTimeout
 from app.testing.fake_deq import FAKE_SERIAL, FakeDeq
 
@@ -80,6 +92,91 @@ def test_volume_sends_a_signed_value():
     fake = FakeDeq()
     DeqSession(fake).set_volume(-14)
     assert fake.exchanges[0].request.body == bytes.fromhex("f2ffffff")
+
+
+def test_write_tuning_sends_three_blocks_under_the_right_config_ids():
+    """Each CONFIG_ID's payload size has to match the width the APK's own
+    field enum declares for it, or the unit refuses the frame."""
+    fake = FakeDeq()
+    DeqSession(fake).write_tuning(load_factory_tuning())
+
+    sent = [
+        (int.from_bytes(one.request.body[:4], "little"), one.request.payload_length)
+        for one in fake.exchanges
+    ]
+    assert sent == [
+        (CONFIG_ID_EQUALIZER, 2100),
+        (CONFIG_ID_TIME_ALIGNMENT, 52),
+        (CONFIG_ID_CROSSOVER_STANDARD, 204),
+    ]
+    assert {one.request.command_id for one in fake.exchanges} == {0x05}
+
+
+def test_the_equalizer_block_matches_what_deq_dsp_builds():
+    """The session must not transform the gains on the way through."""
+    tuning = load_factory_tuning()
+    fake = FakeDeq()
+    DeqSession(fake).write_equalizer(tuning)
+
+    gains_db = selected_band_gains_db(tuning)
+    expected = build_equalizer_payload(cancelled_band_gains_db(tuning, gains_db), gains_db)
+    assert fake.exchanges[0].request.body[4:] == expected
+
+
+def test_a_profile_with_no_cancelling_data_sends_the_same_curve_twice():
+    tuning = load_factory_tuning()
+    assert not tuning.factoryCancel.enabled
+    gains_db = selected_band_gains_db(tuning)
+    assert cancelled_band_gains_db(tuning, gains_db) == gains_db
+
+
+def test_distances_come_through_in_millimetres_with_five_slots():
+    """The profile stores centimetres for four speakers; the library wants
+    millimetres for five."""
+    tuning = load_factory_tuning()
+    distances_mm = speaker_distances_mm(tuning)
+    assert len(distances_mm) == 5
+    assert distances_mm[0] == round(tuning.speakers["FL"].timeAlignmentCm * 10)
+    assert distances_mm[4] == max(distances_mm)
+
+
+def test_the_crossover_reads_the_profiles_positions_not_hertz():
+    """`cutoff_hpf` is an index into the cutoff table, not a frequency. A
+    factory preset's rear filter stores 9 and 2, meaning 200 Hz at 12 dB."""
+    tuning = load_factory_tuning()
+    tuning.filter.rear.cutoff_hpf = 9
+    tuning.filter.rear.slope_hpf = 2
+
+    cutoff_positions, slopes = crossover_slot_inputs(tuning)
+
+    assert cutoff_positions[1] == 9
+    assert slopes[1] is FilterSlope.SLOPE_12
+    assert slopes[2:] == [FilterSlope.PASS] * 3
+
+
+def test_an_unknown_layout_raises():
+    with pytest.raises(ValueError, match="unknown crossover layout"):
+        DeqSession(FakeDeq()).write_crossover(load_factory_tuning(), "quadraphonic")
+
+
+def test_a_profile_selecting_a_bank_it_does_not_have_raises():
+    tuning = load_factory_tuning()
+    slot = tuning.foundationEq.eqs["LR"]
+    slot.selectedBank = len(slot.banks)
+    with pytest.raises(ValueError, match="selects bank"):
+        selected_band_gains_db(tuning)
+
+
+def load_factory_tuning() -> TuningData:
+    """Returns one bundled factory preset, as shipped."""
+    preset_path = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "presets"
+        / "mazda"
+        / "tuning_preset_model_mazda_3_carrozzeria.json"
+    )
+    return TuningData.model_validate(json.loads(preset_path.read_text()))
 
 
 def test_a_reply_to_another_command_raises():

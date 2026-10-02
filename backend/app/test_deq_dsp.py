@@ -23,6 +23,7 @@ from app.deq_dsp import (
     FilterSlope,
     build_equalizer_block,
     build_equalizer_payload,
+    build_time_alignment_block,
     build_time_alignment_payload,
     decode_sections,
     design_crossover,
@@ -164,9 +165,25 @@ def test_the_farthest_speaker_gets_no_delay() -> None:
 
 
 def test_the_time_alignment_block_is_eight_little_endian_words() -> None:
-    payload = build_time_alignment_payload([0, 0, 0, 0, 500])
+    payload = build_time_alignment_block([0, 0, 0, 0, 500])
     assert len(payload) == 16
     assert payload == bytes([64, 0, 64, 0, 64, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+
+def test_the_time_alignment_payload_sends_two_blocks() -> None:
+    """The app calls `MakeTimeAlignment` twice and sends both results, so
+    CONFIG_ID 10 declares 0x20 bytes, not 0x10."""
+    cancelled = [0, 0, 0, 0, 500]
+    plain = [0, 0, 0, 0, 1000]
+    payload = build_time_alignment_payload(cancelled, plain)
+    assert len(payload) == 32
+    assert payload[:16] == build_time_alignment_block(cancelled)
+    assert payload[16:] == build_time_alignment_block(plain)
+
+
+def test_one_set_of_distances_fills_both_blocks() -> None:
+    payload = build_time_alignment_payload([0, 0, 0, 0, 500])
+    assert payload[:16] == payload[16:]
 
 
 def test_time_alignment_rejects_the_wrong_speaker_count() -> None:
