@@ -23,10 +23,30 @@ export function zoneOfBand(band: number): EqZone {
   return EQ_ZONES[Math.min(EQ_ZONE_COUNT - 1, Math.floor(band / 2))];
 }
 
+/** The catalog key each zone reads its name from, low frequency first. */
+const ZONE_NAME_KEYS = [
+  "zoneNameSubBass",
+  "zoneNameBass",
+  "zoneNameLowMids",
+  "zoneNameMids",
+  "zoneNamePresence",
+  "zoneNameAir",
+] as const satisfies readonly (keyof UiStrings)[];
+
+/** The catalog key each zone reads its hint from, in the same order. */
+const ZONE_HINT_KEYS = [
+  "zoneHintSubBass",
+  "zoneHintBass",
+  "zoneHintLowMids",
+  "zoneHintMids",
+  "zoneHintPresence",
+  "zoneHintAir",
+] as const satisfies readonly (keyof UiStrings)[];
+
 export function zoneName(strings: UiStrings, zone: EqZone): string {
-  return strings.zoneNames[zone.index];
+  return strings[ZONE_NAME_KEYS[zone.index]];
 }
 
 export function zoneHint(strings: UiStrings, zone: EqZone): string {
-  return strings.zoneHints[zone.index];
+  return strings[ZONE_HINT_KEYS[zone.index]];
 }
