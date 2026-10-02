@@ -6,7 +6,7 @@ writing code.
 
 ## Where to translate
 
-Translate at **<https://weblate.madebysteven.nl/projects/deq-tune/>**.
+Translate at **<https://hosted.weblate.org/projects/deq-tune/>**.
 
 Make an account there, pick your language, and type. Weblate collects the
 changes and opens a pull request on this repository by itself. A maintainer
@@ -79,6 +79,6 @@ cleanup addon prunes it from the translations.
 Never merge one without reading it.
 
 **From the command line.** The `.weblate` file at the repo root points `wlc` at
-the instance, so `wlc pull`, `wlc commit`, and `wlc push` work from here. Put
+the project, so `wlc pull`, `wlc commit`, and `wlc push` work from here. Put
 your API key in `~/.config/weblate` or the `WLC_KEY` environment variable, never
 in the repo.

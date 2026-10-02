@@ -93,8 +93,8 @@ Playwright never pick up each other's files.
 The app's text lives in `frontend/src/i18n/locales/`, one JSON file per
 language. `en.json` is the source text and changes with the code. The other
 five are translated by the community at
-<https://weblate.madebysteven.nl/projects/deq-tune/>, which opens a pull request
-on this repository for every batch of changes.
+<https://hosted.weblate.org/projects/deq-tune/>, which opens a pull request on this repository for every batch of
+changes.
 
 A string nobody translated yet reads English, so a part-done language still
 works. [TRANSLATING.md](TRANSLATING.md) explains how to help, and which names
@@ -113,6 +113,19 @@ cd ../frontend && npm run generate:dto
 ```
 
 Commit the updated `openapi.json` and `frontend/src/dto/generated/openapi.d.ts` together with the schema change. The frontend's API client validates every request and response against these generated types at runtime (`typia.assert`), so a mismatch fails loudly instead of silently.
+
+## Licence
+
+[GNU AGPL-3.0](LICENSE).
+
+**Scope.** The licence covers this project's own code. It does not cover the
+material taken from Pioneer's Android app: the bundled preset files in
+`data/presets/`, and the car model, speaker type, EQ-style and Live-Simulation
+names transcribed in `backend/app/preset_translations.py`,
+`frontend/src/i18n/preset-names.ts`, and `frontend/src/i18n/dsp-presets.ts`.
+Those stay Pioneer's, and they are here so this app can talk to the same device
+and show the same names on screen. This project is not made by, or connected
+to, Pioneer.
 
 ## Status
 
