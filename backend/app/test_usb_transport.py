@@ -90,6 +90,28 @@ def build_transport(stream: bytes = b"") -> UsbTransport:
     return transport
 
 
+def test_the_end_marker_cannot_appear_inside_a_frame():
+    """What the whole reader rests on.
+
+    Searching for `0xf7` is only safe because nibble expansion puts every
+    body byte in `0x00`..`0x0f`, so the marker cannot occur in a body
+    whatever the payload holds. This checks that with a body carrying every
+    byte value.
+    """
+    every_byte_value = bytes(range(256)) * 8
+    frame = encode_frame(
+        Message(
+            direction=Direction.FROM_DEVICE,
+            command_id=0x05,
+            transaction_id=bytes([0xFF] * 8),
+            body=every_byte_value,
+        )
+    )
+
+    positions = [index for index, value in enumerate(frame) if value == 0xF7]
+    assert positions == [len(frame) - 1]
+
+
 def test_a_short_frame_arrives_in_one_packet():
     frame = captured_frame("frame-status-request")
     assert len(frame) < BULK_PACKET_BYTES
