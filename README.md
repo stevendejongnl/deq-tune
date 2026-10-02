@@ -10,6 +10,7 @@ This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level an
 backend/    FastAPI + SQLite. Serves and stores profiles.
 frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and device header. Also a PWA.
             `e2e/` holds the Playwright tests, which drive a real browser.
+            `src/i18n/locales/` holds the UI text, one JSON file per language.
 data/presets/  The bundled factory preset JSON files, extracted from the Pioneer APK.
 openapi.json   The backend's exported API schema. The frontend generates its DTOs from this file.
 conformance/   Shared test corpus: inputs plus the exact bytes the Pioneer app produces for them.
@@ -87,6 +88,21 @@ make e2e
 Those specs live in `frontend/e2e/` and end in `.spec.ts`, so `vitest` and
 Playwright never pick up each other's files.
 
+## Translating
+
+The app's text lives in `frontend/src/i18n/locales/`, one JSON file per
+language. `en.json` is the source text and changes with the code. The other
+five are translated by the community at
+<https://weblate.madebysteven.nl/projects/deq-tune/>, which opens a pull request
+on this repository for every batch of changes.
+
+A string nobody translated yet reads English, so a part-done language still
+works. [TRANSLATING.md](TRANSLATING.md) explains how to help, and which names
+are deliberately **not** translatable: the EQ-style, Live-Simulation, car model,
+and speaker-type names are copied from Pioneer's own app so the web UI matches
+what the DEQ unit shows.
+
+
 ## Regenerating the frontend DTOs
 
 The backend's Pydantic models are the source of truth for the data shape. After changing `backend/app/eq_data.py` or `backend/app/schemas.py`, run `make generate-dto`, or by hand:
@@ -101,7 +117,7 @@ Commit the updated `openapi.json` and `frontend/src/dto/generated/openapi.d.ts` 
 ## Status
 
 - **Profile editing** — works. Factory Mazda presets plus your own custom profiles, backed by the FastAPI backend.
-- **Localization** — works. English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser on first visit and remembered after (`frontend/src/i18n/`). Preset and DSP-preset names are copied from the APK's own string resources per locale (`backend/app/preset_translations.py`, `frontend/src/i18n/preset-names.ts`, `frontend/src/i18n/dsp-presets.ts`) — the bundled preset JSON itself only carries Japanese display text. Note: Pioneer never localized the car/speaker-type names for German/French/Spanish/Dutch, so those show the same English text there; the EQ-style and Live-Simulation DSP preset names are genuinely translated in all six locales.
+- **Localization** — works. English, Japanese, German, French, Spanish, and Dutch, auto-detected from the browser on first visit and remembered after. The UI text lives in `frontend/src/i18n/locales/`, one JSON file per language, translated by the community in Weblate (see [TRANSLATING.md](TRANSLATING.md)). Preset and DSP-preset names are copied from the APK's own string resources per locale (`backend/app/preset_translations.py`, `frontend/src/i18n/preset-names.ts`, `frontend/src/i18n/dsp-presets.ts`) — the bundled preset JSON itself only carries Japanese display text. Note: Pioneer never localized the car/speaker-type names for German/French/Spanish/Dutch, so those show the same English text there; the EQ-style and Live-Simulation DSP preset names are genuinely translated in all six locales.
 - **EQ Style / Live Simulation** — works, against a connected unit. These are the DEQ hardware's own built-in DSP presets (Powerful, Super Bass, Concert hall, ...), which the unit runs itself. Neither has a command of its own: both live in the settings blob, as `preset_index_a` and `sound_field`, so selecting one reads the blob, changes that byte and writes it back. The lists come from the Pioneer app's own enums — 21 EQ styles and 8 live-simulation modes — read out of the APK by `tools/build_enums.py` into `backend/app/deq_enums.json`. An earlier version of this app had 8 and 5, chosen before the protocol was decoded.
 - **Browsers** — all of them. The backend owns the USB link, so the frontend needs no WebUSB and the app has no browser requirement. It once blocked Safari, Firefox and iOS for a capability it no longer uses.
 - **DSP coefficients** — works. `backend/app/deq_dsp.py` computes the numbers the DEQ expects: the 13-band equalizer, the crossover filters, and the time alignment. The DEQ designs no filters of its own; the Android app sends finished coefficients, so this app has to produce the same ones. The maths is checked against coefficients captured from the Android app's own designer library (`backend/app/deq_dsp_reference.json`, 253 cases) and matches to within one Q27 step. The equalizer needs one step beyond filter design: the library spreads every band's gain over the other bands before it designs a biquad, so two raised bands are not two independent peakers. `fit_equalizer_gains` reproduces that step from the library's own constant tables. `conformance/flows.json` then checks whole payloads, byte for byte, against what the Android app produces (`backend/app/test_conformance.py`).

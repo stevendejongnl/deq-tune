@@ -1,0 +1,4 @@
+[weblate]
+url = https://weblate.madebysteven.nl/api/
+
+[component "deq-tune/frontend-ui-strings"]
