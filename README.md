@@ -7,7 +7,7 @@ This app edits DEQ tuning profiles: the 13-band graphic EQ, per-speaker level an
 ## Project layout
 
 ```
-backend/    FastAPI + SQLite. Serves and stores profiles.
+backend/    FastAPI + SQLite. Serves and stores profiles, and drives the DEQ unit.
 frontend/   Lit + TypeScript + Vite. The EQ editor, profile list, and device header. Also a PWA.
             `e2e/` holds the Playwright tests, which drive a real browser.
             `src/i18n/locales/` holds the UI text, one JSON file per language.
@@ -138,4 +138,20 @@ to, Pioneer.
 
   The frontend asks for all of this over `/api/device`, so the browser never touches USB.
 
-  **What is missing is the USB transport itself.** `backend/app/deq_transport.py` holds the seam, and `DEQ_TRANSPORT=fake` — the default — talks to `backend/app/testing/fake_deq.py` instead of hardware. That fake answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic, and `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it is a stand-in for the unit rather than for our own guesses. No real unit has been driven yet: the DEQ has never enumerated on the development laptop, so a driver written now could not be checked.
+  Two transports sit behind `backend/app/deq_transport.py`. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
+
+```bash
+cd backend && uv sync --extra usb
+PYTHONPATH=. DEQ_TRANSPORT=usb uv run uvicorn app.main:app --port 8420
+```
+
+- **A real unit** — not yet confirmed. Everything above was built from the Pioneer app and from captured traffic. The DEQ has never enumerated on the development laptop, in either position of its mode switch, so no real unit has answered this code. The USB transport is written from the app's own native calls (`libaeusb.so` is stock libusb and uses `libusb_bulk_transfer`) and its framing is tested against captured frames split into 512-byte bulk packets, but the hardware itself is untested.
+
+  `backend/scripts/check_real_deq.py` is what closes that gap. Plug a unit in and run it:
+
+```bash
+cd backend && uv sync --extra usb
+PYTHONPATH=. uv run python scripts/check_real_deq.py
+```
+
+  It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes — the Pioneer app and the unit are the authority, and this code is what is under test. On Linux, opening a USB device usually needs `sudo -E env PYTHONPATH=. ...` or a udev rule for `08e4:01ed`.
