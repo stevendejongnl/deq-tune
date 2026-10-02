@@ -23,13 +23,11 @@ import pytest
 
 from app.deq_blob import decode_blob, encode_blob
 from app.deq_dsp import (
-    CrossoverSetting,
-    FilterKind,
     FilterSlope,
     build_crossover_payload,
     build_equalizer_payload,
-    crossover_cutoff_hz,
-    build_time_alignment_payload,
+    build_time_alignment_block,
+    crossover_slot_settings,
 )
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 
@@ -66,28 +64,6 @@ SLOPES = {
     "SLOPE_18DB": FilterSlope.SLOPE_18,
     "SLOPE_24DB": FilterSlope.SLOPE_24,
 }
-
-# Which side of the crossover each slot is, and which decade its cutoff code
-# means, per layout. Both were read back out of the library's own output.
-SLOT_ROLES = {
-    "standard": {
-        0: (FilterKind.HIGH_PASS, False),
-        1: (FilterKind.HIGH_PASS, False),
-        4: (FilterKind.LOW_PASS, False),
-    },
-    "standard_rear": {
-        0: (FilterKind.HIGH_PASS, False),
-        4: (FilterKind.LOW_PASS, False),
-    },
-    "network": {
-        0: (FilterKind.HIGH_PASS, True),
-        1: (FilterKind.HIGH_PASS, False),
-        2: (FilterKind.LOW_PASS, True),
-        3: (FilterKind.LOW_PASS, True),
-        4: (FilterKind.LOW_PASS, False),
-    },
-}
-
 
 def flows_of(kind: str) -> list[dict]:
     return [flow for flow in FLOWS if flow["kind"] == kind]
@@ -138,24 +114,17 @@ def test_an_equalizer_flow_writes_the_bytes_the_app_wrote(flow: dict) -> None:
 @pytest.mark.parametrize("flow", flows_of("crossover"), ids=flow_id)
 def test_a_crossover_flow_writes_the_bytes_the_app_wrote(flow: dict) -> None:
     layout = MAKER_LAYOUTS[flow["input"]["maker"]]
-    settings: list[CrossoverSetting | None] = []
-    for slot, raw in enumerate(flow["input"]["slots"]):
-        role = SLOT_ROLES[layout].get(slot)
-        slope = SLOPES[raw["slope"]]
-        if role is None or slope is FilterSlope.PASS:
-            settings.append(None)
-            continue
-        kind, uses_high_range = role
-        cutoff_hz = crossover_cutoff_hz(
-            CUTOFF_POSITIONS[raw["cutoff"]], uses_high_range
-        )
-        settings.append(CrossoverSetting(kind=kind, cutoff_hz=cutoff_hz, slope=slope))
+    settings = crossover_slot_settings(
+        layout,
+        [CUTOFF_POSITIONS[raw["cutoff"]] for raw in flow["input"]["slots"]],
+        [SLOPES[raw["slope"]] for raw in flow["input"]["slots"]],
+    )
     assert build_crossover_payload(layout, settings).hex() == flow["bytesHex"]
 
 
 @pytest.mark.parametrize("flow", flows_of("timeAlignment"), ids=flow_id)
 def test_a_time_alignment_flow_writes_the_bytes_the_app_wrote(flow: dict) -> None:
-    payload = build_time_alignment_payload(flow["input"]["distancesMm"])
+    payload = build_time_alignment_block(flow["input"]["distancesMm"])
     assert payload.hex() == flow["bytesHex"]
 
 
