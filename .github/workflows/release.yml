@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   test-backend:
@@ -75,6 +76,7 @@ jobs:
 
   release:
     needs: [test-backend, test-frontend, test-e2e]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
