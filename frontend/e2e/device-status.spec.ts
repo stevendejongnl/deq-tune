@@ -15,10 +15,25 @@ import { expect, test, type Page } from "@playwright/test";
 const DEVICE_PILL = "device-status .pill";
 const CONNECT_BUTTON = "device-status button.connect";
 
+/** Noise the Vite dev server makes, which says nothing about the app.
+ *
+ * Vite optimizes dependencies on the first load and answers a request that
+ * was already in flight with `504 (Outdated Optimize Dep)`. The browser
+ * fetches again and the page loads, so this is a race in the dev server's
+ * cache warming, not an error the app caused. It appears on a cold CI
+ * runner and not on a warm one, which made this test flaky until it was
+ * filtered out.
+ */
+const DEV_SERVER_NOISE = [/Outdated Optimize Dep/, /\[vite\] hot updated/];
+
+function isAppError(text: string): boolean {
+  return !DEV_SERVER_NOISE.some((pattern) => pattern.test(text));
+}
+
 async function openApp(page: Page): Promise<string[]> {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") {
+    if (message.type() === "error" && isAppError(message.text())) {
       consoleErrors.push(message.text());
     }
   });
@@ -35,7 +50,7 @@ test.beforeEach(async ({ request }) => {
   await request.post("/api/device/disconnect");
 });
 
-test("the app loads with no console errors", async ({ page }) => {
+test("the app loads with no console errors of its own", async ({ page }) => {
   const consoleErrors = await openApp(page);
   await expect(page.locator("app-root")).toBeVisible();
   expect(consoleErrors).toEqual([]);
