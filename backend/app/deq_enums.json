@@ -1,0 +1,428 @@
+{
+ "version": 1,
+ "description": "The DEQ's own value sets, read from the Pioneer Sound & Tune APK. The app is the authority on these. Rebuild with tools/build_enums.py.",
+ "enums": {
+  "eq_style": {
+   "apk_class": "soundtune/model/b/o$b",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": 0
+    },
+    {
+     "name": "CUSTOM",
+     "ordinal": 1,
+     "wire_value": 1,
+     "string_id": "jp.pioneer.mle.soundtune.eq.custom"
+    },
+    {
+     "name": "FLAT",
+     "ordinal": 2,
+     "wire_value": 2,
+     "string_id": "jp.pioneer.mle.soundtune.eq.flat"
+    },
+    {
+     "name": "SUPER_BASS",
+     "ordinal": 3,
+     "wire_value": 3,
+     "string_id": "jp.pioneer.mle.soundtune.eq.superbass"
+    },
+    {
+     "name": "POWERFUL",
+     "ordinal": 4,
+     "wire_value": 4,
+     "string_id": "jp.pioneer.mle.soundtune.eq.powerful"
+    },
+    {
+     "name": "NATURAL",
+     "ordinal": 5,
+     "wire_value": 5,
+     "string_id": "jp.pioneer.mle.soundtune.eq.natural"
+    },
+    {
+     "name": "VOCAL",
+     "ordinal": 6,
+     "wire_value": 6,
+     "string_id": "jp.pioneer.mle.soundtune.eq.vocal"
+    },
+    {
+     "name": "TODOROKI",
+     "ordinal": 7,
+     "wire_value": 7,
+     "string_id": "jp.pioneer.mle.soundtune.eq.todoroki"
+    },
+    {
+     "name": "POP_ROCK",
+     "ordinal": 8,
+     "wire_value": 8,
+     "string_id": "jp.pioneer.mle.soundtune.eq.poprock"
+    },
+    {
+     "name": "ELETRONICA",
+     "ordinal": 9,
+     "wire_value": 9,
+     "string_id": "jp.pioneer.mle.soundtune.eq.electronica"
+    },
+    {
+     "name": "SAMBA",
+     "ordinal": 10,
+     "wire_value": 10,
+     "string_id": "jp.pioneer.mle.soundtune.eq.samba"
+    },
+    {
+     "name": "SERTANEJO",
+     "ordinal": 11,
+     "wire_value": 11,
+     "string_id": "jp.pioneer.mle.soundtune.eq.setanejo"
+    },
+    {
+     "name": "PRO",
+     "ordinal": 12,
+     "wire_value": 12,
+     "string_id": "jp.pioneer.mle.soundtune.eq.pro"
+    },
+    {
+     "name": "BANDA",
+     "ordinal": 13,
+     "wire_value": 13,
+     "string_id": "jp.pioneer.mle.soundtune.eq.banda"
+    },
+    {
+     "name": "DYNAMIC",
+     "ordinal": 14,
+     "wire_value": 14,
+     "string_id": "jp.pioneer.mle.soundtune.eq.dynamic"
+    },
+    {
+     "name": "FORRO",
+     "ordinal": 15,
+     "wire_value": 15,
+     "string_id": "jp.pioneer.mle.soundtune.eq.forro"
+    },
+    {
+     "name": "VIVID",
+     "ordinal": 16,
+     "wire_value": 16,
+     "string_id": "jp.pioneer.mle.soundtune.eq.vivid"
+    },
+    {
+     "name": "JAZZ",
+     "ordinal": 17,
+     "wire_value": 17,
+     "string_id": "jp.pioneer.mle.soundtune.eq.jazz"
+    },
+    {
+     "name": "ULTRA_BASS",
+     "ordinal": 18,
+     "wire_value": 18,
+     "string_id": "jp.pioneer.mle.soundtune.eq.ultra_bass"
+    },
+    {
+     "name": "TRUE_ACOUSTIC",
+     "ordinal": 19,
+     "wire_value": 19,
+     "string_id": "jp.pioneer.mle.soundtune.eq.true_acoustic"
+    },
+    {
+     "name": "EDM_BEAST",
+     "ordinal": 20,
+     "wire_value": 20,
+     "string_id": "jp.pioneer.mle.soundtune.eq.edm_beast"
+    }
+   ]
+  },
+  "live_simulation": {
+   "apk_class": "soundtune/model/b/n$a",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": 0
+    },
+    {
+     "name": "OFF",
+     "ordinal": 1,
+     "wire_value": 1,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.off"
+    },
+    {
+     "name": "CONCERT_HALL",
+     "ordinal": 2,
+     "wire_value": 2,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.concerthall"
+    },
+    {
+     "name": "OPEN_AIR",
+     "ordinal": 3,
+     "wire_value": 3,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.openair"
+    },
+    {
+     "name": "CLUB",
+     "ordinal": 4,
+     "wire_value": 4,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.club"
+    },
+    {
+     "name": "CAFE",
+     "ordinal": 5,
+     "wire_value": 5,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.cafe"
+    },
+    {
+     "name": "OPERA_HALL",
+     "ordinal": 6,
+     "wire_value": 6,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.opera_hall"
+    },
+    {
+     "name": "DJ_DANCE_PARTY",
+     "ordinal": 7,
+     "wire_value": 7,
+     "string_id": "jp.pioneer.mle.soundtune.sfc.dj_dance_party"
+    }
+   ]
+  },
+  "band_count": {
+   "apk_class": "soundtune/model/b/p$b",
+   "values": [
+    {
+     "name": "BAND_13",
+     "ordinal": 0,
+     "wire_value": 13
+    },
+    {
+     "name": "BAND_31",
+     "ordinal": 1,
+     "wire_value": 31
+    }
+   ]
+  },
+  "custom_bank": {
+   "apk_class": "soundtune/model/b/p$c",
+   "values": [
+    {
+     "name": "A",
+     "ordinal": 0,
+     "wire_value": 0
+    },
+    {
+     "name": "B",
+     "ordinal": 1,
+     "wire_value": 1
+    }
+   ]
+  },
+  "speaker_mode": {
+   "apk_class": "soundtune/model/b/x",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": 0
+    },
+    {
+     "name": "STANDARD_FL_FR",
+     "ordinal": 1,
+     "wire_value": 1
+    },
+    {
+     "name": "STANDARD_FL_FR_RL_RR",
+     "ordinal": 2,
+     "wire_value": 2
+    },
+    {
+     "name": "STANDARD_FL_FR_RL_RR_SW",
+     "ordinal": 3,
+     "wire_value": 3
+    },
+    {
+     "name": "STANDARD_FL_FR_RLSW_RRSW",
+     "ordinal": 4,
+     "wire_value": 4
+    },
+    {
+     "name": "STANDARD_FL_FR_SW",
+     "ordinal": 5,
+     "wire_value": 5
+    },
+    {
+     "name": "NETWORK_HL_HR_ML_MR",
+     "ordinal": 6,
+     "wire_value": 6
+    },
+    {
+     "name": "NETWORK_HL_HR_ML_MR_SW",
+     "ordinal": 7,
+     "wire_value": 7
+    }
+   ]
+  },
+  "crossover_slope": {
+   "apk_class": "soundtune/model/b/j$b",
+   "values": [
+    {
+     "name": "SLOPE_PASS",
+     "ordinal": 0,
+     "wire_value": 0
+    },
+    {
+     "name": "SLOPE_6DB",
+     "ordinal": 1,
+     "wire_value": 1
+    },
+    {
+     "name": "SLOPE_12DB",
+     "ordinal": 2,
+     "wire_value": 2
+    },
+    {
+     "name": "SLOPE_18DB",
+     "ordinal": 3,
+     "wire_value": 3
+    },
+    {
+     "name": "SLOPE_24DB",
+     "ordinal": 4,
+     "wire_value": 4
+    },
+    {
+     "name": "SLOPE_30DB",
+     "ordinal": 5,
+     "wire_value": 5
+    },
+    {
+     "name": "SLOPE_36DB",
+     "ordinal": 6,
+     "wire_value": 6
+    }
+   ]
+  },
+  "crossover_kind": {
+   "apk_class": "soundtune/model/b/j$c",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": -1
+    },
+    {
+     "name": "HPF",
+     "ordinal": 1,
+     "wire_value": 0
+    },
+    {
+     "name": "BPF",
+     "ordinal": 2,
+     "wire_value": 1
+    },
+    {
+     "name": "LPF",
+     "ordinal": 3,
+     "wire_value": 2
+    }
+   ]
+  },
+  "driving_state": {
+   "apk_class": "soundtune/model/b/f",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": -1
+    },
+    {
+     "name": "RUNNING",
+     "ordinal": 1,
+     "wire_value": 0
+    },
+    {
+     "name": "NOT_RUNNING",
+     "ordinal": 2,
+     "wire_value": 1
+    }
+   ]
+  },
+  "mute_state": {
+   "apk_class": "soundtune/model/b/q",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": -1
+    },
+    {
+     "name": "SOUND_ON",
+     "ordinal": 1,
+     "wire_value": 1
+    },
+    {
+     "name": "SOUND_OFF",
+     "ordinal": 2,
+     "wire_value": 2
+    }
+   ]
+  },
+  "speaker_channel": {
+   "apk_class": "soundtune/model/b/w$a",
+   "values": [
+    {
+     "name": "FRONT_L",
+     "ordinal": 0,
+     "wire_value": 0
+    },
+    {
+     "name": "FRONT_R",
+     "ordinal": 1,
+     "wire_value": 1
+    },
+    {
+     "name": "REAR_L",
+     "ordinal": 2,
+     "wire_value": 2
+    },
+    {
+     "name": "REAR_R",
+     "ordinal": 3,
+     "wire_value": 3
+    },
+    {
+     "name": "REAR_L_SW",
+     "ordinal": 4,
+     "wire_value": 4
+    },
+    {
+     "name": "REAR_R_SW",
+     "ordinal": 5,
+     "wire_value": 5
+    },
+    {
+     "name": "HIGH_L",
+     "ordinal": 6,
+     "wire_value": 6
+    },
+    {
+     "name": "HIGH_R",
+     "ordinal": 7,
+     "wire_value": 7
+    },
+    {
+     "name": "MID_L",
+     "ordinal": 8,
+     "wire_value": 8
+    },
+    {
+     "name": "MID_R",
+     "ordinal": 9,
+     "wire_value": 9
+    },
+    {
+     "name": "SW",
+     "ordinal": 10,
+     "wire_value": 10
+    }
+   ]
+  }
+ }
+}

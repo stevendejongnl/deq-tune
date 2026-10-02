@@ -11,3 +11,7 @@ Thumbs.db
 # Decompiled APK / reverse-engineering scratch material — not redistributed
 /apk/
 /apktool_out/
+
+# Python-generated files in tools/
+__pycache__/
+*.py[oc]
