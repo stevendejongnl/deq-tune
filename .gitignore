@@ -15,3 +15,6 @@ Thumbs.db
 # Python-generated files in tools/
 __pycache__/
 *.py[oc]
+
+# Git worktrees that Claude Code creates inside the repo
+.claude/worktrees/
