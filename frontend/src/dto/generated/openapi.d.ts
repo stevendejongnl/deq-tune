@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/profiles": {
+    "/api/profiles": {
         parameters: {
             query?: never;
             header?: never;
@@ -12,17 +12,17 @@ export interface paths {
             cookie?: never;
         };
         /** List Profiles */
-        get: operations["list_profiles_profiles_get"];
+        get: operations["list_profiles_api_profiles_get"];
         put?: never;
         /** Create Profile */
-        post: operations["create_profile_profiles_post"];
+        post: operations["create_profile_api_profiles_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/profiles/{profile_id}": {
+    "/api/profiles/{profile_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -30,18 +30,18 @@ export interface paths {
             cookie?: never;
         };
         /** Get Profile */
-        get: operations["get_profile_profiles__profile_id__get"];
+        get: operations["get_profile_api_profiles__profile_id__get"];
         /** Update Profile */
-        put: operations["update_profile_profiles__profile_id__put"];
+        put: operations["update_profile_api_profiles__profile_id__put"];
         post?: never;
         /** Delete Profile */
-        delete: operations["delete_profile_profiles__profile_id__delete"];
+        delete: operations["delete_profile_api_profiles__profile_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/profiles/{profile_id}/duplicate": {
+    "/api/profiles/{profile_id}/duplicate": {
         parameters: {
             query?: never;
             header?: never;
@@ -51,7 +51,148 @@ export interface paths {
         get?: never;
         put?: never;
         /** Duplicate Profile */
-        post: operations["duplicate_profile_profiles__profile_id__duplicate_post"];
+        post: operations["duplicate_profile_api_profiles__profile_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Device
+         * @description Returns what the header shows. This never opens a link itself.
+         */
+        get: operations["read_device_api_device_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect Device
+         * @description Opens the link and runs the unit's startup sequence.
+         *
+         *     A failure is reported in the body, not as an error status: the frontend
+         *     shows the reason in the header rather than treating it as a broken
+         *     request.
+         */
+        post: operations["connect_device_api_device_connect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect Device */
+        post: operations["disconnect_device_api_device_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Device Options
+         * @description Returns the value sets the unit accepts, read from the Pioneer app.
+         */
+        get: operations["read_device_options_api_device_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/tuning/{profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Tuning
+         * @description Sends one stored profile's DSP settings to the unit.
+         */
+        post: operations["write_tuning_api_device_tuning__profile_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/eq-style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Select Eq Style
+         * @description Picks one of the unit's own EQ styles.
+         */
+        post: operations["select_eq_style_api_device_eq_style_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/device/live-simulation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Select Live Simulation
+         * @description Picks one of the unit's own live-simulation modes.
+         */
+        post: operations["select_live_simulation_api_device_live_simulation_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -111,6 +252,51 @@ export interface components {
             f0: number[];
             /** Gain */
             gain: number[];
+        };
+        /**
+         * DeqEnumValueRead
+         * @description One value the unit accepts, as the Pioneer app declares it.
+         */
+        DeqEnumValueRead: {
+            /** Name */
+            name: string;
+            /** Wire Value */
+            wire_value: number;
+        };
+        /**
+         * DeviceOptionsRead
+         * @description Every value set the unit's own DSP offers.
+         *
+         *     These come from the app, through `deq_enums.json`, so the frontend
+         *     never has to keep a list of its own.
+         */
+        DeviceOptionsRead: {
+            /** Eq Styles */
+            eq_styles: components["schemas"]["DeqEnumValueRead"][];
+            /** Live Simulations */
+            live_simulations: components["schemas"]["DeqEnumValueRead"][];
+        };
+        /**
+         * DeviceRead
+         * @description What the header shows about the unit.
+         */
+        DeviceRead: {
+            /** Connected */
+            connected: boolean;
+            /** Firmware Version */
+            firmware_version?: string | null;
+            /** Serial */
+            serial?: string | null;
+            /** Problem */
+            problem?: string | null;
+        };
+        /**
+         * EqStyleWrite
+         * @description Which built-in EQ style to select on the unit.
+         */
+        EqStyleWrite: {
+            /** Name */
+            name: string;
         };
         /** FactoryCancel */
         FactoryCancel: {
@@ -179,6 +365,14 @@ export interface components {
             selectedBank: number;
             /** Banks */
             banks: number[][];
+        };
+        /**
+         * LiveSimulationWrite
+         * @description Which built-in live-simulation mode to select on the unit.
+         */
+        LiveSimulationWrite: {
+            /** Name */
+            name: string;
         };
         /** ProfileCreate */
         ProfileCreate: {
@@ -279,7 +473,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    list_profiles_profiles_get: {
+    list_profiles_api_profiles_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -299,7 +493,7 @@ export interface operations {
             };
         };
     };
-    create_profile_profiles_post: {
+    create_profile_api_profiles_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -332,7 +526,7 @@ export interface operations {
             };
         };
     };
-    get_profile_profiles__profile_id__get: {
+    get_profile_api_profiles__profile_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -363,7 +557,7 @@ export interface operations {
             };
         };
     };
-    update_profile_profiles__profile_id__put: {
+    update_profile_api_profiles__profile_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -398,7 +592,7 @@ export interface operations {
             };
         };
     };
-    delete_profile_profiles__profile_id__delete: {
+    delete_profile_api_profiles__profile_id__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -427,7 +621,7 @@ export interface operations {
             };
         };
     };
-    duplicate_profile_profiles__profile_id__duplicate_post: {
+    duplicate_profile_api_profiles__profile_id__duplicate_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -445,6 +639,183 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_device_api_device_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+        };
+    };
+    connect_device_api_device_connect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+        };
+    };
+    disconnect_device_api_device_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+        };
+    };
+    read_device_options_api_device_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceOptionsRead"];
+                };
+            };
+        };
+    };
+    write_tuning_api_device_tuning__profile_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_eq_style_api_device_eq_style_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EqStyleWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_live_simulation_api_device_live_simulation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveSimulationWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceRead"];
                 };
             };
             /** @description Validation Error */

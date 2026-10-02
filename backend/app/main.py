@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from app.db import create_db_and_tables, engine
+from app.device_routes import router as device_router
 from app.routes import router
 from app.seed import seed_factory_profiles
 
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(device_router, prefix="/api")
 
 
 @app.get("/health")

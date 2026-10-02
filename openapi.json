@@ -236,6 +236,220 @@
         }
       }
     },
+    "/api/device": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Read Device",
+        "description": "Returns what the header shows. This never opens a link itself.",
+        "operationId": "read_device_api_device_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/connect": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Connect Device",
+        "description": "Opens the link and runs the unit's startup sequence.\n\nA failure is reported in the body, not as an error status: the frontend\nshows the reason in the header rather than treating it as a broken\nrequest.",
+        "operationId": "connect_device_api_device_connect_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/disconnect": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Disconnect Device",
+        "operationId": "disconnect_device_api_device_disconnect_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/options": {
+      "get": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Read Device Options",
+        "description": "Returns the value sets the unit accepts, read from the Pioneer app.",
+        "operationId": "read_device_options_api_device_options_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceOptionsRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/tuning/{profile_id}": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Write Tuning",
+        "description": "Sends one stored profile's DSP settings to the unit.",
+        "operationId": "write_tuning_api_device_tuning__profile_id__post",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/eq-style": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Select Eq Style",
+        "description": "Picks one of the unit's own EQ styles.",
+        "operationId": "select_eq_style_api_device_eq_style_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EqStyleWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/device/live-simulation": {
+      "post": {
+        "tags": [
+          "device"
+        ],
+        "summary": "Select Live Simulation",
+        "description": "Picks one of the unit's own live-simulation modes.",
+        "operationId": "select_live_simulation_api_device_live_simulation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveSimulationWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -361,6 +575,111 @@
           "gain"
         ],
         "title": "ChannelBankData"
+      },
+      "DeqEnumValueRead": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "wire_value": {
+            "type": "integer",
+            "title": "Wire Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "wire_value"
+        ],
+        "title": "DeqEnumValueRead",
+        "description": "One value the unit accepts, as the Pioneer app declares it."
+      },
+      "DeviceOptionsRead": {
+        "properties": {
+          "eq_styles": {
+            "items": {
+              "$ref": "#/components/schemas/DeqEnumValueRead"
+            },
+            "type": "array",
+            "title": "Eq Styles"
+          },
+          "live_simulations": {
+            "items": {
+              "$ref": "#/components/schemas/DeqEnumValueRead"
+            },
+            "type": "array",
+            "title": "Live Simulations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eq_styles",
+          "live_simulations"
+        ],
+        "title": "DeviceOptionsRead",
+        "description": "Every value set the unit's own DSP offers.\n\nThese come from the app, through `deq_enums.json`, so the frontend\nnever has to keep a list of its own."
+      },
+      "DeviceRead": {
+        "properties": {
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "firmware_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmware Version"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "connected"
+        ],
+        "title": "DeviceRead",
+        "description": "What the header shows about the unit."
+      },
+      "EqStyleWrite": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "EqStyleWrite",
+        "description": "Which built-in EQ style to select on the unit."
       },
       "FactoryCancel": {
         "properties": {
@@ -528,6 +847,20 @@
         ],
         "title": "LRBank",
         "description": "A combined L+R graphic-EQ slot. `banks` holds one 13-value gain\narray per storable bank (device has multiple slots); `selectedBank`\npicks which one is active. Frequencies follow the fixed 13-band\ntable also given explicitly per-channel in `expandEq` (50Hz-12.5kHz,\ndoubling)."
+      },
+      "LiveSimulationWrite": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "LiveSimulationWrite",
+        "description": "Which built-in live-simulation mode to select on the unit."
       },
       "ProfileCreate": {
         "properties": {
