@@ -16,6 +16,7 @@
     "typia": "^15.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@ttsc/linux-x64": "^0.30.4",
     "@ttsc/unplugin": "^0.30.4",
     "jsdom": "^30.1.1",

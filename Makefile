@@ -1,6 +1,6 @@
 .PHONY: help install install-backend install-frontend \
         dev dev-backend dev-frontend \
-        test test-backend test-frontend \
+        test test-backend test-frontend e2e e2e-install \
         typecheck generate-dto clean
 
 BACKEND_PORT := 8420
@@ -13,6 +13,8 @@ help:
 	@echo "  make dev-backend    Run only the backend dev server (port $(BACKEND_PORT))"
 	@echo "  make dev-frontend   Run only the frontend dev server (port $(FRONTEND_PORT))"
 	@echo "  make test           Run backend and frontend tests"
+	@echo "  make e2e            Run the end-to-end tests in a real browser"
+	@echo "  make e2e-install    Install the browser the end-to-end tests need"
 	@echo "  make typecheck      Type-check the frontend"
 	@echo "  make generate-dto   Regenerate frontend DTOs from the backend schema"
 	@echo "  make clean          Remove build artifacts and local databases"
@@ -44,6 +46,12 @@ test-backend:
 
 test-frontend:
 	cd frontend && npm test
+
+e2e-install:
+	cd frontend && npx playwright install --with-deps chromium
+
+e2e:
+	cd frontend && npx playwright test
 
 typecheck:
 	cd frontend && npx tsc --noEmit
