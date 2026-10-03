@@ -201,6 +201,10 @@ class UserConfiguration:
     manual_right: float = 0.0
     # 484..515. The preset JSON header's own `uniqueId` string, encoded by
     # the writer's string-to-bytes call. Zero when the profile carries none.
+    # `deq_session.py` never builds a configuration from scratch and writes
+    # it: every write path reads the unit's current blob first, so this
+    # default is never sent over the wire as-is. Keep it that way -- a write
+    # path that skips the read would zero out the unit's real uniqueId.
     unique_id_bytes: bytes = bytes(NAME_BYTES)
     source_type: int = 0xFF
     bank_type: int = 0
