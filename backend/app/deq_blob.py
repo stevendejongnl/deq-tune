@@ -26,9 +26,14 @@ repo for both traces):
   JSON header carries (`"uniqueId": "1-0000-..."`). A default blob holds
   zeros there because the app's own default state has no id, not because
   this is unresolved.
-- The 16 bytes at offset 523 are an MD5 digest of a string field, or 16
-  zero bytes when that string is empty. `MessageDigest.getInstance("MD5")`
-  explains why the field is exactly 16 bytes.
+- The 16 bytes at offset 523 are `MD5(carModelNameKey)`, or 16 zero bytes
+  when no car model is selected (`carModelNameKey` empty).
+  `carModelNameKey` is the same string the preset JSON header's own
+  `carModelStringsKey` carries (`eq_data.py`'s `Header`) -- found from the
+  app's JSON writer, which tags its source field with that exact key, then
+  confirmed live under the emulator: hooking the MD5 step directly showed
+  it digests precisely the string a known test value was set to, byte for
+  byte.
 - Offset 279 is not a standalone flag between the crossover block and the
   speaker records. It is byte 0 of speaker record 0's own phase flag.
   Hooking the app's real per-speaker reader
@@ -107,8 +112,8 @@ NAME_BYTES = 32
 SOURCE_TYPE_OFFSET = 516
 BANK_TYPE_OFFSET = 517
 MODEL_VALUE_OFFSET = 519
-UNKNOWN_BLOCK_OFFSET = 523
-UNKNOWN_BLOCK_BYTES = 16
+CAR_MODEL_NAME_KEY_DIGEST_OFFSET = 523
+CAR_MODEL_NAME_KEY_DIGEST_BYTES = 16
 TRAILING_FLAG_OFFSET = 539
 TRAILING_BYTES_OFFSET = 540
 TRAILING_BYTES = 32
@@ -209,11 +214,9 @@ class UserConfiguration:
     source_type: int = 0xFF
     bank_type: int = 0
     model_value: int = 0
-    # 523..538. An MD5 digest of a string field on `model/o`, or 16 zero
-    # bytes when that string is empty. Which string, and what it means, is
-    # not settled -- its setter is an overloaded `a(String)` with no
-    # recoverable name. `deq_blob.py`'s docstring has the trace.
-    model_digest: bytes = bytes(UNKNOWN_BLOCK_BYTES)
+    # 523..538. MD5(carModelNameKey), or 16 zero bytes when no car model is
+    # selected. See this module's docstring for the trace.
+    car_model_name_key_digest: bytes = bytes(CAR_MODEL_NAME_KEY_DIGEST_BYTES)
     trailing_flag: int = 0
     trailing_bytes: bytes = bytes(TRAILING_BYTES)
 
@@ -295,8 +298,9 @@ def decode_blob(blob: bytes) -> UserConfiguration:
         model_value=int.from_bytes(
             blob[MODEL_VALUE_OFFSET:MODEL_VALUE_OFFSET + 4], "little"
         ),
-        model_digest=blob[
-            UNKNOWN_BLOCK_OFFSET:UNKNOWN_BLOCK_OFFSET + UNKNOWN_BLOCK_BYTES
+        car_model_name_key_digest=blob[
+            CAR_MODEL_NAME_KEY_DIGEST_OFFSET
+            :CAR_MODEL_NAME_KEY_DIGEST_OFFSET + CAR_MODEL_NAME_KEY_DIGEST_BYTES
         ],
         trailing_flag=blob[TRAILING_FLAG_OFFSET],
         trailing_bytes=blob[TRAILING_BYTES_OFFSET:TRAILING_BYTES_OFFSET + TRAILING_BYTES],
@@ -364,8 +368,8 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
         configuration.model_value.to_bytes(4, "little")
     )
     _write_fixed_bytes(
-        blob, UNKNOWN_BLOCK_OFFSET, configuration.model_digest,
-        UNKNOWN_BLOCK_BYTES, "model digest",
+        blob, CAR_MODEL_NAME_KEY_DIGEST_OFFSET, configuration.car_model_name_key_digest,
+        CAR_MODEL_NAME_KEY_DIGEST_BYTES, "car model name key digest",
     )
     blob[TRAILING_FLAG_OFFSET] = configuration.trailing_flag
     _write_fixed_bytes(
