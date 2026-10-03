@@ -1,0 +1,21 @@
+# Lets a plain user open the Pioneer DEQ over USB, so `scripts/check_real_deq.py`
+# and `DEQ_TRANSPORT=usb` do not need root.
+#
+# Install it once, then unplug and replug the unit:
+#
+#     sudo cp backend/scripts/99-pioneer-deq.rules /etc/udev/rules.d/
+#     sudo udevadm control --reload-rules
+#     sudo udevadm trigger
+#
+# `08e4:01ed` is the exact product id, from the app's own
+# `otg_device_filter.xml`. The second line omits idProduct entirely, which
+# matches any Pioneer device, since that file also lists a vendor-wide
+# `08e4:ffff` entry — a different DEQ model might enumerate under another
+# product id.
+#
+# `TAG+="uaccess"` is the modern, systemd-logind-managed equivalent of the
+# older `MODE`/`GROUP` rules: it grants access to whichever user is logged
+# in at the console, with nothing to add to a group and no logout needed.
+
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="08e4", ATTRS{idProduct}=="01ed", TAG+="uaccess"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="08e4", TAG+="uaccess"
