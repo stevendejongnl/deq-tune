@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from app.deq_enums import (
+    AUDIO_SOURCE,
     BAND_COUNT,
     CROSSOVER_KIND,
     CROSSOVER_SLOPE,
@@ -106,6 +107,16 @@ def test_speaker_channel_covers_every_output():
     assert len(SPEAKER_CHANNEL) == 11
     assert SPEAKER_CHANNEL.names[0] == "FRONT_L"
     assert SPEAKER_CHANNEL.names[-1] == "SW"
+
+
+def test_audio_source_names_the_connect_sequences_mode_command():
+    """`0x0b`/MODE sends one of these. CAR_SOURCE and THROUGH both appear
+    in `service/g.smali`'s real (non-debug) state machine, not just the
+    "playground" screen -- confirmed while tracing what `0x0b` meant."""
+    assert AUDIO_SOURCE.by_name("UNKNOWN").wire_value == -1
+    assert AUDIO_SOURCE.by_name("CAR_SOURCE").wire_value == 3
+    assert AUDIO_SOURCE.by_name("THROUGH").wire_value == 4
+    assert len(AUDIO_SOURCE) == 10
 
 
 def test_eq_style_keeps_the_app_storage_ids():

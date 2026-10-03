@@ -38,6 +38,7 @@ ENUM_SOURCES = {
     "driving_state": "model/b/f.smali",  # running or not
     "mute_state": "model/b/q.smali",  # sound on or off
     "speaker_channel": "model/b/w$a.smali",  # per-speaker addressing
+    "audio_source": "model/b/v.smali",  # what is feeding the unit audio
 }
 
 NEW_INSTANCE = re.compile(r"^\s*new-instance (v\d+), ")
