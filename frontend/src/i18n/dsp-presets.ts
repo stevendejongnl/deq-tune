@@ -2,116 +2,190 @@ import type { Locale } from "./locale.ts";
 
 /**
  * Names for the DEQ device's built-in EQ-style and Live-Simulation DSP
- * presets, copied from the Pioneer app's own string resources (all six
- * locales have real, distinct translations for these — unlike the car
- * tuning-preset names in preset-names.ts).
+ * presets. The ids are the device's own enum names
+ * (`backend/app/deq_enums.json`'s `eq_style`/`live_simulation`), not an
+ * invented local id, so there is no separate id-to-wire-name map to keep
+ * in sync with the device.
  *
- * Selecting one of these only takes effect on a connected device — see
- * dsp-panel.ts. There's no local curve data for them to preview; the
- * DSP itself lives in the device's firmware.
+ * Names come from the Pioneer app's own string resources where one
+ * exists. A handful of newer enum members (see NO_STRING_RESOURCE below)
+ * have no resource in any locale of the decompiled APK at all -- not even
+ * English -- so their name here is a plain title-cased fallback, not a
+ * translation of anything Pioneer shipped.
+ *
+ * Selecting one of these only takes effect on a connected device -- see
+ * dsp-panel.ts. There's no local curve data for them to preview; the DSP
+ * itself lives in the device's firmware.
  */
 
 export const EQ_STYLE_IDS = [
-  "super_bass",
-  "powerful",
-  "natural",
-  "vocal",
-  "vivid",
-  "dynamic",
-  "custom_a",
-  "custom_b",
+  "CUSTOM",
+  "FLAT",
+  "SUPER_BASS",
+  "POWERFUL",
+  "NATURAL",
+  "VOCAL",
+  "TODOROKI",
+  "POP_ROCK",
+  "ELETRONICA",
+  "SAMBA",
+  "SERTANEJO",
+  "PRO",
+  "BANDA",
+  "DYNAMIC",
+  "FORRO",
+  "VIVID",
+  "JAZZ",
+  "ULTRA_BASS",
+  "TRUE_ACOUSTIC",
+  "EDM_BEAST",
 ] as const;
 export type EqStyleId = (typeof EQ_STYLE_IDS)[number];
 
-export const LIVE_SIMULATION_IDS = ["off", "concert_hall", "open_air", "club", "cafe"] as const;
+export const LIVE_SIMULATION_IDS = [
+  "OFF",
+  "CONCERT_HALL",
+  "OPEN_AIR",
+  "CLUB",
+  "CAFE",
+  "OPERA_HALL",
+  "DJ_DANCE_PARTY",
+] as const;
 export type LiveSimulationId = (typeof LIVE_SIMULATION_IDS)[number];
 
+/**
+ * Enum members with no string resource in any locale of the decompiled
+ * APK, English included -- confirmed by searching every values-\* strings.xml
+ * for each one. Newer additions to the device's enum that Pioneer has not
+ * yet wired up to display text. Named here with a plain title-cased
+ * fallback rather than left blank.
+ */
+const NO_STRING_RESOURCE_EQ_STYLES: ReadonlySet<EqStyleId> = new Set([
+  "ULTRA_BASS",
+  "TRUE_ACOUSTIC",
+  "EDM_BEAST",
+]);
+const NO_STRING_RESOURCE_LIVE_SIMULATIONS: ReadonlySet<LiveSimulationId> = new Set([
+  "OPERA_HALL",
+  "DJ_DANCE_PARTY",
+]);
+
 const ENGLISH_EQ_STYLE_NAMES: Record<EqStyleId, string> = {
-  super_bass: "Super Bass",
-  powerful: "Powerful",
-  natural: "Natural",
-  vocal: "Vocal",
-  vivid: "Vivid",
-  dynamic: "Dynamic",
-  custom_a: "Custom A",
-  custom_b: "Custom B",
+  CUSTOM: "Custom",
+  FLAT: "FLAT",
+  SUPER_BASS: "Super Bass",
+  POWERFUL: "Powerful",
+  NATURAL: "Natural",
+  VOCAL: "Vocal",
+  TODOROKI: "TODOROKI",
+  POP_ROCK: "Pop rock",
+  ELETRONICA: "Eletrônica",
+  SAMBA: "Samba",
+  SERTANEJO: "Sertanejo",
+  PRO: "P.R.O.",
+  BANDA: "BANDA",
+  DYNAMIC: "Dynamic",
+  FORRO: "Forró",
+  VIVID: "Vivid",
+  JAZZ: "Jazz",
+  ULTRA_BASS: "Ultra Bass",
+  TRUE_ACOUSTIC: "True Acoustic",
+  EDM_BEAST: "EDM Beast",
 };
 
 /**
- * A locale without an entry here shows the English names. Pioneer localized
- * these names itself, so a new locale keeps English until someone reads the
- * real names out of the APK.
+ * A locale without an entry for a given id shows the English name. Most
+ * of these ids were only ever shipped with one Pioneer translation (often
+ * literally the English text reused), so most locales below are sparse on
+ * purpose -- that sparseness is itself what the APK's own strings.xml
+ * files show, not a gap in this app's translation.
  */
-const EQ_STYLE_NAMES: Partial<Record<Locale, Record<EqStyleId, string>>> = {
+const EQ_STYLE_NAMES: Partial<Record<Locale, Partial<Record<EqStyleId, string>>>> = {
   en: ENGLISH_EQ_STYLE_NAMES,
   ja: {
-    super_bass: "SUPER BASS",
-    powerful: "POWERFUL",
-    natural: "NATURAL",
-    vocal: "VOCAL",
-    vivid: "Vivid",
-    dynamic: "Dynamic",
-    custom_a: "カスタム A",
-    custom_b: "カスタム B",
+    SUPER_BASS: "SUPER BASS",
+    POWERFUL: "POWERFUL",
+    NATURAL: "NATURAL",
+    VOCAL: "VOCAL",
+    VIVID: "Vivid",
+    DYNAMIC: "Dynamic",
+    FLAT: "FLAT",
+    TODOROKI: "TODOROKI",
+    BANDA: "BANDA",
   },
   de: {
-    super_bass: "SUPERBASS",
-    powerful: "KRAFTVOLL",
-    natural: "NATÜRLICH",
-    vocal: "VOKAL",
-    vivid: "Lebhaft",
-    dynamic: "Dynamisch",
-    custom_a: "Benutzerdefiniert A",
-    custom_b: "Benutzerdefiniert B",
+    SUPER_BASS: "SUPERBASS",
+    POWERFUL: "KRAFTVOLL",
+    NATURAL: "NATÜRLICH",
+    VOCAL: "VOKAL",
+    VIVID: "Lebhaft",
+    DYNAMIC: "Dynamisch",
+    FLAT: "FLACH",
+    TODOROKI: "TODOROKI",
+    POP_ROCK: "Pop-Rock",
+    BANDA: "BANDA",
   },
   fr: {
-    super_bass: "SUPER BASS",
-    powerful: "POWERFUL",
-    natural: "NATURAL",
-    vocal: "VOCAL",
-    vivid: "Viv",
-    dynamic: "Dynamiq",
-    custom_a: "Perso A",
-    custom_b: "Perso B",
+    SUPER_BASS: "SUPER BASS",
+    POWERFUL: "POWERFUL",
+    NATURAL: "NATURAL",
+    VOCAL: "VOCAL",
+    VIVID: "Viv",
+    DYNAMIC: "Dynamiq",
+    FLAT: "FLAT",
+    TODOROKI: "TODOROKI",
+    BANDA: "BANDA",
   },
   es: {
-    super_bass: "SUPERGRAV",
-    powerful: "POTENTE",
-    natural: "NATURAL",
-    vocal: "VOCAL",
-    vivid: "Vívid",
-    dynamic: "Dinám.",
-    custom_a: "Person A",
-    custom_b: "Person B",
+    SUPER_BASS: "SUPERGRAV",
+    POWERFUL: "POTENTE",
+    NATURAL: "NATURAL",
+    VOCAL: "VOCAL",
+    VIVID: "Vívid",
+    DYNAMIC: "Dinám.",
+    FLAT: "NORM",
+    TODOROKI: "TODOROKI",
+    ELETRONICA: "Electrón.",
+    BANDA: "BANDA",
   },
   nl: {
-    super_bass: "SUPERBASS",
-    powerful: "KRACHTIG",
-    natural: "NATUUR",
-    vocal: "VOCAAL",
-    vivid: "Levendig",
-    dynamic: "Dynamisch",
-    custom_a: "Aangepast A",
-    custom_b: "Aangepast B",
+    SUPER_BASS: "SUPERBASS",
+    POWERFUL: "KRACHTIG",
+    NATURAL: "NATUUR",
+    VOCAL: "VOCAAL",
+    VIVID: "Levendig",
+    DYNAMIC: "Dynamisch",
+    FLAT: "VLAK",
+    TODOROKI: "TODOROKI",
+    POP_ROCK: "Pop-rock",
+    BANDA: "BANDA",
   },
 };
 
 const ENGLISH_LIVE_SIMULATION_NAMES: Record<LiveSimulationId, string> = {
-  off: "OFF",
-  concert_hall: "Concert hall",
-  open_air: "Open air",
-  club: "Club",
-  cafe: "Cafe",
+  OFF: "OFF",
+  CONCERT_HALL: "Concert hall",
+  OPEN_AIR: "Open air",
+  CLUB: "Club",
+  CAFE: "Cafe",
+  OPERA_HALL: "Opera Hall",
+  DJ_DANCE_PARTY: "DJ Dance Party",
 };
 
-const LIVE_SIMULATION_NAMES: Partial<Record<Locale, Record<LiveSimulationId, string>>> = {
-  en: ENGLISH_LIVE_SIMULATION_NAMES,
-  ja: { off: "OFF", concert_hall: "ドーム", open_air: "野外フェス", club: "ライブハウス", cafe: "ミュージックバー" },
-  de: { off: "AUS", concert_hall: "Konzerthalle", open_air: "Freiluft", club: "Club", cafe: "Café" },
-  fr: { off: "ARR", concert_hall: "Salle concer", open_air: "Extér", club: "Club", cafe: "Café" },
-  es: { off: "OFF", concert_hall: "Sala conc.", open_air: "Aire", club: "Club", cafe: "Café" },
-  nl: { off: "UIT", concert_hall: "Concertzaal", open_air: "Openlucht", club: "Club", cafe: "Café" },
-};
+/**
+ * OPERA_HALL and DJ_DANCE_PARTY have no entry anywhere -- see
+ * NO_STRING_RESOURCE_LIVE_SIMULATIONS above -- so every locale below is
+ * missing those two on purpose.
+ */
+const LIVE_SIMULATION_NAMES: Partial<Record<Locale, Partial<Record<LiveSimulationId, string>>>> =
+  {
+    en: ENGLISH_LIVE_SIMULATION_NAMES,
+    ja: { OFF: "OFF", CONCERT_HALL: "ドーム", OPEN_AIR: "野外フェス", CLUB: "ライブハウス", CAFE: "ミュージックバー" },
+    de: { OFF: "AUS", CONCERT_HALL: "Konzerthalle", OPEN_AIR: "Freiluft", CLUB: "Club", CAFE: "Café" },
+    fr: { OFF: "ARR", CONCERT_HALL: "Salle concer", OPEN_AIR: "Extér", CLUB: "Club", CAFE: "Café" },
+    es: { OFF: "OFF", CONCERT_HALL: "Sala conc.", OPEN_AIR: "Aire", CLUB: "Club", CAFE: "Café" },
+    nl: { OFF: "UIT", CONCERT_HALL: "Concertzaal", OPEN_AIR: "Openlucht", CLUB: "Club", CAFE: "Café" },
+  };
 
 export function eqStyleName(locale: Locale, id: EqStyleId): string {
   return EQ_STYLE_NAMES[locale]?.[id] ?? ENGLISH_EQ_STYLE_NAMES[id];
@@ -121,33 +195,10 @@ export function liveSimulationName(locale: Locale, id: LiveSimulationId): string
   return LIVE_SIMULATION_NAMES[locale]?.[id] ?? ENGLISH_LIVE_SIMULATION_NAMES[id];
 }
 
-/**
- * The APK name each of these ids means on the wire.
- *
- * The ids above were chosen before the protocol was decoded. The unit's own
- * value sets live in the Pioneer app, and the backend reads them from there
- * (`backend/app/deq_enums.json`), so this map is what joins the two. The
- * device endpoints take the APK name.
- *
- * `custom_a` and `custom_b` have no entry on purpose. They are not EQ
- * styles: the app's `p$c` enum makes Custom A and B a separate bank axis,
- * and `CUSTOM` is the single style that uses the selected bank.
- */
-export const EQ_STYLE_DEVICE_NAMES: Partial<Record<EqStyleId, string>> = {
-  super_bass: "SUPER_BASS",
-  powerful: "POWERFUL",
-  natural: "NATURAL",
-  vocal: "VOCAL",
-  vivid: "VIVID",
-  dynamic: "DYNAMIC",
-  custom_a: "CUSTOM",
-  custom_b: "CUSTOM",
-};
+export function eqStyleHasNoPioneerTranslation(id: EqStyleId): boolean {
+  return NO_STRING_RESOURCE_EQ_STYLES.has(id);
+}
 
-export const LIVE_SIMULATION_DEVICE_NAMES: Record<LiveSimulationId, string> = {
-  off: "OFF",
-  concert_hall: "CONCERT_HALL",
-  open_air: "OPEN_AIR",
-  club: "CLUB",
-  cafe: "CAFE",
-};
+export function liveSimulationHasNoPioneerTranslation(id: LiveSimulationId): boolean {
+  return NO_STRING_RESOURCE_LIVE_SIMULATIONS.has(id);
+}

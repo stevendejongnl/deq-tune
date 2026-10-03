@@ -204,13 +204,23 @@ describe("app-root", () => {
     expect(element.shadowRoot!.querySelector("dsp-panel")).not.toBeNull();
   });
 
+  it("passes the unit's own EQ style and live simulation ids to the panel", async () => {
+    const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
+    const element = await mount(api);
+    await click(queryFirstChip(element), element);
+
+    const panel = element.shadowRoot!.querySelector("dsp-panel")!;
+    expect(panel.shadowRoot!.querySelectorAll(".tile")).toHaveLength(3);
+    expect(panel.shadowRoot!.querySelectorAll(".option")).toHaveLength(3);
+  });
+
   it("sends an EQ style choice to the unit, under the name the unit knows", async () => {
     const api = new FakeProfileApi([sampleProfile({ id: 1 })]);
     const element = await mount(api);
     await click(queryFirstChip(element), element);
 
     element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("eq-style-change", { detail: { id: "super_bass" } }),
+      new CustomEvent("eq-style-change", { detail: { id: "SUPER_BASS" } }),
     );
     await element.updateComplete;
 
@@ -223,7 +233,7 @@ describe("app-root", () => {
     await click(queryFirstChip(element), element);
 
     element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("live-simulation-change", { detail: { id: "concert_hall" } }),
+      new CustomEvent("live-simulation-change", { detail: { id: "CONCERT_HALL" } }),
     );
     await element.updateComplete;
 
@@ -237,7 +247,7 @@ describe("app-root", () => {
     await click(queryFirstChip(element), element);
 
     element.shadowRoot!.querySelector("dsp-panel")!.dispatchEvent(
-      new CustomEvent("eq-style-change", { detail: { id: "powerful" } }),
+      new CustomEvent("eq-style-change", { detail: { id: "POWERFUL" } }),
     );
     await element.updateComplete;
 
