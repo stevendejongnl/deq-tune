@@ -7,12 +7,7 @@ import { browserLocaleStorage } from "../i18n/browser-locale-storage.ts";
 import { type Locale, type LocaleStorage, resolveInitialLocale, saveLocale } from "../i18n/locale.ts";
 import { localizedModelName, localizedSpeakerTypeLabel } from "../i18n/preset-names.ts";
 import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
-import {
-  EQ_STYLE_DEVICE_NAMES,
-  LIVE_SIMULATION_DEVICE_NAMES,
-  type EqStyleId,
-  type LiveSimulationId,
-} from "../i18n/dsp-presets.ts";
+import type { EqStyleId, LiveSimulationId } from "../i18n/dsp-presets.ts";
 import { browserLayoutQuery, type AppLayout, type LayoutQuery } from "../layout-query.ts";
 import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
@@ -103,8 +98,10 @@ export class AppRoot extends LitElement {
   @state() private profiles: ProfileDto[] = [];
   @state() private selectedId: number | null = null;
   @state() private locale: Locale = "en";
+  @state() private eqStyleIds: readonly EqStyleId[] = [];
+  @state() private liveSimulationIds: readonly LiveSimulationId[] = [];
   @state() private eqStyle: EqStyleId | null = null;
-  @state() private liveSimulation: LiveSimulationId = "off";
+  @state() private liveSimulation: LiveSimulationId | null = null;
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
   @state() private phoneTab: PhoneTab = "eq";
@@ -134,6 +131,7 @@ export class AppRoot extends LitElement {
       this.layout = layout;
     });
     this.loadProfiles();
+    this.loadDeviceOptions();
     window.addEventListener("keydown", this.onKeydown);
   }
 
@@ -523,23 +521,35 @@ export class AppRoot extends LitElement {
     `;
   }
 
+  /** The ids this panel offers are the unit's own value sets, read once
+   * at startup. A unit that is not connected (or not yet responded) shows
+   * an empty panel rather than a guessed list -- see dsp-presets.ts for
+   * why there is no local fallback list any more. */
+  private async loadDeviceOptions(): Promise<void> {
+    try {
+      const options = await this.api.readDeviceOptions();
+      this.eqStyleIds = options.eq_styles.map((value) => value.name) as EqStyleId[];
+      this.liveSimulationIds = options.live_simulations.map(
+        (value) => value.name,
+      ) as LiveSimulationId[];
+    } catch {
+      // The unit is not reachable yet. The panel stays empty until a
+      // later connect succeeds; device-status.ts already reports why.
+    }
+  }
+
   /** The unit's DSP runs these, so the choice goes to the device as well as
    * to local state. A unit that is not connected answers 503, which is not
-   * worth a message: the panel still shows the choice. */
+   * worth a message: the panel still shows the choice. The id already is
+   * the device's own wire name, so it is sent as-is. */
   private async changeEqStyle(id: EqStyleId): Promise<void> {
     this.eqStyle = id;
-    const deviceName = EQ_STYLE_DEVICE_NAMES[id];
-    if (deviceName === undefined) {
-      return;
-    }
-    await this.sendToUnit(() => this.api.selectEqStyle(deviceName));
+    await this.sendToUnit(() => this.api.selectEqStyle(id));
   }
 
   private async changeLiveSimulation(id: LiveSimulationId): Promise<void> {
     this.liveSimulation = id;
-    await this.sendToUnit(() =>
-      this.api.selectLiveSimulation(LIVE_SIMULATION_DEVICE_NAMES[id]),
-    );
+    await this.sendToUnit(() => this.api.selectLiveSimulation(id));
   }
 
   private async sendToUnit(send: () => Promise<unknown>): Promise<void> {
@@ -556,6 +566,8 @@ export class AppRoot extends LitElement {
       <dsp-panel
         class="area-style"
         .locale=${this.locale}
+        .eqStyleIds=${this.eqStyleIds}
+        .liveSimulationIds=${this.liveSimulationIds}
         .eqStyle=${this.eqStyle}
         .liveSimulation=${this.liveSimulation}
         @eq-style-change=${(eqStyleChangeEvent: CustomEvent<{ id: EqStyleId }>) =>

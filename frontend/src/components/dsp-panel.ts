@@ -3,8 +3,6 @@ import { customElement, property } from "lit/decorators.js";
 import type { Locale } from "../i18n/locale.ts";
 import { dspPanelStyles } from "./dsp-panel.styles.ts";
 import {
-  EQ_STYLE_IDS,
-  LIVE_SIMULATION_IDS,
   type EqStyleId,
   type LiveSimulationId,
   eqStyleName,
@@ -25,8 +23,12 @@ function renderLockIcon(): TemplateResult {
  * The DEQ device's built-in EQ-style and Live-Simulation DSP presets
  * (Super Bass, Powerful, Concert hall, ...). These run on the device's
  * own firmware. This panel only tracks which one is selected locally.
- * A selection has no effect until the USB command protocol is known
- * (see device-status.ts).
+ * A selection has no effect until a unit is connected (see
+ * device-status.ts).
+ *
+ * `eqStyleIds`/`liveSimulationIds` come from the unit's own value sets
+ * (`/api/device/options`), read by app-root.ts -- this panel does not
+ * invent or hardcode the list of choices itself.
  *
  * It emits `eq-style-change` ({ id }), `live-simulation-change`
  * ({ id }).
@@ -36,8 +38,10 @@ export class DspPanel extends LitElement {
   static override styles = dspPanelStyles;
 
   @property({ type: String }) locale: Locale = "en";
+  @property({ type: Array }) eqStyleIds: readonly EqStyleId[] = [];
+  @property({ type: Array }) liveSimulationIds: readonly LiveSimulationId[] = [];
   @property({ type: String }) eqStyle: EqStyleId | null = null;
-  @property({ type: String }) liveSimulation: LiveSimulationId = "off";
+  @property({ type: String }) liveSimulation: LiveSimulationId | null = null;
 
   override render() {
     const strings = uiStrings(this.locale);
@@ -52,13 +56,13 @@ export class DspPanel extends LitElement {
             <span class="lock-note">${renderLockIcon()}${strings.dspDeviceHint}</span>
           </div>
           <div class="tiles">
-            ${EQ_STYLE_IDS.map((id) => this.renderEqStyleTile(id))}
+            ${this.eqStyleIds.map((id) => this.renderEqStyleTile(id))}
           </div>
         </div>
         <div class="simulation-column">
           <h2>${strings.liveSimulationTitle}</h2>
           <div class="options">
-            ${LIVE_SIMULATION_IDS.map((id) => this.renderLiveSimulationOption(id))}
+            ${this.liveSimulationIds.map((id) => this.renderLiveSimulationOption(id))}
           </div>
         </div>
       </section>

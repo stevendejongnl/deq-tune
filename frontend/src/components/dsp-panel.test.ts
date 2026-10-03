@@ -5,27 +5,38 @@ import { EQ_STYLE_IDS, LIVE_SIMULATION_IDS } from "../i18n/dsp-presets.ts";
 
 async function mount(): Promise<DspPanel> {
   const element = document.createElement("dsp-panel") as DspPanel;
+  element.eqStyleIds = EQ_STYLE_IDS;
+  element.liveSimulationIds = LIVE_SIMULATION_IDS;
   document.body.append(element);
   await element.updateComplete;
   return element;
 }
 
 describe("dsp-panel", () => {
-  it("renders one tile per EQ style", async () => {
+  it("renders one tile per given EQ style id", async () => {
     const element = await mount();
     expect(element.shadowRoot!.querySelectorAll(".tile")).toHaveLength(EQ_STYLE_IDS.length);
   });
 
-  it("renders one option per Live Simulation preset", async () => {
+  it("renders one option per given Live Simulation id", async () => {
     const element = await mount();
     expect(element.shadowRoot!.querySelectorAll(".option")).toHaveLength(
       LIVE_SIMULATION_IDS.length,
     );
   });
 
+  it("renders nothing until the unit's own value sets arrive", async () => {
+    const element = document.createElement("dsp-panel") as DspPanel;
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelectorAll(".tile")).toHaveLength(0);
+    expect(element.shadowRoot!.querySelectorAll(".option")).toHaveLength(0);
+  });
+
   it("marks the current eqStyle tile as pressed", async () => {
     const element = await mount();
-    element.eqStyle = "powerful";
+    element.eqStyle = "POWERFUL";
     await element.updateComplete;
 
     const pressedTile = element.shadowRoot!.querySelector('.tile[aria-pressed="true"]');
@@ -44,7 +55,7 @@ describe("dsp-panel", () => {
     ) as HTMLButtonElement;
     superBassTile.click();
 
-    expect(detail).toEqual({ id: "super_bass" });
+    expect(detail).toEqual({ id: "SUPER_BASS" });
   });
 
   it("emits live-simulation-change with the clicked option's id", async () => {
@@ -59,7 +70,7 @@ describe("dsp-panel", () => {
     ) as HTMLButtonElement;
     clubOption.click();
 
-    expect(detail).toEqual({ id: "club" });
+    expect(detail).toEqual({ id: "CLUB" });
   });
 
   it("shows the lock note instead of a footer hint", async () => {
