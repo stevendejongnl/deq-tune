@@ -173,13 +173,17 @@ def check_configuration(
     else:
         report.ok("always_false_flag", "0, as the app's writer always sends")
 
-    if configuration.model_digest == bytes(16):
-        report.ok("model_digest", "16 zero bytes (the app's empty-string case)")
-    elif len(configuration.model_digest) == 16:
-        report.ok("model_digest", f"{configuration.model_digest.hex()} (a real MD5 digest)")
+    if configuration.car_model_name_key_digest == bytes(16):
+        report.ok("car_model_name_key_digest", "16 zero bytes (no car model selected)")
+    elif len(configuration.car_model_name_key_digest) == 16:
+        report.ok(
+            "car_model_name_key_digest",
+            f"{configuration.car_model_name_key_digest.hex()} (MD5 of carModelNameKey)",
+        )
     else:
         report.failed(
-            "model_digest", f"{len(configuration.model_digest)} bytes, expected 16"
+            "car_model_name_key_digest",
+            f"{len(configuration.car_model_name_key_digest)} bytes, expected 16",
         )
 
     if identity is not None:

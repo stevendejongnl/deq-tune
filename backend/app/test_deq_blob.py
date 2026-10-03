@@ -159,7 +159,7 @@ def test_every_field_survives_a_round_trip() -> None:
         source_type=2,
         bank_type=7,
         model_value=9,
-        model_digest=bytes(range(16)),
+        car_model_name_key_digest=bytes(range(16)),
         trailing_flag=1,
         trailing_bytes=bytes(range(32)),
     )
@@ -249,16 +249,19 @@ def test_unique_id_bytes_holds_the_presets_own_unique_id() -> None:
     assert decode_blob(encode_blob(configuration)).unique_id_bytes == unique_id
 
 
-def test_model_digest_round_trips_an_md5_hash() -> None:
-    """Offset 523's 16 bytes are `MessageDigest.getInstance("MD5")` over a
-    model string, or 16 zero bytes when that string is empty. Sixteen bytes
-    is exactly one MD5 digest, which is what the field width confirms."""
+def test_car_model_name_key_digest_round_trips_an_md5_hash() -> None:
+    """Offset 523's 16 bytes are MD5(carModelNameKey), or 16 zero bytes when
+    no car model is selected. `carModelNameKey` is traced to the app's own
+    JSON writer tagging this exact field with that key, then confirmed live:
+    hooking the MD5 step under the emulator showed it digests precisely a
+    known test string set on that field, byte for byte -- see
+    USB_CAPTURE_NOTES.md in the outer repo."""
     digest = hashlib.md5(b"hello").digest()
     assert len(digest) == 16
-    configuration = UserConfiguration(model_digest=digest)
-    assert decode_blob(encode_blob(configuration)).model_digest == digest
+    configuration = UserConfiguration(car_model_name_key_digest=digest)
+    assert decode_blob(encode_blob(configuration)).car_model_name_key_digest == digest
 
 
-def test_model_digest_defaults_to_zero_for_the_empty_string_case() -> None:
+def test_car_model_name_key_digest_defaults_to_zero_for_no_car_model_selected() -> None:
     configuration = UserConfiguration()
-    assert configuration.model_digest == bytes(16)
+    assert configuration.car_model_name_key_digest == bytes(16)
