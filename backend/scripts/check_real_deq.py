@@ -16,7 +16,8 @@ you ask for it:
     PYTHONPATH=. uv run python scripts/check_real_deq.py --write
 
 On Linux a plain user cannot usually open a USB device. Either run this with
-`sudo -E env PYTHONPATH=. ...`, or add a udev rule for `08e4:01ed`.
+`sudo -E env PYTHONPATH=. ...`, or install `scripts/99-pioneer-deq.rules`
+as a udev rule (install steps in its own comment).
 
 What it prints is a list of checks, each `ok`, `differs` or `failed`, and a
 count at the end. A `differs` line is the interesting one: it means the unit
@@ -35,12 +36,12 @@ from app.deq_session import (
     COMMAND_KEEPALIVE,
     STARTUP_STEPS,
     DeqSession,
+    DeviceIdentity,
 )
 from app.deq_transport import TransportError
 from app.usb_transport import UsbTransport
 
 # What the fake unit answers, so a real one can be held against it.
-EXPECTED_SERIAL_LENGTH = 12
 EXPECTED_BLOB_BYTES = 572
 
 
@@ -110,26 +111,36 @@ def check_startup(report: Report, session: DeqSession) -> None:
         report.ok(f"command 0x{command_id:02x}", f"{reply.payload_length}-byte reply")
 
 
-def check_identity(report: Report, session: DeqSession) -> None:
+def check_identity(report: Report, session: DeqSession) -> DeviceIdentity | None:
+    """Reads what the unit is, and returns it for `check_configuration`
+    to cross-check its speaker mode against."""
     print("\nReading what the unit is")
     try:
         identity = session.read_device_identity()
     except Exception as caught_error:
         report.failed("device identity", str(caught_error))
-        return
+        return None
     report.ok("firmware version", f"{identity.firmware_version >> 8}.{identity.firmware_version & 0xFF:02d}")
     if len(identity.serial) == 0:
         report.differs("serial number", "the unit sent an empty string")
     else:
         report.ok("serial number", identity.serial)
+    return identity
 
 
-def check_configuration(report: Report, session: DeqSession) -> None:
+def check_configuration(
+    report: Report, session: DeqSession, identity: DeviceIdentity | None = None
+) -> None:
     """Reads the settings blob and checks it round-trips.
 
     This is the strongest read-only check there is. The blob is the unit's
     whole semantic state, and `deq_blob` was written from the app's own
     reader, so a byte-exact round trip means that reader is right.
+
+    `identity`, from `check_identity`, lets this also cross-check the
+    speaker mode the `0x04` reply reported against the blob's own
+    `speaker_mode` byte. The two are read by two different commands, so
+    agreement is not guaranteed by either read alone.
     """
     print("\nReading the settings blob")
     try:
@@ -149,6 +160,40 @@ def check_configuration(report: Report, session: DeqSession) -> None:
     report.ok("speaker mode", str(configuration.speaker_mode))
     report.ok("equalizer bands", str(configuration.band_count))
     report.ok("bank in use", str(configuration.bank_in_use))
+
+    # Three fields the APK's writer explained; this is the first chance to
+    # check any of them against a real unit. See USB_CAPTURE_NOTES.md in
+    # the outer repo for the trace.
+    if configuration.always_false_flag != 0:
+        report.differs(
+            "always_false_flag",
+            f"unit sent {configuration.always_false_flag}, "
+            "but the app's writer only ever emits a literal 0 here",
+        )
+    else:
+        report.ok("always_false_flag", "0, as the app's writer always sends")
+
+    if configuration.model_digest == bytes(16):
+        report.ok("model_digest", "16 zero bytes (the app's empty-string case)")
+    elif len(configuration.model_digest) == 16:
+        report.ok("model_digest", f"{configuration.model_digest.hex()} (a real MD5 digest)")
+    else:
+        report.failed(
+            "model_digest", f"{len(configuration.model_digest)} bytes, expected 16"
+        )
+
+    if identity is not None:
+        if identity.speaker_mode == configuration.speaker_mode:
+            report.ok(
+                "speaker mode agreement",
+                f"command 0x04 and the blob both say {identity.speaker_mode}",
+            )
+        else:
+            report.differs(
+                "speaker mode agreement",
+                f"command 0x04 said {identity.speaker_mode}, "
+                f"the blob says {configuration.speaker_mode}",
+            )
 
 
 def check_keepalive(report: Report, session: DeqSession) -> None:
@@ -185,7 +230,12 @@ def check_write_back(report: Report, session: DeqSession) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        # The docstring's own line breaks and command examples are
+        # meant to be read as written, not reflowed into one paragraph.
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--write",
         action="store_true",
@@ -203,8 +253,8 @@ def main() -> int:
     session = DeqSession(transport)
     try:
         check_startup(report, session)
-        check_identity(report, session)
-        check_configuration(report, session)
+        identity = check_identity(report, session)
+        check_configuration(report, session, identity)
         check_keepalive(report, session)
         if arguments.write:
             check_write_back(report, session)
