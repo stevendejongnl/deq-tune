@@ -27,7 +27,7 @@ from app.deq_session import (
 )
 from app.eq_data import TuningData
 from app.deq_transport import TransportTimeout
-from app.testing.fake_deq import FAKE_SERIAL, FakeDeq
+from app.testing.fake_deq import FAKE_SERIAL, FAKE_SPEAKER_MODE, FakeDeq
 
 
 def test_start_sends_the_apps_own_connect_order():
@@ -58,6 +58,7 @@ def test_read_device_identity_reports_what_the_unit_says():
     identity = DeqSession(fake).read_device_identity()
     assert identity.firmware_version == 0x0310
     assert identity.serial == FAKE_SERIAL
+    assert identity.speaker_mode == FAKE_SPEAKER_MODE
 
 
 def test_a_written_configuration_reads_back():

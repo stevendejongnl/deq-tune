@@ -146,6 +146,10 @@ class DeviceIdentity:
 
     firmware_version: int
     serial: str
+    # From the same reply as `serial`, per `deq_commands.json`'s SPEAKER_MODE
+    # field. Lets a caller cross-check this against the blob's own
+    # `speaker_mode`, which is a separate read.
+    speaker_mode: int
 
 
 class DeqSession:
@@ -234,12 +238,13 @@ class DeqSession:
         self.exchange(COMMAND_KEEPALIVE)
 
     def read_device_identity(self) -> DeviceIdentity:
-        """Returns the unit's firmware version and serial number."""
+        """Returns the unit's firmware version, serial number and speaker mode."""
         version_reply = self.exchange(COMMAND_FIRMWARE_VERSION)
         identity_reply = self.exchange(COMMAND_DEVICE_IDENTITY)
         return DeviceIdentity(
             firmware_version=read_field(version_reply, offset=4, width=2),
             serial=read_text_field(identity_reply, offset=4, width=12),
+            speaker_mode=read_field(identity_reply, offset=20, width=4),
         )
 
     def read_user_configuration(self) -> UserConfiguration:
