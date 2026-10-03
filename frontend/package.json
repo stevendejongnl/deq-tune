@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "prepare": "ttsc prepare",
-    "generate:dto": "npx --yes --package typescript@5.8.3 --package openapi-typescript@7 -- openapi-typescript ../openapi.json -o src/dto/generated/openapi.d.ts"
+    "generate:dto": "npx --yes --package typescript@5.8.3 --package openapi-typescript@7 -- openapi-typescript ../openapi.json -o src/dto/generated/openapi.d.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "lit": "^3.3.3",

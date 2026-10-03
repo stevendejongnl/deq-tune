@@ -154,4 +154,4 @@ cd backend && uv sync --extra usb
 PYTHONPATH=. uv run python scripts/check_real_deq.py
 ```
 
-  It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes — the Pioneer app and the unit are the authority, and this code is what is under test. On Linux, opening a USB device usually needs `sudo -E env PYTHONPATH=. ...` or a udev rule for `08e4:01ed`.
+  It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes — the Pioneer app and the unit are the authority, and this code is what is under test. On Linux, opening a USB device usually needs root, or a udev rule: `backend/scripts/99-pioneer-deq.rules` is one, with the install steps in its own comment.
