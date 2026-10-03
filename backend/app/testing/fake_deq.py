@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from app.deq_blob import UserConfiguration, decode_blob, encode_blob
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_session import (
+    COMMAND_AUTO_SAVE_EQ_MODE,
     COMMAND_DEVICE_IDENTITY,
     COMMAND_FIRMWARE_VERSION,
     COMMAND_READ_USER_CONFIGURATION,
@@ -136,6 +137,11 @@ class FakeDeq:
             return self.accept_configuration(request)
         if request.command_id == COMMAND_WRITE_COEFFICIENTS:
             return self.acknowledge_coefficients(request)
+        if request.command_id == COMMAND_AUTO_SAVE_EQ_MODE:
+            # Unlike the small commands the echo rule covers, this reply's
+            # own fields (deq_commands.json) are TRANSACTION_ID and STATUS
+            # only -- ENABLE_FLAG is not echoed back.
+            return b""
         return self.echo_request_field(request)
 
     def build_identity_tail(self) -> bytes:

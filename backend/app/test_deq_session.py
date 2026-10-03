@@ -11,7 +11,9 @@ from app.deq_blob import UserConfiguration
 from app.deq_dsp import FilterSlope, build_equalizer_payload
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_session import (
+    COMMAND_AUTO_SAVE_EQ_MODE,
     COMMAND_KEEPALIVE,
+    COMMAND_STARTUP_DONE,
     CONFIG_ID_CROSSOVER_STANDARD,
     CONFIG_ID_EQUALIZER,
     CONFIG_ID_TIME_ALIGNMENT,
@@ -34,6 +36,17 @@ def test_start_sends_the_apps_own_connect_order():
     fake = FakeDeq()
     DeqSession(fake).start()
     assert fake.command_order == [command_id for command_id, _ in STARTUP_STEPS]
+
+
+def test_start_ends_with_auto_save_eq_mode_false_then_startup_done():
+    # 0x05/0x06/0x0d/0x0b need live state this app does not track at
+    # connect time, so they are deliberately not sent (see
+    # USB_CAPTURE_NOTES.md). 0x19 and 0x1a need no such value.
+    fake = FakeDeq()
+    DeqSession(fake).start()
+    assert fake.command_order[-2:] == [COMMAND_AUTO_SAVE_EQ_MODE, COMMAND_STARTUP_DONE]
+    auto_save_request = fake.exchanges[-2].request
+    assert auto_save_request.body == (0).to_bytes(4, "little")
 
 
 def test_each_request_carries_a_new_transaction_id():

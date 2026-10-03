@@ -58,9 +58,11 @@ COMMAND_READ_USER_CONFIGURATION = 0x09
 COMMAND_READ_CONFIGURATION = 0x0A
 COMMAND_MODE = 0x0B
 COMMAND_VOLUME = 0x0D
+COMMAND_AUTO_SAVE_EQ_MODE = 0x19
 COMMAND_SPEAKER_MUTE_STATES = 0x1F
 COMMAND_MUTE_STATE = 0x20
 COMMAND_SET_TIMEOUT_INTERVAL = 0x21
+COMMAND_STARTUP_DONE = 0x1A
 
 # Which CONFIG_ID carries which block of command 0x05. Read from the APK:
 # `b/e/ab`'s dispatch maps each id to the field enum that declares its
@@ -112,6 +114,15 @@ STARTUP_STEPS: tuple[tuple[int, bytes], ...] = (
     (COMMAND_MUTE_STATE, b""),
     (COMMAND_SPEAKER_MUTE_STATES, b""),
     (COMMAND_READ_USER_CONFIGURATION, b""),
+    # The real sequence continues through 0x05 (x2), 0x06, 0x0d and 0x0b
+    # before 0x1a. Those five need live state this app does not track at
+    # connect time (the app's own in-memory tuning, current volume, which
+    # audio source is active) -- sending a made-up value would be a guess
+    # with a real-world effect, not a protocol match. See
+    # USB_CAPTURE_NOTES.md's "STARTUP_STEPS stops early" section. 0x19 and
+    # 0x1a need no such value, so only those two are wired in here.
+    (COMMAND_AUTO_SAVE_EQ_MODE, (0).to_bytes(4, "little")),
+    (COMMAND_STARTUP_DONE, b""),
 )
 
 
