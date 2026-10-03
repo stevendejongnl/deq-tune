@@ -423,6 +423,61 @@
      "wire_value": 10
     }
    ]
+  },
+  "audio_source": {
+   "apk_class": "soundtune/model/b/v",
+   "values": [
+    {
+     "name": "UNKNOWN",
+     "ordinal": 0,
+     "wire_value": -1
+    },
+    {
+     "name": "STAND_ALONE",
+     "ordinal": 1,
+     "wire_value": 0
+    },
+    {
+     "name": "SP_GENUINE_SOURCE",
+     "ordinal": 2,
+     "wire_value": 1
+    },
+    {
+     "name": "MIX_GENUINE_SOURCE",
+     "ordinal": 3,
+     "wire_value": 2
+    },
+    {
+     "name": "CAR_SOURCE",
+     "ordinal": 4,
+     "wire_value": 3
+    },
+    {
+     "name": "THROUGH",
+     "ordinal": 5,
+     "wire_value": 4
+    },
+    {
+     "name": "SP_OTHER_SOURCE",
+     "ordinal": 6,
+     "wire_value": 5
+    },
+    {
+     "name": "MIX_OTHER_SOURCE",
+     "ordinal": 7,
+     "wire_value": 6
+    },
+    {
+     "name": "SP_GENUINE_PURE_SOURCE",
+     "ordinal": 8,
+     "wire_value": 7
+    },
+    {
+     "name": "MIX_GENUINE_PURE_SOURCE",
+     "ordinal": 9,
+     "wire_value": 8
+    }
+   ]
   }
  }
 }
