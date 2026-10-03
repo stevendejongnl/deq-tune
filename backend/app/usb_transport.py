@@ -35,9 +35,6 @@ from app.deq_transport import TransportError, TransportTimeout
 
 PIONEER_VENDOR_ID = 0x08E4
 DEQ_PRODUCT_ID = 0x01ED
-# The app's filter lists this alongside the exact product id, so a unit
-# with another product id is still worth trying.
-PIONEER_ANY_PRODUCT_ID = 0xFFFF
 
 # One bulk packet. The codec's 512-byte pad rule depends on this.
 BULK_PACKET_BYTES = 512
@@ -177,6 +174,8 @@ def find_deq():
     usb_core = find_usb_core()
     device = usb_core.find(idVendor=PIONEER_VENDOR_ID, idProduct=DEQ_PRODUCT_ID)
     if device is None:
+        # The app's filter also lists a vendor-wide 0xffff product id, so a
+        # unit enumerating under another product id is still worth trying.
         device = usb_core.find(idVendor=PIONEER_VENDOR_ID)
     if device is None:
         raise UsbUnavailable(
@@ -202,8 +201,7 @@ def claim_bulk_interface(device):
         raise UsbUnavailable(
             f"could not configure the unit: {caught_error}. "
             "On Linux this usually means the user cannot open the device; "
-            "try a udev rule for "
-            f"{PIONEER_VENDOR_ID:04x}:{DEQ_PRODUCT_ID:04x}."
+            "install scripts/99-pioneer-deq.rules as a udev rule."
         ) from caught_error
 
     configuration = device.get_active_configuration()
