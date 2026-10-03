@@ -13,11 +13,32 @@ and diffing the bytes it wrote, against a single baseline: speaker mode
 two speaker records fewer and so runs 26 bytes shorter; this module reads
 and writes the STANDARD form only.
 
-Four fields are known by position but not by meaning: the flags at offsets
-14 and 279, the 16 bytes at 523, and the 32-byte string region at 484. The
-string region is written from a Java string array whose encoding is not
-settled, so this module carries it as raw bytes rather than guessing at
-text.
+Four fields an earlier version of this module held as unknown bytes are
+now named. Three were read from the app's own writer
+(`b/g/h.a(z, Z, o)[B` in the decompiled APK); the fourth needed the app's
+own reader, run live under an Android emulator with Frida, because static
+reading alone did not settle it (see `USB_CAPTURE_NOTES.md` in the outer
+repo for both traces):
+
+- Offset 14 is a literal `false` the app always writes. It reads no model
+  field at all.
+- The 32 bytes at offset 484 are `uniqueId`, the same string the preset
+  JSON header carries (`"uniqueId": "1-0000-..."`). A default blob holds
+  zeros there because the app's own default state has no id, not because
+  this is unresolved.
+- The 16 bytes at offset 523 are an MD5 digest of a string field, or 16
+  zero bytes when that string is empty. `MessageDigest.getInstance("MD5")`
+  explains why the field is exactly 16 bytes.
+- Offset 279 is not a standalone flag between the crossover block and the
+  speaker records. It is byte 0 of speaker record 0's own phase flag.
+  Hooking the app's real per-speaker reader
+  (`b/g/h.a(ByteArrayInputStream, model/b/w$a)`) and logging the stream
+  position before and after each of its 7 calls showed every record reads
+  one phase-flag byte, then three float32 -- not three floats then a
+  trailing byte, which is what this module read before. The two errors
+  mostly cancelled (the floats still landed on the right bytes), so every
+  existing round-trip test passed; what broke was which speaker each
+  phase flag belongs to.
 
 **A bank always reserves 31 slots, but `band_count` says how many the unit
 reads.** Set `band_count` to 13 and the app drops whatever stands in slots
@@ -38,6 +59,7 @@ VERSION_OFFSET = 0
 TIMESTAMP_OFFSET = 4
 SPEAKER_MODE_OFFSET = 12
 LISTENING_POSITION_OFFSET = 13
+# A literal `false` the writer always emits here. It reads no model field.
 UNKNOWN_FLAG_OFFSET = 14
 EQUALIZER_ENABLED_OFFSET = 15
 BAND_COUNT_OFFSET = 16
@@ -56,17 +78,19 @@ SOUND_FIELD_OFFSET = 270
 
 CROSSOVER_OFFSET = 271
 CROSSOVER_SPEAKER_COUNT = 4
-# One byte sits between the crossover block and the speaker records. The app
-# writes 1 there by default; what it means is not known.
-UNKNOWN_FLAG_279_OFFSET = 279
 
-SPEAKER_RECORD_OFFSET = 280
+# Each record is one phase flag then three float32, confirmed by hooking
+# the app's own reader (`b/g/h.a(ByteArrayInputStream, model/b/w$a)`) under
+# the Android emulator and logging the stream position before and after
+# each call: every one of the 7 calls reads 1 byte then 4+4+4, never the
+# other order. An earlier version of this module read the floats first and
+# a trailing "separator" byte last, offset by one record -- the byte it
+# called speaker N's separator was really speaker N+1's own flag, and
+# speaker 0's real flag (byte 279) was never read into any record at all.
+# See USB_CAPTURE_NOTES.md in the outer repo for the full trace.
+SPEAKER_RECORD_OFFSET = 279
 SPEAKER_RECORD_COUNT = 7
-# Each record is three float32. A single byte separates one record from the
-# next, so there are six of those bytes, not seven: the last record ends at
-# 369 and offset 370 already belongs to the cancelling equalizer.
 SPEAKER_RECORD_STRIDE = 13
-SPEAKER_SEPARATOR_COUNT = SPEAKER_RECORD_COUNT - 1
 
 CANCELLING_FLAG_A_OFFSET = 370
 CANCELLING_FLAG_B_OFFSET = 371
@@ -109,16 +133,23 @@ class BlobLengthError(ValueError):
 
 @dataclass
 class SpeakerRecord:
-    """One speaker's three stored values.
+    """One speaker's phase flag and its three stored values.
 
-    `separator` is the byte that follows the floats and precedes the next
-    record. The last record has no such byte, so its `separator` is None.
+    `is_positive_phase` is the one byte the app's own reader takes before
+    the three floats, confirmed by hooking that reader directly (see
+    `deq_blob.py`'s module docstring). Every one of the 7 speakers has
+    this flag; none of them lacks it.
+
+    The three floats' names come straight from the app's own JSON writer
+    (`i/d/c.smali`), which serializes this exact object as
+    `{isPositivePhase, levelDB, timeAlignmentCm, levelDBExtended}` --
+    the same four keys already in `eq_data.py`'s `Speaker` model.
     """
 
-    first: float = 0.0
-    second: float = 0.0
-    third: float = 0.0
-    separator: int | None = 0
+    is_positive_phase: bool = True
+    level_db: float = 0.0
+    time_alignment_cm: float = 0.0
+    level_db_extended: float = 0.0
 
 
 @dataclass
@@ -137,7 +168,7 @@ class UserConfiguration:
     timestamp_seconds: int = 0
     speaker_mode: int = 3
     listening_position: int = 2
-    unknown_flag_14: int = 0
+    always_false_flag: int = 0
     equalizer_enabled: int = 0
     band_count: int = BANK_BAND_SLOTS
     bank_in_use: int = 0
@@ -152,7 +183,6 @@ class UserConfiguration:
     bank_flag_b: int = 1
     bank_flag_c: int = 0
     sound_field: int = 0
-    unknown_flag_279: int = 1
     crossovers: list[CrossoverSetting] = field(
         default_factory=lambda: [
             CrossoverSetting() for _ in range(CROSSOVER_SPEAKER_COUNT)
@@ -169,13 +199,17 @@ class UserConfiguration:
     )
     manual_left: float = 0.0
     manual_right: float = 0.0
-    # 484..515. Written from a Java string array whose encoding is unsettled.
-    name_bytes: bytes = bytes(NAME_BYTES)
+    # 484..515. The preset JSON header's own `uniqueId` string, encoded by
+    # the writer's string-to-bytes call. Zero when the profile carries none.
+    unique_id_bytes: bytes = bytes(NAME_BYTES)
     source_type: int = 0xFF
     bank_type: int = 0
     model_value: int = 0
-    # 523..538. Position known, meaning not.
-    unknown_block: bytes = bytes(UNKNOWN_BLOCK_BYTES)
+    # 523..538. An MD5 digest of a string field on `model/o`, or 16 zero
+    # bytes when that string is empty. Which string, and what it means, is
+    # not settled -- its setter is an overloaded `a(String)` with no
+    # recoverable name. `deq_blob.py`'s docstring has the trace.
+    model_digest: bytes = bytes(UNKNOWN_BLOCK_BYTES)
     trailing_flag: int = 0
     trailing_bytes: bytes = bytes(TRAILING_BYTES)
 
@@ -194,11 +228,8 @@ def trim_gains_to_band_count(configuration: UserConfiguration) -> UserConfigurat
 
 
 def _default_speakers() -> list[SpeakerRecord]:
-    """Returns one empty record per slot, with no separator on the last one."""
-    return [
-        SpeakerRecord(separator=0 if slot < SPEAKER_SEPARATOR_COUNT else None)
-        for slot in range(SPEAKER_RECORD_COUNT)
-    ]
+    """Returns one empty record per slot."""
+    return [SpeakerRecord() for _ in range(SPEAKER_RECORD_COUNT)]
 
 
 def _read_floats(blob: bytes, offset: int, count: int) -> list[float]:
@@ -225,7 +256,7 @@ def decode_blob(blob: bytes) -> UserConfiguration:
         ),
         speaker_mode=blob[SPEAKER_MODE_OFFSET],
         listening_position=blob[LISTENING_POSITION_OFFSET],
-        unknown_flag_14=blob[UNKNOWN_FLAG_OFFSET],
+        always_false_flag=blob[UNKNOWN_FLAG_OFFSET],
         equalizer_enabled=blob[EQUALIZER_ENABLED_OFFSET],
         band_count=blob[BAND_COUNT_OFFSET],
         bank_in_use=blob[BANK_IN_USE_OFFSET],
@@ -236,7 +267,6 @@ def decode_blob(blob: bytes) -> UserConfiguration:
         bank_flag_b=blob[BANK_FLAG_B_OFFSET],
         bank_flag_c=blob[BANK_FLAG_C_OFFSET],
         sound_field=blob[SOUND_FIELD_OFFSET],
-        unknown_flag_279=blob[UNKNOWN_FLAG_279_OFFSET],
         crossovers=[
             CrossoverSetting(
                 frequency=blob[CROSSOVER_OFFSET + index * 2],
@@ -255,13 +285,13 @@ def decode_blob(blob: bytes) -> UserConfiguration:
         ),
         manual_left=struct.unpack_from("<f", blob, MANUAL_LEFT_OFFSET)[0],
         manual_right=struct.unpack_from("<f", blob, MANUAL_RIGHT_OFFSET)[0],
-        name_bytes=blob[NAME_OFFSET:NAME_OFFSET + NAME_BYTES],
+        unique_id_bytes=blob[NAME_OFFSET:NAME_OFFSET + NAME_BYTES],
         source_type=blob[SOURCE_TYPE_OFFSET],
         bank_type=int.from_bytes(blob[BANK_TYPE_OFFSET:BANK_TYPE_OFFSET + 2], "little"),
         model_value=int.from_bytes(
             blob[MODEL_VALUE_OFFSET:MODEL_VALUE_OFFSET + 4], "little"
         ),
-        unknown_block=blob[
+        model_digest=blob[
             UNKNOWN_BLOCK_OFFSET:UNKNOWN_BLOCK_OFFSET + UNKNOWN_BLOCK_BYTES
         ],
         trailing_flag=blob[TRAILING_FLAG_OFFSET],
@@ -270,10 +300,16 @@ def decode_blob(blob: bytes) -> UserConfiguration:
 
 
 def _read_speaker_record(blob: bytes, slot: int) -> SpeakerRecord:
+    """Reads one speaker's phase flag, then levelDB, timeAlignmentCm,
+    levelDBExtended, in that order."""
     start = SPEAKER_RECORD_OFFSET + slot * SPEAKER_RECORD_STRIDE
-    first, second, third = struct.unpack_from("<3f", blob, start)
-    separator = blob[start + 12] if slot < SPEAKER_SEPARATOR_COUNT else None
-    return SpeakerRecord(first, second, third, separator)
+    is_positive_phase = blob[start] != 0
+    level_db, time_alignment_cm, level_db_extended = struct.unpack_from(
+        "<3f", blob, start + 1
+    )
+    return SpeakerRecord(
+        is_positive_phase, level_db, time_alignment_cm, level_db_extended
+    )
 
 
 def encode_blob(configuration: UserConfiguration) -> bytes:
@@ -285,7 +321,7 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
     )
     blob[SPEAKER_MODE_OFFSET] = configuration.speaker_mode
     blob[LISTENING_POSITION_OFFSET] = configuration.listening_position
-    blob[UNKNOWN_FLAG_OFFSET] = configuration.unknown_flag_14
+    blob[UNKNOWN_FLAG_OFFSET] = configuration.always_false_flag
     blob[EQUALIZER_ENABLED_OFFSET] = configuration.equalizer_enabled
     blob[BAND_COUNT_OFFSET] = configuration.band_count
     blob[BANK_IN_USE_OFFSET] = configuration.bank_in_use
@@ -298,7 +334,6 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
     blob[BANK_FLAG_B_OFFSET] = configuration.bank_flag_b
     blob[BANK_FLAG_C_OFFSET] = configuration.bank_flag_c
     blob[SOUND_FIELD_OFFSET] = configuration.sound_field
-    blob[UNKNOWN_FLAG_279_OFFSET] = configuration.unknown_flag_279
 
     _write_crossovers(blob, configuration.crossovers)
     _write_speaker_records(blob, configuration.speakers)
@@ -316,7 +351,7 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
     struct.pack_into("<f", blob, MANUAL_LEFT_OFFSET, configuration.manual_left)
     struct.pack_into("<f", blob, MANUAL_RIGHT_OFFSET, configuration.manual_right)
 
-    _write_fixed_bytes(blob, NAME_OFFSET, configuration.name_bytes, NAME_BYTES, "name")
+    _write_fixed_bytes(blob, NAME_OFFSET, configuration.unique_id_bytes, NAME_BYTES, "unique id")
     blob[SOURCE_TYPE_OFFSET] = configuration.source_type
     blob[BANK_TYPE_OFFSET:BANK_TYPE_OFFSET + 2] = configuration.bank_type.to_bytes(
         2, "little"
@@ -325,8 +360,8 @@ def encode_blob(configuration: UserConfiguration) -> bytes:
         configuration.model_value.to_bytes(4, "little")
     )
     _write_fixed_bytes(
-        blob, UNKNOWN_BLOCK_OFFSET, configuration.unknown_block,
-        UNKNOWN_BLOCK_BYTES, "unknown block",
+        blob, UNKNOWN_BLOCK_OFFSET, configuration.model_digest,
+        UNKNOWN_BLOCK_BYTES, "model digest",
     )
     blob[TRAILING_FLAG_OFFSET] = configuration.trailing_flag
     _write_fixed_bytes(
@@ -347,23 +382,18 @@ def _write_crossovers(blob: bytearray, crossovers: list[CrossoverSetting]) -> No
 
 
 def _write_speaker_records(blob: bytearray, speakers: list[SpeakerRecord]) -> None:
+    """Writes each speaker's phase flag and three floats, in that order."""
     if len(speakers) != SPEAKER_RECORD_COUNT:
         raise ValueError(
             f"expected {SPEAKER_RECORD_COUNT} speaker records, got {len(speakers)}"
         )
     for slot, speaker in enumerate(speakers):
         start = SPEAKER_RECORD_OFFSET + slot * SPEAKER_RECORD_STRIDE
+        blob[start] = 1 if speaker.is_positive_phase else 0
         struct.pack_into(
-            "<3f", blob, start, speaker.first, speaker.second, speaker.third
+            "<3f", blob, start + 1,
+            speaker.level_db, speaker.time_alignment_cm, speaker.level_db_extended,
         )
-        wants_separator = slot < SPEAKER_SEPARATOR_COUNT
-        if wants_separator != (speaker.separator is not None):
-            raise ValueError(
-                f"speaker record {slot} "
-                f"{'needs' if wants_separator else 'must not have'} a separator"
-            )
-        if speaker.separator is not None:
-            blob[start + 12] = speaker.separator
 
 
 def _write_fixed_bytes(

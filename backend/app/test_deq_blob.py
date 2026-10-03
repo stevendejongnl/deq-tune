@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -20,7 +21,6 @@ from app.deq_blob import (
     SPEAKER_RECORD_COUNT,
     SPEAKER_RECORD_OFFSET,
     SPEAKER_RECORD_STRIDE,
-    SPEAKER_SEPARATOR_COUNT,
     STANDARD_BLOB_BYTES,
     BlobLengthError,
     CrossoverSetting,
@@ -74,37 +74,47 @@ def test_a_default_blob_has_flat_banks() -> None:
     assert configuration.bank_b_gains_db == [0.0] * BANK_BAND_SLOTS
 
 
-def test_a_separator_byte_follows_every_record_but_the_last() -> None:
-    # The app writes 0x01 in the byte that follows the first record's floats.
-    assert DEFAULT_BLOB[SPEAKER_RECORD_OFFSET + 12] == 1
+def test_every_speaker_record_carries_its_own_phase_flag() -> None:
+    # The app writes the phase flag first in every one of the 7 records,
+    # confirmed by hooking its own reader under the emulator -- see
+    # deq_blob.py's module docstring. The default blob's flag is 0x01.
+    assert DEFAULT_BLOB[SPEAKER_RECORD_OFFSET] == 1
     speakers = decode_blob(DEFAULT_BLOB).speakers
-    assert speakers[0].separator == 1
-    # The last record ends at 369; offset 370 belongs to the cancelling
-    # equalizer, so that record has no separator of its own.
-    assert speakers[-1].separator is None
+    assert all(speaker.is_positive_phase for speaker in speakers)
+    assert len(speakers) == SPEAKER_RECORD_COUNT
 
 
 def test_the_speaker_records_are_thirteen_bytes_apart() -> None:
     configuration = UserConfiguration()
     configuration.speakers = [
-        SpeakerRecord(
-            float(slot), 0.0, 0.0,
-            slot if slot < SPEAKER_SEPARATOR_COUNT else None,
-        )
+        SpeakerRecord(slot % 2 == 0, float(slot), 0.0, 0.0)
         for slot in range(SPEAKER_RECORD_COUNT)
     ]
     blob = encode_blob(configuration)
-    for slot in range(SPEAKER_SEPARATOR_COUNT):
+    for slot in range(SPEAKER_RECORD_COUNT):
         start = SPEAKER_RECORD_OFFSET + slot * SPEAKER_RECORD_STRIDE
-        assert blob[start + 12] == slot
+        assert blob[start] == (1 if slot % 2 == 0 else 0)
     assert decode_blob(blob).speakers == configuration.speakers
 
 
-def test_a_separator_on_the_last_record_is_rejected() -> None:
+def test_asymmetric_speaker_values_match_what_the_app_itself_reported() -> None:
+    """Fed this exact blob through the app's own reader under the Android
+    emulator (Frida, `b/g/h.a(ByteArrayInputStream, model/b/w$a)` hooked
+    directly) and it reported back these exact values for these three
+    speakers, by their real field names (`isPositivePhase`, `levelDB`,
+    `timeAlignmentCm`, `levelDBExtended`). See USB_CAPTURE_NOTES.md in the
+    outer repo for the live session. This pins that result so the fix it
+    confirmed cannot silently regress."""
     configuration = UserConfiguration()
-    configuration.speakers[-1].separator = 0
-    with pytest.raises(ValueError):
-        encode_blob(configuration)
+    configuration.speakers[0] = SpeakerRecord(False, 1.5, -2.5, 3.5)
+    configuration.speakers[3] = SpeakerRecord(True, -9.0, 100.0, 0.25)
+    configuration.speakers[6] = SpeakerRecord(False, 7.0, 0.0, -1.0)
+
+    decoded = decode_blob(encode_blob(configuration)).speakers
+
+    assert decoded[0] == SpeakerRecord(False, 1.5, -2.5, 3.5)
+    assert decoded[3] == SpeakerRecord(True, -9.0, 100.0, 0.25)
+    assert decoded[6] == SpeakerRecord(False, 7.0, 0.0, -1.0)
 
 
 def test_band_gains_are_little_endian_float32() -> None:
@@ -120,7 +130,7 @@ def test_every_field_survives_a_round_trip() -> None:
         timestamp_seconds=1_759_300_000,
         speaker_mode=3,
         listening_position=1,
-        unknown_flag_14=1,
+        always_false_flag=1,
         equalizer_enabled=1,
         band_count=13,
         bank_in_use=1,
@@ -131,16 +141,12 @@ def test_every_field_survives_a_round_trip() -> None:
         bank_flag_b=1,
         bank_flag_c=1,
         sound_field=4,
-        unknown_flag_279=1,
         crossovers=[
             CrossoverSetting(frequency=index + 1, slope=index + 2)
             for index in range(CROSSOVER_SPEAKER_COUNT)
         ],
         speakers=[
-            SpeakerRecord(
-                float(slot), float(slot) * 2, float(slot) * 3,
-                slot if slot < SPEAKER_SEPARATOR_COUNT else None,
-            )
+            SpeakerRecord(slot % 2 == 0, float(slot), float(slot) * 2, float(slot) * 3)
             for slot in range(SPEAKER_RECORD_COUNT)
         ],
         cancelling_flag_a=1,
@@ -149,11 +155,11 @@ def test_every_field_survives_a_round_trip() -> None:
         cancelling_right_db=[-0.5] * CANCELLING_BAND_COUNT,
         manual_left=1.25,
         manual_right=-1.25,
-        name_bytes=bytes(range(NAME_BYTES)),
+        unique_id_bytes=bytes(range(NAME_BYTES)),
         source_type=2,
         bank_type=7,
         model_value=9,
-        unknown_block=bytes(range(16)),
+        model_digest=bytes(range(16)),
         trailing_flag=1,
         trailing_bytes=bytes(range(32)),
     )
@@ -181,7 +187,7 @@ def test_a_wrong_speaker_count_is_rejected() -> None:
 
 def test_a_name_region_of_the_wrong_size_is_rejected() -> None:
     configuration = UserConfiguration()
-    configuration.name_bytes = b"short"
+    configuration.unique_id_bytes = b"short"
     with pytest.raises(ValueError):
         encode_blob(configuration)
 
@@ -198,8 +204,8 @@ def test_the_edited_blob_holds_the_values_it_was_built_with() -> None:
     assert configuration.bank_a_gains_db[0] == 6.0
     assert configuration.bank_a_gains_db[15] == -3.5
     assert configuration.bank_b_gains_db[30] == 1.25
-    assert configuration.speakers[0].first == 2.0
-    assert configuration.speakers[6].third == -4.0
+    assert configuration.speakers[0].level_db == 2.0
+    assert configuration.speakers[6].level_db_extended == -4.0
     assert configuration.crossovers[3] == CrossoverSetting(frequency=5, slope=2)
     assert configuration.cancelling_left_db[2] == 1.5
     assert configuration.source_type == 1
@@ -222,3 +228,37 @@ def test_trimming_leaves_a_thirty_one_band_profile_alone() -> None:
     configuration.bank_a_gains_db[30] = 2.0
     trim_gains_to_band_count(configuration)
     assert configuration.bank_a_gains_db[30] == 2.0
+
+
+def test_always_false_flag_is_a_literal_the_app_writes_not_a_read_model_field() -> None:
+    """The app's writer, `b/g/h.a(z, Z, o)`, emits a hardcoded `0x0` at
+    offset 14. It never reads a model field for this position, so a profile
+    cannot carry a `true` here regardless of what is set."""
+    configuration = UserConfiguration(always_false_flag=0)
+    assert decode_blob(encode_blob(configuration)).always_false_flag == 0
+
+
+def test_unique_id_bytes_holds_the_presets_own_unique_id() -> None:
+    """Offset 484's 32 bytes are the preset JSON header's own `uniqueId`
+    string, traced to the app's writer calling `z.r()`. A bundled preset's
+    id, `"1-0000-0000-0011-000000000000000"`, is 31 characters and fits with
+    one byte to spare."""
+    unique_id = b"1-0000-0000-0011-000000000000000"
+    assert len(unique_id) == 32
+    configuration = UserConfiguration(unique_id_bytes=unique_id)
+    assert decode_blob(encode_blob(configuration)).unique_id_bytes == unique_id
+
+
+def test_model_digest_round_trips_an_md5_hash() -> None:
+    """Offset 523's 16 bytes are `MessageDigest.getInstance("MD5")` over a
+    model string, or 16 zero bytes when that string is empty. Sixteen bytes
+    is exactly one MD5 digest, which is what the field width confirms."""
+    digest = hashlib.md5(b"hello").digest()
+    assert len(digest) == 16
+    configuration = UserConfiguration(model_digest=digest)
+    assert decode_blob(encode_blob(configuration)).model_digest == digest
+
+
+def test_model_digest_defaults_to_zero_for_the_empty_string_case() -> None:
+    configuration = UserConfiguration()
+    assert configuration.model_digest == bytes(16)
