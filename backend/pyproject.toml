@@ -13,6 +13,9 @@ dependencies = [
 # Talking to a real DEQ over USB. The app runs without this: the default
 # transport is the fake unit, and CI never touches hardware.
 usb = ["pyusb>=1.3.1"]
+# Talking to a real DEQ through an ESP bridge over a serial link. Same
+# story as `usb`: optional, CI never touches hardware.
+esp-bridge = ["pyserial>=3.5"]
 
 [dependency-groups]
 dev = [

@@ -1,18 +1,26 @@
 """Holds the one link to the DEQ unit.
 
 The backend owns the link, not the browser. A laptop reaches the unit over
-its own USB port, and later an ESP wired to the unit's port runs the same
-code. Either way the process that holds the handle is this one, so the
-frontend reads device state over HTTP like any other data.
+its own USB port, or through an ESP32-S3 wired to the unit's port that
+runs the same code. Either way the process that holds the handle is this
+one, so the frontend reads device state over HTTP like any other data.
 
 Which transport that link uses is configuration. `DEQ_TRANSPORT=fake` is
 the default, which talks to `testing/fake_deq.py` so the whole app runs end
 to end with no hardware. `DEQ_TRANSPORT=usb` talks to a real unit through
 `usb_transport.py`, which needs the `usb` extra (`uv sync --extra usb`).
+`DEQ_TRANSPORT=esp-bridge` talks to a unit through an ESP32-S3 running
+`firmware/esp-bridge/` (needs the `esp-bridge` extra and
+`DEQ_ESP_BRIDGE_PORT` set to the board's serial port) -- see
+`esp_bridge_transport.py` and that firmware's own README for why a
+physical USB host (this machine's own port, or the ESP's) is needed at
+all: a laptop's USB-C port is usually host-only and cannot answer the
+DEQ, which is itself a USB host when connected this way.
 
-No real unit has answered that USB transport yet, because the DEQ has never
-enumerated on the development laptop. `scripts/check_real_deq.py` is the
-script to run once one does.
+No real unit has answered the direct USB transport yet, because this
+laptop's own USB-C ports turned out to be host-only hardware -- see
+`USB_CAPTURE_NOTES.md` in the outer repo. `scripts/check_real_deq.py` is
+the script to run once a transport that can reach the unit is available.
 """
 
 from __future__ import annotations
@@ -26,8 +34,10 @@ from app.deq_transport import Transport, TransportError
 from app.eq_data import TuningData
 
 TRANSPORT_ENVIRONMENT_VARIABLE = "DEQ_TRANSPORT"
+ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE = "DEQ_ESP_BRIDGE_PORT"
 FAKE_TRANSPORT_NAME = "fake"
 USB_TRANSPORT_NAME = "usb"
+ESP_BRIDGE_TRANSPORT_NAME = "esp-bridge"
 
 
 class DeviceUnavailable(Exception):
@@ -62,10 +72,21 @@ def build_transport(name: str | None = None) -> Transport:
         from app.usb_transport import UsbTransport
 
         return UsbTransport()
+    if name == ESP_BRIDGE_TRANSPORT_NAME:
+        from app.esp_bridge_transport import EspBridgeTransport
+
+        port = os.environ.get(ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE)
+        if port is None:
+            raise DeviceUnavailable(
+                f"{ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE} is not set. "
+                "It must name the ESP bridge's serial port, for example /dev/ttyACM0."
+            )
+        return EspBridgeTransport(port)
     raise DeviceUnavailable(
         f"no transport named {name!r}. "
-        f"Use {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME} "
-        f"or {TRANSPORT_ENVIRONMENT_VARIABLE}={USB_TRANSPORT_NAME}."
+        f"Use {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME}, "
+        f"{TRANSPORT_ENVIRONMENT_VARIABLE}={USB_TRANSPORT_NAME}, "
+        f"or {TRANSPORT_ENVIRONMENT_VARIABLE}={ESP_BRIDGE_TRANSPORT_NAME}."
     )
 
 
