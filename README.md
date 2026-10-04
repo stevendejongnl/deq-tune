@@ -138,16 +138,25 @@ to, Pioneer.
 
   The frontend asks for all of this over `/api/device`, so the browser never touches USB.
 
-  Two transports sit behind `backend/app/deq_transport.py`. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
+  Three transports sit behind `backend/app/deq_transport.py`. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
 
 ```bash
 cd backend && uv sync --extra usb
 PYTHONPATH=. DEQ_TRANSPORT=usb uv run uvicorn app.main:app --port 8420
 ```
 
-- **A real unit** — not yet confirmed. Everything above was built from the Pioneer app and from captured traffic. The DEQ has never enumerated on the development laptop, in either position of its mode switch, so no real unit has answered this code. The USB transport is written from the app's own native calls (`libaeusb.so` is stock libusb and uses `libusb_bulk_transfer`) and its framing is tested against captured frames split into 512-byte bulk packets, but the hardware itself is untested.
+  `DEQ_TRANSPORT=esp-bridge` talks to a real unit through an ESP32-S3 running `firmware/esp-bridge/`, over `backend/app/esp_bridge_transport.py`, which needs the `esp-bridge` extra and `DEQ_ESP_BRIDGE_PORT` set to the board's serial port:
 
-  `backend/scripts/check_real_deq.py` is what closes that gap. Plug a unit in and run it:
+```bash
+cd backend && uv sync --extra esp-bridge
+PYTHONPATH=. DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 uv run uvicorn app.main:app --port 8420
+```
+
+  This third transport exists because a laptop's own USB-C port is usually host-only hardware, and the DEQ is itself a USB host when connected over its own USB-A port: two hosts plugged together answer each other with silence, not an error. The ESP32-S3 has a real USB-OTG controller (checked, the plain ESP32 and the C-series chips like the C3/C6 do not — only S2/S3/P4 do) and acts as the USB host in the laptop's place, relaying raw bytes over its UART port; the SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. `firmware/esp-bridge/README.md` has the board requirements and the build/flash steps.
+
+- **A real unit** — confirmed reachable, not yet driven. The DEQ answers over USB; the question was never whether the unit works, but whether something in the loop could present a USB host to it. This laptop's own ports cannot (see above), so `check_real_deq.py` has not been run against hardware yet. The USB transport is written from the app's own native calls (`libaeusb.so` is stock libusb and uses `libusb_bulk_transfer`) and its framing is tested against captured frames split into 512-byte bulk packets; the ESP bridge is the path expected to actually close this gap.
+
+  `backend/scripts/check_real_deq.py` is what closes that gap. Plug a unit in (directly, or through the ESP bridge) and run it:
 
 ```bash
 cd backend && uv sync --extra usb
