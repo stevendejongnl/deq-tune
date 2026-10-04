@@ -36,9 +36,6 @@ typedef void (*deq_usb_bytes_received_cb_t)(const uint8_t *data, size_t length, 
 // that happens asynchronously once one is plugged in).
 esp_err_t deq_usb_client_start(deq_usb_bytes_received_cb_t on_bytes_received, void *context);
 
-// True once a DEQ has been found, opened, and its bulk interface claimed.
-bool deq_usb_client_is_connected(void);
-
 // Queues `length` bytes for the DEQ's bulk OUT endpoint. Returns false
 // (and drops the write) if no DEQ is connected right now, rather than
 // blocking -- the caller (the UART-read loop) has nowhere to put

@@ -288,14 +288,6 @@ esp_err_t deq_usb_client_start(deq_usb_bytes_received_cb_t on_bytes_received, vo
     return ESP_OK;
 }
 
-bool deq_usb_client_is_connected(void)
-{
-    xSemaphoreTake(s_connection_state_mutex, portMAX_DELAY);
-    bool connected = s_client.connected;
-    xSemaphoreGive(s_connection_state_mutex);
-    return connected;
-}
-
 bool deq_usb_client_send(const uint8_t *data, size_t length)
 {
     usb_transfer_t *out_transfer;
