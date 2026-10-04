@@ -5,6 +5,7 @@
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "usb/usb_host.h"
 #include "usb/usb_helpers.h"
@@ -29,6 +30,16 @@ typedef struct {
 } deq_usb_client_t;
 
 static deq_usb_client_t s_client;
+
+// Guards every field `deq_usb_client_send()` reads
+// (connected, dev_hdl, out_endpoint_address): that function runs on the
+// UART task, while client_event_cb() -- the only writer of those fields,
+// via open_and_claim_device()/close_device() -- runs on the USB client
+// task. Without this, a DEQ unplug mid-send could use a stale dev_hdl.
+// Everything else in this file (the transfer callbacks, the enumeration
+// path) already runs serialized on the USB client task, per
+// usb_host_client_handle_events()'s own contract, so it needs no lock.
+static SemaphoreHandle_t s_connection_state_mutex;
 
 static void submit_in_transfer(void);
 
@@ -155,7 +166,10 @@ static void open_and_claim_device(void)
     s_client.in_transfer->callback = in_transfer_cb;
     s_client.in_transfer->context = NULL;
 
+    xSemaphoreTake(s_connection_state_mutex, portMAX_DELAY);
     s_client.connected = true;
+    xSemaphoreGive(s_connection_state_mutex);
+
     ESP_LOGI(TAG, "DEQ bulk interface %d claimed, IN=0x%02x OUT=0x%02x", s_client.interface_number,
               s_client.in_endpoint_address, s_client.out_endpoint_address);
     submit_in_transfer();
@@ -163,15 +177,23 @@ static void open_and_claim_device(void)
 
 static void close_device(void)
 {
+    // Held across the whole teardown, not just the flag: a sender that
+    // read connected==true a moment ago may still be about to use
+    // dev_hdl, so this must not free it until that use is either
+    // finished or blocked waiting for this same lock.
+    xSemaphoreTake(s_connection_state_mutex, portMAX_DELAY);
     s_client.connected = false;
+    usb_device_handle_t dev_hdl = s_client.dev_hdl;
+    s_client.dev_hdl = NULL;
+    xSemaphoreGive(s_connection_state_mutex);
+
     if (s_client.in_transfer != NULL) {
         usb_host_transfer_free(s_client.in_transfer);
         s_client.in_transfer = NULL;
     }
-    if (s_client.dev_hdl != NULL) {
-        usb_host_interface_release(s_client.client_hdl, s_client.dev_hdl, s_client.interface_number);
-        usb_host_device_close(s_client.client_hdl, s_client.dev_hdl);
-        s_client.dev_hdl = NULL;
+    if (dev_hdl != NULL) {
+        usb_host_interface_release(s_client.client_hdl, dev_hdl, s_client.interface_number);
+        usb_host_device_close(s_client.client_hdl, dev_hdl);
     }
     s_client.dev_addr = 0;
     ESP_LOGI(TAG, "DEQ disconnected");
@@ -241,6 +263,11 @@ esp_err_t deq_usb_client_start(deq_usb_bytes_received_cb_t on_bytes_received, vo
     s_client.on_bytes_received = on_bytes_received;
     s_client.callback_context = context;
 
+    s_connection_state_mutex = xSemaphoreCreateMutex();
+    if (s_connection_state_mutex == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
     TaskHandle_t host_lib_task_handle;
     BaseType_t created = xTaskCreatePinnedToCore(
         usb_host_lib_task, "usb_host", USB_HOST_TASK_STACK_BYTES, xTaskGetCurrentTaskHandle(), 2,
@@ -263,31 +290,41 @@ esp_err_t deq_usb_client_start(deq_usb_bytes_received_cb_t on_bytes_received, vo
 
 bool deq_usb_client_is_connected(void)
 {
-    return s_client.connected;
+    xSemaphoreTake(s_connection_state_mutex, portMAX_DELAY);
+    bool connected = s_client.connected;
+    xSemaphoreGive(s_connection_state_mutex);
+    return connected;
 }
 
 bool deq_usb_client_send(const uint8_t *data, size_t length)
 {
-    if (!s_client.connected) {
-        return false;
-    }
-
     usb_transfer_t *out_transfer;
     if (usb_host_transfer_alloc(length, 0, &out_transfer) != ESP_OK) {
         return false;
     }
     memcpy(out_transfer->data_buffer, data, length);
     out_transfer->num_bytes = length;
-    out_transfer->device_handle = s_client.dev_hdl;
-    out_transfer->bEndpointAddress = s_client.out_endpoint_address;
     out_transfer->callback = out_transfer_cb;
     out_transfer->context = NULL;
 
-    esp_err_t submitted = usb_host_transfer_submit(out_transfer);
-    if (submitted != ESP_OK) {
-        ESP_LOGE(TAG, "could not submit bulk OUT transfer: %s", esp_err_to_name(submitted));
-        usb_host_transfer_free(out_transfer);
-        return false;
+    // Held across the submit itself, not just the field reads: close_device()
+    // holds this same lock across freeing dev_hdl, so this either submits
+    // against a handle that is still guaranteed open, or (if a disconnect
+    // got the lock first) sees connected==false and never touches the
+    // freed handle at all. usb_host_transfer_submit() only queues the
+    // transfer -- it does not block on the USB link itself -- so holding
+    // the lock here is brief.
+    xSemaphoreTake(s_connection_state_mutex, portMAX_DELAY);
+    bool submitted = false;
+    if (s_client.connected) {
+        out_transfer->device_handle = s_client.dev_hdl;
+        out_transfer->bEndpointAddress = s_client.out_endpoint_address;
+        submitted = (usb_host_transfer_submit(out_transfer) == ESP_OK);
     }
-    return true;
+    xSemaphoreGive(s_connection_state_mutex);
+
+    if (!submitted) {
+        usb_host_transfer_free(out_transfer);
+    }
+    return submitted;
 }

@@ -5,16 +5,29 @@ native USB-OTG peripheral, one wired through a USB-serial chip to the
 chip's UART0. Plug the DEQ into the OTG port; plug the other port into
 whatever runs the deq-tune backend.
 
-This firmware understands nothing about the DEQ's own protocol. It is a
-dumb byte relay: every byte the DEQ sends on its bulk USB IN endpoint goes
-straight onto UART0; every byte that arrives on UART0 goes straight to
-the DEQ's bulk OUT endpoint. The SysEx framing, command parsing, and
-everything else that knows what a DEQ frame means stays in
-`backend/app/deq_protocol.py`, unchanged — this board only relocates
-where the USB host role physically runs. `backend/app/esp_bridge_transport.py`
-is the Python side of this link; it implements the same `Transport`
-protocol `backend/app/usb_transport.py` does, over a serial port instead
-of a direct USB link.
+This firmware understands nothing about the DEQ's own protocol -- no
+commands, no fields, no payload meaning. Every byte the DEQ sends on its
+bulk USB IN endpoint goes straight onto UART0, forwarded as soon as it
+arrives. The SysEx framing, command parsing, and everything else that
+knows what a DEQ frame *means* stays in `backend/app/deq_protocol.py`,
+unchanged — this board only relocates where the USB host role physically
+runs. `backend/app/esp_bridge_transport.py` is the Python side of this
+link; it implements the same `Transport` protocol `backend/app/usb_transport.py`
+does, over a serial port instead of a direct USB link.
+
+The other direction needs one exception to "dumb relay". A DEQ frame has
+to reach the DEQ as one USB bulk transfer — the same way `UsbTransport.send_frame()`
+hands libusb a whole frame in a single `write()` — because a frame split
+across several separate USB transfers is not the same thing on the wire
+as one transfer that happens to span several USB packets. UART carries
+no transfer boundaries of its own, so a multi-thousand-byte frame
+routinely arrives in several reads. `bridge_main.c` buffers UART bytes
+and looks for `deq_protocol.py`'s own frame-end marker (`0xf7`, with its
+512-byte pad-byte rule) before submitting one USB transfer — the same
+boundary rule `UsbTransport.take_frame_from_buffer()` already applies
+when reading a frame apart from a stream of USB packets, used here in
+reverse. This is a wire-level framing rule, not protocol content: the
+firmware still never looks at what a frame carries, only where it ends.
 
 ## Which board
 
