@@ -156,11 +156,15 @@ PYTHONPATH=. DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 uv run uv
 
 - **A real unit** — confirmed reachable, not yet driven. The DEQ answers over USB; the question was never whether the unit works, but whether something in the loop could present a USB host to it. This laptop's own ports cannot (see above), so `check_real_deq.py` has not been run against hardware yet. The USB transport is written from the app's own native calls (`libaeusb.so` is stock libusb and uses `libusb_bulk_transfer`) and its framing is tested against captured frames split into 512-byte bulk packets; the ESP bridge is the path expected to actually close this gap.
 
-  `backend/scripts/check_real_deq.py` is what closes that gap. Plug a unit in (directly, or through the ESP bridge) and run it:
+  `backend/scripts/check_real_deq.py` is what closes that gap. It uses `DEQ_TRANSPORT`, same as the app itself, so either a direct USB link or the ESP bridge works:
 
 ```bash
 cd backend && uv sync --extra usb
-PYTHONPATH=. uv run python scripts/check_real_deq.py
+PYTHONPATH=. uv run python scripts/check_real_deq.py                 # direct USB, the default for this script
+
+cd backend && uv sync --extra esp-bridge
+DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 \
+    PYTHONPATH=. uv run python scripts/check_real_deq.py
 ```
 
   It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes — the Pioneer app and the unit are the authority, and this code is what is under test. On Linux, opening a USB device usually needs root, or a udev rule: `backend/scripts/99-pioneer-deq.rules` is one, with the install steps in its own comment.
