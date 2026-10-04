@@ -11,10 +11,53 @@ from __future__ import annotations
 import pytest
 
 from app.deq_blob import UserConfiguration
+from app.deq_device import DeviceUnavailable
 from app.deq_session import DeqSession
+from app.deq_transport import TransportError
 from app.testing.fake_deq import FakeDeq
 
 check_real_deq = pytest.importorskip("scripts.check_real_deq")
+
+
+def test_check_link_defaults_to_usb(monkeypatch) -> None:
+    """Unlike the app, whose default is the fake unit, this script's one
+    job is checking a real one -- so its own default transport is `usb`,
+    not `fake`."""
+    monkeypatch.delenv("DEQ_TRANSPORT", raising=False)
+    try:
+        import usb.core  # noqa: F401
+    except ModuleNotFoundError:
+        pytest.skip("pyusb is not installed in this environment")
+    report = check_real_deq.Report()
+    with pytest.raises(TransportError):
+        # No real unit is on this machine, so opening always fails here --
+        # this only checks it actually tried the usb transport, by its
+        # error, not a hardcoded "esp-bridge" or "fake" one.
+        check_real_deq.check_link(report)
+
+
+def test_check_link_rejects_the_fake_transport(monkeypatch) -> None:
+    """A check against the fake unit says nothing about a real one, which
+    is this script's whole point."""
+    monkeypatch.setenv("DEQ_TRANSPORT", "fake")
+    report = check_real_deq.Report()
+    with pytest.raises(TransportError, match="checks nothing about a real unit"):
+        check_real_deq.check_link(report)
+
+
+def test_check_link_reports_an_unknown_transport_name(monkeypatch) -> None:
+    monkeypatch.setenv("DEQ_TRANSPORT", "not-a-real-transport")
+    report = check_real_deq.Report()
+    with pytest.raises(DeviceUnavailable, match="no transport named"):
+        check_real_deq.check_link(report)
+
+
+def test_check_link_reports_a_missing_esp_bridge_port(monkeypatch) -> None:
+    monkeypatch.setenv("DEQ_TRANSPORT", "esp-bridge")
+    monkeypatch.delenv("DEQ_ESP_BRIDGE_PORT", raising=False)
+    report = check_real_deq.Report()
+    with pytest.raises(DeviceUnavailable, match="DEQ_ESP_BRIDGE_PORT"):
+        check_real_deq.check_link(report)
 
 
 def run_every_check() -> check_real_deq.Report:

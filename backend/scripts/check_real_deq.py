@@ -15,9 +15,23 @@ you ask for it:
 
     PYTHONPATH=. uv run python scripts/check_real_deq.py --write
 
-On Linux a plain user cannot usually open a USB device. Either run this with
-`sudo -E env PYTHONPATH=. ...`, or install `scripts/99-pioneer-deq.rules`
-as a udev rule (install steps in its own comment).
+This uses `DEQ_TRANSPORT`, same as the app itself (`deq_device.py`), so a
+direct USB connection and an ESP bridge both work the same way:
+
+    DEQ_TRANSPORT=usb PYTHONPATH=. uv run python scripts/check_real_deq.py
+    DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 \
+        PYTHONPATH=. uv run python scripts/check_real_deq.py
+
+`usb` is the default transport for this script specifically (unlike the app,
+whose default is `fake`) — checking a real unit is the one reason to run it.
+`DEQ_TRANSPORT=fake` is rejected here, since a check against the fake tells
+nothing about a real unit, which is this script's only job.
+
+On Linux a plain user cannot usually open a USB device directly. Either run
+the `usb` transport with `sudo -E env PYTHONPATH=. ...`, or install
+`scripts/99-pioneer-deq.rules` as a udev rule (install steps in its own
+comment) — not needed for the `esp-bridge` transport, which only opens a
+serial port.
 
 What it prints is a list of checks, each `ok`, `differs` or `failed`, and a
 count at the end. A `differs` line is the interesting one: it means the unit
@@ -29,17 +43,23 @@ authority and this code is what is under test.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from app.deq_blob import encode_blob
+from app.deq_device import (
+    FAKE_TRANSPORT_NAME,
+    USB_TRANSPORT_NAME,
+    DeviceUnavailable,
+    build_transport,
+)
 from app.deq_session import (
     COMMAND_KEEPALIVE,
     STARTUP_STEPS,
     DeqSession,
     DeviceIdentity,
 )
-from app.deq_transport import TransportError
-from app.usb_transport import UsbTransport
+from app.deq_transport import Transport, TransportError
 
 # What the fake unit answers, so a real one can be held against it.
 EXPECTED_BLOB_BYTES = 572
@@ -84,11 +104,17 @@ class Report:
         return 1
 
 
-def check_link(report: Report) -> UsbTransport:
-    """Opens the USB link, or stops with the reason."""
-    print("Opening the link")
-    transport = UsbTransport()
-    report.ok("claimed a bulk interface", f"endpoints in and out, interface {transport.interface_number}")
+def check_link(report: Report) -> Transport:
+    """Opens the link named by `DEQ_TRANSPORT`, or stops with the reason."""
+    transport_name = os.environ.get("DEQ_TRANSPORT", USB_TRANSPORT_NAME)
+    if transport_name == FAKE_TRANSPORT_NAME:
+        raise TransportError(
+            "DEQ_TRANSPORT=fake checks nothing about a real unit, which is this "
+            f"script's only job. Use {USB_TRANSPORT_NAME!r} or 'esp-bridge'."
+        )
+    print(f"Opening the link ({transport_name})")
+    transport = build_transport(transport_name)
+    report.ok("opened the link", transport_name)
     return transport
 
 
@@ -250,7 +276,7 @@ def main() -> int:
     report = Report()
     try:
         transport = check_link(report)
-    except TransportError as caught_error:
+    except (TransportError, DeviceUnavailable) as caught_error:
         print(f"  FAILED   opening the link — {caught_error}")
         return 1
 
