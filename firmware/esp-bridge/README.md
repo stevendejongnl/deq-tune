@@ -49,15 +49,30 @@ v5.3 or later, installed for the `esp32s3` target.
 ```bash
 . $IDF_PATH/export.sh   # once per shell
 cd firmware/esp-bridge
-idf.py set-target esp32s3   # once per checkout
+idf.py set-target esp32s3   # once per checkout, reads sdkconfig.defaults
 idf.py build
-idf.py -p /dev/ttyACM0 flash monitor   # port is the board's UART port, not its OTG port
+idf.py -p /dev/ttyACM0 flash   # port is the board's UART port, not its OTG port
 ```
 
-`idf.py monitor` shows this firmware's own log lines (device found,
-interface claimed, transfer errors) — useful on its own, with nothing
-plugged into the OTG port yet, to confirm the firmware boots and the USB
-host library installs.
+**There is no console, so `idf.py monitor` shows nothing.** `sdkconfig.defaults`
+turns off both the primary console (`CONFIG_ESP_CONSOLE_NONE`) and the
+secondary one (`CONFIG_ESP_CONSOLE_SECONDARY_NONE`) on purpose: the
+primary default is UART0, which this firmware's own `uart_driver_install()`
+call in `bridge_main.c` also needs for the backend link, and the two
+fighting over the same hardware hung the board right after boot the
+first time this was flashed to a real one. The secondary default is the
+USB-Serial/JTAG peripheral, which shares a PHY with the native USB-OTG
+port this board uses for the DEQ, so it cannot run both at once either
+(see this file's own board requirements below, and `USB_CAPTURE_NOTES.md`
+in the outer repo for the ESP32-C3/C6 version of the same PHY-sharing
+limit). First-flash confidence check without a console: open the UART
+port from Python at `BRIDGE_UART_BAUD_RATE` (921600) and confirm it
+stays open across repeated writes rather than hanging or disconnecting.
+
+`sdkconfig.defaults` also sets the real board's flash size (16MB, for
+the ESP32-S3-WROOM-1-N16R8 module this project uses) — the un-set
+default silently assumes 2MB and logs a boot-time size-mismatch warning
+otherwise.
 
 ## Using it from the backend
 

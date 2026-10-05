@@ -1,0 +1,21 @@
+# The bridge's own backend link runs on UART0 at its own baud rate
+# (bridge_main.c, BRIDGE_UART_BAUD_RATE). ESP-IDF's default boot/log
+# console also runs on UART0, at 115200 -- the two fight over the same
+# hardware peripheral, which hung the board right after boot the first
+# time this was flashed to real hardware. No console at all is the
+# correct fix here: the USB-Serial/JTAG peripheral that could otherwise
+# carry a console shares its PHY with the native USB-OTG port this board
+# uses to talk to the DEQ, so it cannot run both at once either.
+CONFIG_ESP_CONSOLE_NONE=y
+# The secondary console defaults to the USB-Serial/JTAG peripheral, which
+# shares its PHY with the native USB-OTG port this board uses for the
+# DEQ -- same conflict as the primary UART0 console, so this goes too.
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# The board this firmware targets (ESP32-S3-WROOM-1-N16R8) has 16MB of
+# flash. The 2MB default produced a boot-time warning ("Detected
+# size(16384k) larger than the size in the binary image header(2048k)")
+# on the first real-hardware flash -- harmless on its own, but worth
+# matching the real chip rather than leaving a mismatch in place.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
