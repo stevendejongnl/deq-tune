@@ -145,14 +145,14 @@ cd backend && uv sync --extra usb
 PYTHONPATH=. DEQ_TRANSPORT=usb uv run uvicorn app.main:app --port 8420
 ```
 
-  `DEQ_TRANSPORT=esp-bridge` talks to a real unit through an ESP32-S3 running `firmware/esp-bridge/`, over `backend/app/esp_bridge_transport.py`, which needs the `esp-bridge` extra and `DEQ_ESP_BRIDGE_PORT` set to the board's serial port:
+  `DEQ_TRANSPORT=esp-bridge` talks to a real unit through an ESP32-S3 running the bridge firmware, over `backend/app/esp_bridge_transport.py`, which needs the `esp-bridge` extra and `DEQ_ESP_BRIDGE_PORT` set to the board's serial port:
 
 ```bash
 cd backend && uv sync --extra esp-bridge
 PYTHONPATH=. DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 uv run uvicorn app.main:app --port 8420
 ```
 
-  This third transport exists because a laptop's own USB-C port is usually host-only hardware, and the DEQ is itself a USB host when connected over its own USB-A port: two hosts plugged together answer each other with silence, not an error. The ESP32-S3 has a real USB-OTG controller (checked, the plain ESP32 and the C-series chips like the C3/C6 do not — only S2/S3/P4 do) and acts as the USB host in the laptop's place, relaying raw bytes over its UART port; the SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. `firmware/esp-bridge/README.md` has the board requirements and the build/flash steps.
+  This third transport exists because a laptop's own USB-C port is usually host-only hardware, and the DEQ is itself a USB host when connected over its own USB-A port: two hosts plugged together answer each other with silence, not an error. The ESP32-S3 has a real USB-OTG controller (checked, the plain ESP32 and the C-series chips like the C3/C6 do not — only S2/S3/P4 do) and acts as the USB host in the laptop's place, relaying raw bytes over its UART port; the SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. The firmware itself is not in this repository.
 
 - **A real unit** — confirmed reachable, not yet driven. The DEQ answers over USB; the question was never whether the unit works, but whether something in the loop could present a USB host to it. This laptop's own ports cannot (see above), so `check_real_deq.py` has not been run against hardware yet. The USB transport is written from the app's own native calls (`libaeusb.so` is stock libusb and uses `libusb_bulk_transfer`) and its framing is tested against captured frames split into 512-byte bulk packets; the ESP bridge is the path expected to actually close this gap.
 

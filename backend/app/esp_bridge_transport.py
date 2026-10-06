@@ -4,8 +4,8 @@ This is a `Transport`, so `DeqSession` drives it exactly as it drives the
 fake unit or a direct USB link. It needs `pyserial`, which is an optional
 dependency: install it with `uv sync --extra esp-bridge`.
 
-The ESP firmware (`firmware/esp-bridge/`) understands nothing about the
-DEQ's protocol. It is a USB host plugged into the DEQ's own port, and it
+The ESP firmware, which is not in this repository, understands nothing
+about the DEQ's protocol. It is a USB host plugged into the DEQ's own port, and it
 relays whatever bytes arrive on that USB connection straight onto its
 UART, in both directions, unchanged. `deq_protocol.py`'s frame markers
 (`0xf0` .. `0xf7`, with the 512-byte pad rule) already delimit a frame

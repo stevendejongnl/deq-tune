@@ -10,9 +10,9 @@ the default, which talks to `testing/fake_deq.py` so the whole app runs end
 to end with no hardware. `DEQ_TRANSPORT=usb` talks to a real unit through
 `usb_transport.py`, which needs the `usb` extra (`uv sync --extra usb`).
 `DEQ_TRANSPORT=esp-bridge` talks to a unit through an ESP32-S3 running
-`firmware/esp-bridge/` (needs the `esp-bridge` extra and
+the bridge firmware (needs the `esp-bridge` extra and
 `DEQ_ESP_BRIDGE_PORT` set to the board's serial port) -- see
-`esp_bridge_transport.py` and that firmware's own README for why a
+`esp_bridge_transport.py` for why a
 physical USB host (this machine's own port, or the ESP's) is needed at
 all: a laptop's USB-C port is usually host-only and cannot answer the
 DEQ, which is itself a USB host when connected this way.
