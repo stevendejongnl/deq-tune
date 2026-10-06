@@ -21,3 +21,6 @@ __pycache__/
 
 # The ESP32-S3 bridge firmware lives in the private outer repo.
 firmware/
+
+# Personal working notes, deliberately not shared
+CLAUDE.local.md
