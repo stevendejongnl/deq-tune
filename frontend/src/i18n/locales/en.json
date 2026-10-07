@@ -2,19 +2,12 @@
   "cabinHintPick": "Distances are delays to your seat. Pick a speaker to adjust it.",
   "cabinHintTap": "Distances are delays to your seat. Tap a speaker to adjust it.",
   "closeLabel": "Close",
-  "connectDevice": "Connect DEQ device",
-  "connectHint": "Opens the link to the unit and reads its settings.",
-  "connectShort": "Connect",
-  "connecting": "Connecting…",
-  "couldNotConnect": "Could not connect to device",
   "customProfileCaption": "Your copy of the factory preset",
   "delayLabel": "Delay",
   "delete": "Delete",
   "deviceConnected": "DEQ connected",
   "deviceNotConnected": "DEQ not connected",
-  "deviceUnreachable": "The backend could not reach the unit.",
   "discardDraftConfirm": "You have unsaved changes. Leave them?",
-  "dismissLabel": "Dismiss",
   "dspDeviceHint": "Applies once the DEQ is connected",
   "duplicate": "Duplicate",
   "duplicateHint": "Duplicate a factory preset to start your own.",
@@ -84,5 +77,6 @@
   "zoneNameLowMids": "Low mids",
   "zoneNameMids": "Mids",
   "zoneNamePresence": "Presence",
-  "zoneNameSubBass": "Sub-bass"
+  "zoneNameSubBass": "Sub-bass",
+  "bridgeUnreachable": "Bridge not reachable"
 }

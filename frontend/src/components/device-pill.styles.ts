@@ -1,10 +1,7 @@
 import { css } from "lit";
 
-export const deviceStatusStyles = css`
+export const devicePillStyles = css`
   :host {
-    display: block;
-  }
-  .pill {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -13,10 +10,9 @@ export const deviceStatusStyles = css`
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
     background: var(--color-card);
-
-    &.connected {
-      padding-right: 14px;
-    }
+  }
+  :host([linkstate="connected"]) {
+    padding-right: 14px;
   }
   .dot {
     width: 8px;
@@ -25,7 +21,7 @@ export const deviceStatusStyles = css`
     border-radius: 50%;
     background: var(--color-outline);
 
-    .pill.connected & {
+    :host([linkstate="connected"]) & {
       background: var(--color-accent);
     }
   }
@@ -38,22 +34,5 @@ export const deviceStatusStyles = css`
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--color-muted-foreground);
-  }
-  .connect {
-    height: 30px;
-    padding: 0 14px;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: var(--color-accent);
-    color: var(--color-on-accent);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
   }
 `;

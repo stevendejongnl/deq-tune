@@ -2,19 +2,12 @@
   "cabinHintPick": "De afstanden zijn vertragingen tot je stoel. Kies een luidspreker om die aan te passen.",
   "cabinHintTap": "De afstanden zijn vertragingen tot je stoel. Tik op een luidspreker om die aan te passen.",
   "closeLabel": "Sluiten",
-  "connectDevice": "DEQ-apparaat verbinden",
-  "connectHint": "Opent de verbinding met het apparaat en leest de instellingen.",
-  "connectShort": "Verbinden",
-  "connecting": "Verbinden…",
-  "couldNotConnect": "Kan geen verbinding maken met het apparaat",
   "customProfileCaption": "Jouw kopie van de fabriekspreset",
   "delayLabel": "Vertraging",
   "delete": "Verwijderen",
   "deviceConnected": "DEQ verbonden",
   "deviceNotConnected": "DEQ niet verbonden",
-  "deviceUnreachable": "De backend kon het apparaat niet bereiken.",
   "discardDraftConfirm": "Je hebt niet-opgeslagen wijzigingen. Verwijderen?",
-  "dismissLabel": "Sluiten",
   "dspDeviceHint": "Geldt zodra de DEQ is verbonden",
   "duplicate": "Dupliceren",
   "duplicateHint": "Dupliceer een fabriekspreset om je eigen profiel te maken.",
@@ -84,5 +77,6 @@
   "zoneNameLowMids": "Laag midden",
   "zoneNameMids": "Midden",
   "zoneNamePresence": "Presence",
-  "zoneNameSubBass": "Sublaag"
+  "zoneNameSubBass": "Sublaag",
+  "bridgeUnreachable": "Bridge niet bereikbaar"
 }

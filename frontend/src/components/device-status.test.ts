@@ -1,10 +1,47 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import "./device-status.ts";
-import type { DeviceStatus } from "./device-status.ts";
+import {
+  POLL_WHILE_DOWN_MS,
+  POLL_WHILE_UP_MS,
+  type DeviceStatus,
+} from "./device-status.ts";
+import type { DevicePill } from "./device-pill.ts";
 import { FakeDeviceApi } from "./testing/fake-device-api.ts";
 
+/** Holds the component's next scheduled read instead of running it.
+ *
+ * It records the gap the component asked for and runs the read only when
+ * a test says to; `device-status` schedules through it; it depends on
+ * nothing. A real timer would make these tests wait seconds.
+ */
+class ManualSchedule {
+  gaps: number[] = [];
+  private pending: (() => void) | null = null;
+
+  schedule = (action: () => void, delayMs: number): unknown => {
+    this.gaps.push(delayMs);
+    this.pending = action;
+    return this.gaps.length;
+  };
+
+  cancel = (): void => {
+    this.pending = null;
+  };
+
+  get isScheduled(): boolean {
+    return this.pending !== null;
+  }
+
+  /** Runs the waiting read, as a timer firing would. */
+  fire(): void {
+    const action = this.pending;
+    this.pending = null;
+    action?.();
+  }
+}
+
 async function mount(api: FakeDeviceApi, layout = "desktop"): Promise<DeviceStatus> {
-  const element = document.createElement("device-status");
+  const element = document.createElement("device-status") as DeviceStatus;
   element.api = api;
   element.layout = layout as DeviceStatus["layout"];
   document.body.append(element);
@@ -14,12 +51,28 @@ async function mount(api: FakeDeviceApi, layout = "desktop"): Promise<DeviceStat
   return element;
 }
 
-function textOf(element: DeviceStatus): string {
-  return element.shadowRoot!.textContent!.replace(/\s+/g, " ").trim();
+async function mountWithSchedule(
+  api: FakeDeviceApi,
+  schedule: ManualSchedule,
+): Promise<DeviceStatus> {
+  const element = document.createElement("device-status") as DeviceStatus;
+  element.api = api;
+  element.scheduleFunction = schedule.schedule;
+  element.cancelFunction = schedule.cancel;
+  document.body.append(element);
+  await element.updateComplete;
+  await element.updateComplete;
+  return element;
 }
 
-function connectButton(element: DeviceStatus): HTMLButtonElement {
-  return element.shadowRoot!.querySelector<HTMLButtonElement>("button.connect")!;
+/** The pill this status element rendered.
+ *
+ * Selecting the element and not a class: `device-pill` is a component
+ * with typed properties, so a test asserts on what it was given rather
+ * than on markup it happens to produce.
+ */
+function pillOf(element: DeviceStatus): DevicePill {
+  return element.shadowRoot!.querySelector<DevicePill>("device-pill")!;
 }
 
 describe("device-status", () => {
@@ -27,111 +80,123 @@ describe("device-status", () => {
     document.body.innerHTML = "";
   });
 
-  it("starts on not connected, and offers a connect button", async () => {
+  it("offers no connect button, because the backend connects itself", async () => {
     const element = await mount(new FakeDeviceApi());
 
-    expect(textOf(element)).toContain("DEQ not connected");
-    expect(connectButton(element)).not.toBeNull();
+    expect(element.shadowRoot!.querySelector("button")).toBeNull();
   });
 
-  it("shows the unit's firmware version once it is connected", async () => {
-    const element = await mount(new FakeDeviceApi());
+  it("shows the unit as connected without being asked to connect", async () => {
+    const element = await mount(new FakeDeviceApi().startConnected());
 
-    connectButton(element).click();
-    await element.updateComplete;
-    await element.updateComplete;
-
-    expect(textOf(element)).toContain("DEQ connected");
-    expect(textOf(element)).toContain("2.02");
+    expect(element.linkState).toBe("connected");
+    expect(pillOf(element).linkState).toBe("connected");
   });
 
-  it("drops the connect button once the unit is connected", async () => {
-    const element = await mount(new FakeDeviceApi());
+  it("hands the pill the unit's firmware version", async () => {
+    const element = await mount(new FakeDeviceApi().startConnected());
 
-    connectButton(element).click();
-    await element.updateComplete;
-    await element.updateComplete;
-
-    expect(element.shadowRoot!.querySelector("button.connect")).toBeNull();
+    expect(pillOf(element).firmwareVersion).toBe("2.02");
   });
 
-  it("marks the pill as connected, so the dot changes colour", async () => {
-    const element = await mount(new FakeDeviceApi());
-    expect(element.shadowRoot!.querySelector(".pill.connected")).toBeNull();
+  it("says the unit is down when the bridge answers and the unit is not there", async () => {
+    const element = await mount(
+      new FakeDeviceApi().startWithUnitDown("the unit is not connected"),
+    );
 
-    connectButton(element).click();
-    await element.updateComplete;
-    await element.updateComplete;
-
-    expect(element.shadowRoot!.querySelector(".pill.connected")).not.toBeNull();
+    expect(element.linkState).toBe("unit-down");
+    expect(pillOf(element).linkState).toBe("unit-down");
   });
 
-  it("emits device-connected with what the unit reported", async () => {
-    const element = await mount(new FakeDeviceApi());
-    const events: CustomEvent[] = [];
-    element.addEventListener("device-connected", (event) => events.push(event as CustomEvent));
+  it("says the bridge is unreachable when the request itself fails", async () => {
+    const api = new FakeDeviceApi().startConnected();
+    api.unreachable = true;
 
-    connectButton(element).click();
-    await element.updateComplete;
-    await element.updateComplete;
-
-    expect(events).toHaveLength(1);
-    expect(events[0].detail.device.serial).toBe("ABIV002781EW");
-  });
-
-  it("reports the backend's own reason when the link fails", async () => {
-    const api = new FakeDeviceApi();
-    api.refuses = "no reply to command 0x02 within 5.0 seconds";
     const element = await mount(api);
-    const problems: CustomEvent[] = [];
-    element.addEventListener("connect-problem", (event) => problems.push(event as CustomEvent));
 
-    connectButton(element).click();
-    await element.updateComplete;
-    await element.updateComplete;
-
-    const reported = problems.filter((event) => event.detail.problem !== null);
-    expect(reported).toHaveLength(1);
-    expect(reported[0].detail.problem.body).toContain("no reply to command 0x02");
-    expect(textOf(element)).toContain("DEQ not connected");
+    expect(element.linkState).toBe("no-bridge");
+    expect(pillOf(element).linkState).toBe("no-bridge");
   });
 
-  it("clears an earlier problem when the user tries again", async () => {
-    const element = await mount(new FakeDeviceApi());
-    const problems: CustomEvent[] = [];
-    element.addEventListener("connect-problem", (event) => problems.push(event as CustomEvent));
-
-    connectButton(element).click();
-    await element.updateComplete;
-
-    expect(problems[0].detail.problem).toBeNull();
-  });
-
-  it("keeps the status text off the phone header until a unit is connected", async () => {
+  it("passes the layout down, so the pill can shorten itself", async () => {
     const element = await mount(new FakeDeviceApi(), "phone");
 
-    expect(textOf(element)).not.toContain("DEQ not connected");
-
-    connectButton(element).click();
-    await element.updateComplete;
-    await element.updateComplete;
-
-    expect(textOf(element)).toContain("DEQ connected");
+    expect(pillOf(element).layout).toBe("phone");
   });
 
-  it("renders without an api, so the header never breaks", async () => {
-    const element = document.createElement("device-status");
+  it("tells the app which link state it read", async () => {
+    const api = new FakeDeviceApi().startConnected();
+    const element = document.createElement("device-status") as DeviceStatus;
+    const states: string[] = [];
+    element.addEventListener("link-state", (event) => {
+      states.push((event as CustomEvent<{ linkState: string }>).detail.linkState);
+    });
+    element.api = api;
     document.body.append(element);
     await element.updateComplete;
-
-    expect(textOf(element)).toContain("DEQ not connected");
-  });
-
-  it("shows the label in the chosen locale", async () => {
-    const element = await mount(new FakeDeviceApi());
-    element.locale = "nl";
     await element.updateComplete;
 
-    expect(textOf(element)).toContain("DEQ niet verbonden");
+    expect(states).toEqual(["connected"]);
+  });
+});
+
+describe("device-status polling", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("asks again, so a unit that comes up later is noticed with no reload", async () => {
+    const api = new FakeDeviceApi();
+    const schedule = new ManualSchedule();
+    const element = await mountWithSchedule(api, schedule);
+
+    expect(element.linkState).toBe("unit-down");
+
+    // The car is switched on. Nobody presses anything.
+    api.startConnected();
+    schedule.fire();
+    await element.updateComplete;
+    await element.updateComplete;
+
+    expect(element.linkState).toBe("connected");
+  });
+
+  it("asks again after a short gap while the link is down", async () => {
+    const schedule = new ManualSchedule();
+    await mountWithSchedule(new FakeDeviceApi(), schedule);
+
+    expect(schedule.gaps).toEqual([POLL_WHILE_DOWN_MS]);
+  });
+
+  it("waits longer between reads once the link is up", async () => {
+    const schedule = new ManualSchedule();
+    await mountWithSchedule(new FakeDeviceApi().startConnected(), schedule);
+
+    expect(schedule.gaps).toEqual([POLL_WHILE_UP_MS]);
+  });
+
+  it("goes back to the short gap when a live link drops", async () => {
+    const api = new FakeDeviceApi().startConnected();
+    const schedule = new ManualSchedule();
+    const element = await mountWithSchedule(api, schedule);
+
+    api.startWithUnitDown("the link failed");
+    schedule.fire();
+    await element.updateComplete;
+    await element.updateComplete;
+
+    expect(schedule.gaps).toEqual([POLL_WHILE_UP_MS, POLL_WHILE_DOWN_MS]);
+  });
+
+  it("stops asking once it leaves the page", async () => {
+    const schedule = new ManualSchedule();
+    const element = await mountWithSchedule(
+      new FakeDeviceApi().startConnected(),
+      schedule,
+    );
+
+    element.remove();
+
+    expect(schedule.isScheduled).toBe(false);
   });
 });

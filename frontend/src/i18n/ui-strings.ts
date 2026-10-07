@@ -22,10 +22,6 @@ export type UiStrings = {
   speakerFrontRight: string;
   speakerRearLeft: string;
   speakerRearRight: string;
-  connectDevice: string;
-  connecting: string;
-  connectHint: string;
-  couldNotConnect: string;
   languageLabel: string;
   eqStyleTitle: string;
   liveSimulationTitle: string;
@@ -77,9 +73,7 @@ export type UiStrings = {
   moreActionsLabel: string;
   deviceNotConnected: string;
   deviceConnected: string;
-  deviceUnreachable: string;
-  connectShort: string;
-  dismissLabel: string;
+  bridgeUnreachable: string;
   factoryBadge: string;
   editedBadgeOne: string;
   editedBadgeMany: string;

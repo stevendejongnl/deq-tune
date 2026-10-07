@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from app.db import create_db_and_tables, engine
+from app.deq_device import link_keeper
 from app.device_routes import router as device_router
 from app.routes import router
 from app.seed import seed_factory_profiles
@@ -23,7 +24,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     create_db_and_tables()
     with Session(engine) as session:
         seed_factory_profiles(session)
-    yield
+    # The app connects to the unit by itself and keeps trying. Nothing in
+    # the frontend asks for a connection: the link is a fact to report.
+    link_keeper.start()
+    try:
+        yield
+    finally:
+        link_keeper.stop()
 
 
 app = FastAPI(title="DEQ Tune", lifespan=lifespan)

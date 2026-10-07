@@ -82,67 +82,6 @@ export const appRootStyles = css`
     color: var(--color-foreground);
     text-align: left;
   }
-  .connect-problem {
-    display: flex;
-    gap: 12px;
-    box-sizing: border-box;
-    padding: 14px 14px 14px 16px;
-    border-radius: var(--radius-md);
-    background: var(--color-warn-bg);
-    border: 1px solid var(--color-warn-border);
-    text-align: left;
-  }
-  /* The toast hangs under the pill, which keeps it inside the header
-     padding at every window width. */
-  .connect-problem.toast {
-    position: absolute;
-    top: calc(100% + 20px);
-    right: 0;
-    z-index: 5;
-    width: 380px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  }
-  .connect-problem.banner {
-    width: 100%;
-  }
-  .info-icon {
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: var(--color-accent);
-  }
-  .problem-text {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex-grow: 1;
-    min-width: 0;
-  }
-  .problem-title {
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .problem-body {
-    font-size: 13px;
-    line-height: 1.45;
-    color: var(--color-text-2);
-  }
-  .dismiss {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-muted-foreground);
-    cursor: pointer;
-
-    &:hover {
-      color: var(--color-foreground);
-    }
-  }
   .sheet-locale {
     padding-bottom: 8px;
   }

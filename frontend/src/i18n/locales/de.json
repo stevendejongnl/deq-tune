@@ -2,19 +2,12 @@
   "cabinHintPick": "Die Abstände sind Verzögerungen zu deinem Sitz. Wähle einen Lautsprecher, um ihn einzustellen.",
   "cabinHintTap": "Die Abstände sind Verzögerungen zu deinem Sitz. Tippe auf einen Lautsprecher, um ihn einzustellen.",
   "closeLabel": "Schließen",
-  "connectDevice": "DEQ-Gerät verbinden",
-  "connectHint": "Öffnet die Verbindung zum Gerät und liest seine Einstellungen.",
-  "connectShort": "Verbinden",
-  "connecting": "Verbindung wird hergestellt…",
-  "couldNotConnect": "Verbindung zum Gerät fehlgeschlagen",
   "customProfileCaption": "Deine Kopie des Werkspresets",
   "delayLabel": "Verzögerung",
   "delete": "Löschen",
   "deviceConnected": "DEQ verbunden",
   "deviceNotConnected": "DEQ nicht verbunden",
-  "deviceUnreachable": "Das Backend konnte das Gerät nicht erreichen.",
   "discardDraftConfirm": "Du hast ungespeicherte Änderungen. Verwerfen?",
-  "dismissLabel": "Schließen",
   "dspDeviceHint": "Gilt, sobald das DEQ verbunden ist",
   "duplicate": "Duplizieren",
   "duplicateHint": "Dupliziere ein Werkspreset, um ein eigenes zu erstellen.",
@@ -84,5 +77,6 @@
   "zoneNameLowMids": "Untere Mitten",
   "zoneNameMids": "Mitten",
   "zoneNamePresence": "Präsenz",
-  "zoneNameSubBass": "Subbass"
+  "zoneNameSubBass": "Subbass",
+  "bridgeUnreachable": "Bridge nicht erreichbar"
 }

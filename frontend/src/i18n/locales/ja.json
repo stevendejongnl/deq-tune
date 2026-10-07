@@ -2,19 +2,12 @@
   "cabinHintPick": "距離はあなたの席までの遅延です。スピーカーを選ぶと調整できます。",
   "cabinHintTap": "距離はあなたの席までの遅延です。スピーカーをタップすると調整できます。",
   "closeLabel": "閉じる",
-  "connectDevice": "DEQデバイスに接続",
-  "connectHint": "ユニットへの接続を開き、設定を読み込みます。",
-  "connectShort": "接続",
-  "connecting": "接続中…",
-  "couldNotConnect": "デバイスに接続できませんでした",
   "customProfileCaption": "純正プリセットのコピー",
   "delayLabel": "遅延",
   "delete": "削除",
   "deviceConnected": "DEQ接続済み",
   "deviceNotConnected": "DEQ未接続",
-  "deviceUnreachable": "バックエンドがユニットに接続できませんでした。",
   "discardDraftConfirm": "保存していない変更があります。破棄しますか？",
-  "dismissLabel": "閉じる",
   "dspDeviceHint": "DEQの接続後に適用されます",
   "duplicate": "複製",
   "duplicateHint": "純正プリセットを複製して自分用に編集できます。",
@@ -84,5 +77,6 @@
   "zoneNameLowMids": "中低音",
   "zoneNameMids": "中音",
   "zoneNamePresence": "存在感",
-  "zoneNameSubBass": "超低音"
+  "zoneNameSubBass": "超低音",
+  "bridgeUnreachable": "ブリッジに接続できません"
 }

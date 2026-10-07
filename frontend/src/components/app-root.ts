@@ -14,7 +14,6 @@ import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
 import "./device-status.ts";
-import type { ConnectProblem } from "./device-status.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
 import { appRootStyles } from "./app-root.styles.ts";
@@ -105,7 +104,6 @@ export class AppRoot extends LitElement {
   @state() private profilesDrawerOpen = false;
   @state() private layout: AppLayout = "desktop";
   @state() private phoneTab: PhoneTab = "eq";
-  @state() private connectProblem: ConnectProblem | null = null;
 
   /** Edits to a factory preset live here until the user saves them. */
   @state() private draft: TuningDataDto | null = null;
@@ -210,14 +208,10 @@ export class AppRoot extends LitElement {
               .api=${this.api}
               .locale=${this.locale}
               .layout=${this.layout}
-              @connect-problem=${(problemEvent: CustomEvent<{ problem: ConnectProblem | null }>) =>
-                (this.connectProblem = problemEvent.detail.problem)}
             ></device-status>
-            ${this.isPhoneLayout ? nothing : this.renderConnectProblem(strings, "toast")}
           </div>
         </header>
         <main>
-          ${this.isPhoneLayout ? this.renderConnectProblem(strings, "banner") : nothing}
           ${this.selectedProfile === undefined
             ? nothing
             : this.renderHeadingRow(strings, this.selectedProfile)}
@@ -340,47 +334,6 @@ export class AppRoot extends LitElement {
 
   /** The connect message is a toast under the header on the desktop,
    * and a banner at the top of the content on a touch layout. */
-  private renderConnectProblem(
-    strings: UiStrings,
-    kind: "toast" | "banner",
-  ): TemplateResult | typeof nothing {
-    if (this.connectProblem === null) {
-      return nothing;
-    }
-    return html`
-      <div class="connect-problem ${kind}" role="status">
-        <svg class="info-icon" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-          <circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5" />
-          <path
-            d="M9 5 V10 M9 12.5 V13"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-          />
-        </svg>
-        <div class="problem-text">
-          <div class="problem-title">${this.connectProblem.title}</div>
-          <div class="problem-body">${this.connectProblem.body}</div>
-        </div>
-        <button
-          type="button"
-          class="dismiss"
-          aria-label=${strings.dismissLabel}
-          @click=${() => (this.connectProblem = null)}
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M2 2 L10 10 M10 2 L2 10"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
-          </svg>
-        </button>
-      </div>
-    `;
-  }
-
   /** The phone header replaces the wordmark and the profiles button
    * with the selected profile, which opens the sheet. */
   private renderPhoneProfileButton(strings: UiStrings): TemplateResult {

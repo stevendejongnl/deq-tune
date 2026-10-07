@@ -2,19 +2,12 @@
   "cabinHintPick": "Las distancias son retardos hasta tu asiento. Elige un altavoz para ajustarlo.",
   "cabinHintTap": "Las distancias son retardos hasta tu asiento. Toca un altavoz para ajustarlo.",
   "closeLabel": "Cerrar",
-  "connectDevice": "Conectar DEQ",
-  "connectHint": "Abre el enlace con la unidad y lee sus ajustes.",
-  "connectShort": "Conectar",
-  "connecting": "Conectando…",
-  "couldNotConnect": "No se pudo conectar con el dispositivo",
   "customProfileCaption": "Tu copia del preajuste de fábrica",
   "delayLabel": "Retardo",
   "delete": "Eliminar",
   "deviceConnected": "DEQ conectado",
   "deviceNotConnected": "DEQ no conectado",
-  "deviceUnreachable": "El backend no pudo conectar con la unidad.",
   "discardDraftConfirm": "Tienes cambios sin guardar. ¿Descartarlos?",
-  "dismissLabel": "Cerrar",
   "dspDeviceHint": "Se aplica al conectar el DEQ",
   "duplicate": "Duplicar",
   "duplicateHint": "Duplica un preajuste de fábrica para crear el tuyo.",
@@ -84,5 +77,6 @@
   "zoneNameLowMids": "Medios bajos",
   "zoneNameMids": "Medios",
   "zoneNamePresence": "Presencia",
-  "zoneNameSubBass": "Subgraves"
+  "zoneNameSubBass": "Subgraves",
+  "bridgeUnreachable": "Puente no accesible"
 }

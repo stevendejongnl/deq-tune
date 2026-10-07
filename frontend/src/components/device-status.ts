@@ -1,100 +1,81 @@
-import { html, LitElement, nothing, type TemplateResult } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { DeviceApi } from "../api/client.ts";
 import type { DeviceDto } from "../dto/profile.dto.ts";
 import type { Locale } from "../i18n/locale.ts";
 import type { AppLayout } from "../layout-query.ts";
-import { uiStrings, type UiStrings } from "../i18n/ui-strings.ts";
-import { deviceStatusStyles } from "./device-status.styles.ts";
+import "./device-pill.ts";
+import { readLinkState, type LinkState } from "./link-state.ts";
 
-/** What the connect failure means to the user. */
-export interface ConnectProblem {
-  title: string;
-  body: string;
-}
+/** How often to ask again, in milliseconds.
+ *
+ * Faster while something is still expected to change, slower once the
+ * link is up and there is nothing to wait for. The backend connects by
+ * itself, so this only watches; it never asks for a connection.
+ */
+export const POLL_WHILE_DOWN_MS = 3000;
+export const POLL_WHILE_UP_MS = 10000;
 
-export function describeConnectProblem(
-  strings: UiStrings,
-  problem: string | null,
-): ConnectProblem {
-  return {
-    title: strings.couldNotConnect,
-    body: problem ?? strings.deviceUnreachable,
-  };
-}
+/** Runs an action after a delay, and returns a handle to cancel it with.
+ * `setTimeout` is one; a test supplies another. */
+export type ScheduleFunction = (action: () => void, delayMs: number) => unknown;
+
+export type CancelFunction = (handle: unknown) => void;
 
 /**
- * The header's device pill: a status dot, what the unit is, and a connect
- * button.
+ * Watches the link and hands what it finds to `device-pill`.
  *
- * The backend owns the USB link, so this component only reads and writes
- * the unit's state over the API. It never touches USB itself, which is why
- * the app has no browser requirement.
+ * It reads `/api/device` and asks again on a timer; `app-root` places it
+ * in the header; it depends on a `DeviceApi` and on a way to schedule the
+ * next read.
  *
- * It emits `connect-problem` when the link fails, and `app-root` places the
- * message where the layout wants it. `api` is a settable property so tests
- * pass a hand-written fake instead of stubbing anything.
+ * There is no connect button. The backend connects by itself and keeps
+ * trying, the unit is wired to the car, and both come up with the
+ * ignition, so there is nothing a person could usefully press. This
+ * component reports; it does not ask.
+ *
+ * `api` and `scheduleFunction` are settable properties, so a test passes
+ * hand-written fakes instead of stubbing anything.
  */
 @customElement("device-status")
 export class DeviceStatus extends LitElement {
-  static override styles = deviceStatusStyles;
-
   @property({ attribute: false }) api: DeviceApi | undefined;
   @property({ type: String }) locale: Locale = "en";
   @property({ type: String }) layout: AppLayout = "desktop";
+  @property({ attribute: false }) scheduleFunction: ScheduleFunction = (
+    action,
+    delayMs,
+  ) => setTimeout(action, delayMs);
+
+  @property({ attribute: false }) cancelFunction: CancelFunction = (handle) =>
+    clearTimeout(handle as ReturnType<typeof setTimeout>);
 
   @state() private device: DeviceDto | null = null;
-  @state() private isConnecting = false;
+
+  private pollHandle: unknown;
 
   override connectedCallback(): void {
     super.connectedCallback();
-    void this.readDevice();
+    void this.readDeviceAndScheduleNext();
   }
 
-  private get hasConnectedUnit(): boolean {
-    return this.device?.connected === true;
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.stopPolling();
   }
 
-  /** The phone header has room for the dot and the button alone, so it
-   * drops the status text until a unit is connected. */
-  private get showsDeviceLabel(): boolean {
-    return this.hasConnectedUnit || this.layout !== "phone";
+  get linkState(): LinkState {
+    return readLinkState(this.device);
   }
 
   override render() {
-    const strings = uiStrings(this.locale);
     return html`
-      <div class="pill ${this.hasConnectedUnit ? "connected" : ""}">
-        <span class="dot"></span>
-        ${this.showsDeviceLabel ? this.renderLabel(strings) : nothing}
-        ${this.hasConnectedUnit ? nothing : this.renderConnectButton(strings)}
-      </div>
-    `;
-  }
-
-  private renderLabel(strings: UiStrings): TemplateResult {
-    if (!this.hasConnectedUnit) {
-      return html`<span class="device-label">${strings.deviceNotConnected}</span>`;
-    }
-    return html`
-      <span class="device-label">${strings.deviceConnected}</span>
-      ${this.device?.firmware_version === null
-        ? nothing
-        : html`<span class="firmware">${this.device?.firmware_version}</span>`}
-    `;
-  }
-
-  private renderConnectButton(strings: UiStrings): TemplateResult {
-    return html`
-      <button
-        type="button"
-        class="connect"
-        ?disabled=${this.isConnecting}
-        title=${strings.connectHint}
-        @click=${() => this.connect()}
-      >
-        ${this.isConnecting ? strings.connecting : strings.connectShort}
-      </button>
+      <device-pill
+        .linkState=${this.linkState}
+        .firmwareVersion=${this.device?.firmware_version ?? null}
+        .locale=${this.locale}
+        .layout=${this.layout}
+      ></device-pill>
     `;
   }
 
@@ -105,47 +86,37 @@ export class DeviceStatus extends LitElement {
     try {
       this.device = await this.api.readDevice();
     } catch {
-      // A backend that cannot be reached is not worth a message of its
-      // own here: the pill stays on "not connected".
+      // A request that fails outright means the bridge itself is out of
+      // reach, which is its own state. A request that succeeds saying
+      // `connected: false` is the other case: the bridge answered, and it
+      // is the unit that is down.
       this.device = null;
     }
   }
 
-  private async connect(): Promise<void> {
-    if (this.api === undefined) {
-      return;
-    }
-    this.isConnecting = true;
-    this.announceProblem(null);
-    try {
-      const device = await this.api.connectDevice();
-      this.device = device;
-      if (device.connected) {
-        this.dispatchEvent(new CustomEvent("device-connected", { detail: { device } }));
-      } else {
-        this.announceProblem(
-          describeConnectProblem(uiStrings(this.locale), device.problem),
-        );
-      }
-    } catch (caughtError) {
-      this.announceProblem(
-        describeConnectProblem(
-          uiStrings(this.locale),
-          caughtError instanceof Error ? caughtError.message : null,
-        ),
-      );
-    } finally {
-      this.isConnecting = false;
-    }
+  /** Reads once, tells the app, then asks again after the right gap. */
+  private async readDeviceAndScheduleNext(): Promise<void> {
+    await this.readDevice();
+    this.dispatchEvent(
+      new CustomEvent("link-state", {
+        detail: { linkState: this.linkState, device: this.device },
+      }),
+    );
+    this.scheduleNextRead();
   }
 
-  private announceProblem(problem: ConnectProblem | null): void {
-    this.dispatchEvent(new CustomEvent("connect-problem", { detail: { problem } }));
+  private scheduleNextRead(): void {
+    this.stopPolling();
+    const gap = this.linkState === "connected" ? POLL_WHILE_UP_MS : POLL_WHILE_DOWN_MS;
+    this.pollHandle = this.scheduleFunction(() => {
+      void this.readDeviceAndScheduleNext();
+    }, gap);
   }
-}
 
-declare global {
-  interface HTMLElementTagNameMap {
-    "device-status": DeviceStatus;
+  private stopPolling(): void {
+    if (this.pollHandle !== undefined) {
+      this.cancelFunction(this.pollHandle);
+      this.pollHandle = undefined;
+    }
   }
 }

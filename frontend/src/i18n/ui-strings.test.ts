@@ -9,11 +9,11 @@ function englishFixture(): UiStrings {
 
 describe("uiStrings", () => {
   it("returns the English strings for the en locale", () => {
-    expect(uiStrings("en").connectDevice).toBe("Connect DEQ device");
+    expect(uiStrings("en").deviceConnected).toBe("DEQ connected");
   });
 
   it("returns the Japanese strings for the ja locale", () => {
-    expect(uiStrings("ja").connectDevice).toBe("DEQデバイスに接続");
+    expect(uiStrings("ja").deviceConnected).toBe("DEQ接続済み");
   });
 });
 
