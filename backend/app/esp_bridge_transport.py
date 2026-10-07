@@ -9,9 +9,9 @@ about the DEQ's protocol. It is a USB host plugged into the DEQ's own port, and 
 relays whatever bytes arrive on that USB connection straight onto its
 UART, in both directions, unchanged. `deq_protocol.py`'s frame markers
 (`0xf0` .. `0xf7`, with the 512-byte pad rule) already delimit a frame
-inside that byte stream, so this class only has to find them -- the same
-job `usb_transport.py`'s `take_frame_from_buffer` does, reused here
-because a serial link carries the identical bytes a bulk USB link would.
+inside that byte stream, so finding them is `FrameJoiner`'s job in
+`deq_transport.py` -- a serial link carries the identical bytes a bulk
+USB link would, so the same joiner serves both.
 
 The difference from `UsbTransport` is what feeds the buffer: a serial
 port has no fixed packet size to read in chunks of, so this reads
@@ -21,17 +21,12 @@ size, rather than one fixed-size USB packet.
 
 from __future__ import annotations
 
-from app.deq_transport import TransportError, TransportTimeout
-
-FRAME_END_MARKER = 0xF7
-
-# One bulk packet on the DEQ's own USB link. The codec's 512-byte pad rule
-# depends on this, same as usb_transport.py -- the ESP relays the DEQ's
-# own framing unchanged, so the same rule applies here.
-BULK_PACKET_BYTES = 512
-
-# A frame never exceeds this. Same bound as usb_transport.py.
-MAX_FRAME_BYTES = 8192
+from app.deq_transport import (
+    FrameJoiner,
+    TransportError,
+    TransportTimeout,
+    receive_frame_by_reading,
+)
 
 # How many bytes to ask the serial port for at once. Generous relative to
 # one DEQ frame's nibble-expanded size, so a full frame usually arrives in
@@ -70,7 +65,7 @@ class EspBridgeTransport:
 
     def __init__(self, port: str, baud_rate: int = DEFAULT_BAUD_RATE, connection=None) -> None:
         self.connection = connection if connection is not None else open_serial_port(port, baud_rate)
-        self._buffer = bytearray()
+        self._joiner = FrameJoiner()
         self.closed = False
 
     def send_frame(self, frame: bytes) -> None:
@@ -88,38 +83,13 @@ class EspBridgeTransport:
         """Returns the next whole frame.
 
         A serial read returns whatever bytes are available, not one frame
-        at a time, so this reads until the end marker rather than
-        assuming one read is one frame -- the same approach
-        `UsbTransport.receive_frame` takes for bulk packets.
+        at a time. `FrameJoiner` finds the edge, with the DEQ's own
+        512-byte pad rule: the ESP relays that framing unchanged.
         """
         self.connection.timeout = timeout_seconds
-        while True:
-            frame = self.take_frame_from_buffer()
-            if frame is not None:
-                return frame
-            if len(self._buffer) > MAX_FRAME_BYTES:
-                raise TransportError(
-                    f"no frame end in {len(self._buffer)} bytes; the link is out of step"
-                )
-            self._buffer += self.read_available_bytes(timeout_seconds)
-
-    def take_frame_from_buffer(self) -> bytes | None:
-        """Returns the first whole frame the buffer holds, if it holds one.
-
-        A frame that is an exact multiple of 512 bytes carries one zero
-        byte after its end marker, so that byte is taken with it. Same
-        rule as `UsbTransport.take_frame_from_buffer`, because the ESP
-        relays the DEQ's own framing unchanged.
-        """
-        end = self._buffer.find(FRAME_END_MARKER)
-        if end == -1:
-            return None
-        length = end + 1
-        if length % BULK_PACKET_BYTES == 0 and len(self._buffer) > length:
-            length += 1
-        frame = bytes(self._buffer[:length])
-        del self._buffer[:length]
-        return frame
+        return receive_frame_by_reading(
+            self._joiner, lambda: self.read_available_bytes(timeout_seconds)
+        )
 
     def read_available_bytes(self, timeout_seconds: float) -> bytes:
         """Reads whatever the bridge has sent, or says why it could not."""

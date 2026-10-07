@@ -17,13 +17,13 @@ from pathlib import Path
 import pytest
 
 from app.deq_protocol import Direction, Message, encode_frame
-from app.deq_transport import TransportError, TransportTimeout
-from app.usb_transport import (
+from app.deq_transport import (
     BULK_PACKET_BYTES,
     MAX_FRAME_BYTES,
-    UsbTransport,
-    detach_kernel_driver,
+    TransportError,
+    TransportTimeout,
 )
+from app.usb_transport import UsbTransport, detach_kernel_driver
 
 CORPUS_PATH = Path(__file__).resolve().parents[2] / "conformance" / "flows.json"
 
@@ -80,14 +80,9 @@ class USBTimeoutError(Exception):
 
 def build_transport(stream: bytes = b"") -> UsbTransport:
     """Returns a transport wired to fake endpoints, with no USB in sight."""
-    transport = UsbTransport.__new__(UsbTransport)
-    transport.device = None
-    transport.interface_number = 0
-    transport.in_endpoint = FakeEndpoint(stream)
-    transport.out_endpoint = FakeEndpoint()
-    transport._buffer = bytearray()
-    transport.closed = False
-    return transport
+    return UsbTransport(
+        endpoints=(0, FakeEndpoint(stream), FakeEndpoint()),
+    )
 
 
 def test_the_end_marker_cannot_appear_inside_a_frame():

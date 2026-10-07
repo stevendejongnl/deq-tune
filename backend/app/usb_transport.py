@@ -31,19 +31,16 @@ against the hardware and says what matched.
 
 from __future__ import annotations
 
-from app.deq_transport import TransportError, TransportTimeout
+from app.deq_transport import (
+    BULK_PACKET_BYTES,
+    FrameJoiner,
+    TransportError,
+    TransportTimeout,
+    receive_frame_by_reading,
+)
 
 PIONEER_VENDOR_ID = 0x08E4
 DEQ_PRODUCT_ID = 0x01ED
-
-# One bulk packet. The codec's 512-byte pad rule depends on this.
-BULK_PACKET_BYTES = 512
-
-# A frame never exceeds this. The biggest one seen is the 4209-byte
-# coefficient write, so this leaves room and still bounds a bad read.
-MAX_FRAME_BYTES = 8192
-
-FRAME_END_MARKER = 0xF7
 
 
 class UsbUnavailable(TransportError):
@@ -71,12 +68,23 @@ class UsbTransport:
     on `pyusb` and on a DEQ being on the bus.
     """
 
-    def __init__(self, device=None) -> None:
-        self.device = device if device is not None else find_deq()
-        self.interface_number, self.in_endpoint, self.out_endpoint = claim_bulk_interface(
-            self.device
-        )
-        self._buffer = bytearray()
+    def __init__(self, device=None, endpoints=None) -> None:
+        """Opens the link, or takes endpoints a caller already has.
+
+        `endpoints` is the seam the framing tests use: an interface number
+        and an IN and OUT endpoint. Passing it skips both the bus search
+        and the interface claim, so the framing can be tested with no
+        `pyusb` installed and no unit on the bus.
+        """
+        if endpoints is None:
+            self.device = device if device is not None else find_deq()
+            self.interface_number, self.in_endpoint, self.out_endpoint = (
+                claim_bulk_interface(self.device)
+            )
+        else:
+            self.device = device
+            self.interface_number, self.in_endpoint, self.out_endpoint = endpoints
+        self._joiner = FrameJoiner()
         self.closed = False
 
     def send_frame(self, frame: bytes) -> None:
@@ -94,35 +102,12 @@ class UsbTransport:
         """Returns the next whole frame.
 
         A bulk read returns one packet at a time, so a frame larger than
-        512 bytes arrives in pieces. This reads until the end marker
-        rather than assuming one read is one frame.
+        512 bytes arrives in pieces. `FrameJoiner` finds the edge.
         """
         timeout_milliseconds = max(1, int(timeout_seconds * 1000))
-        while True:
-            frame = self.take_frame_from_buffer()
-            if frame is not None:
-                return frame
-            if len(self._buffer) > MAX_FRAME_BYTES:
-                raise TransportError(
-                    f"no frame end in {len(self._buffer)} bytes; the link is out of step"
-                )
-            self._buffer += self.read_one_packet(timeout_milliseconds)
-
-    def take_frame_from_buffer(self) -> bytes | None:
-        """Returns the first whole frame the buffer holds, if it holds one.
-
-        A frame that is an exact multiple of 512 bytes carries one zero
-        byte after its end marker, so that byte is taken with it.
-        """
-        end = self._buffer.find(FRAME_END_MARKER)
-        if end == -1:
-            return None
-        length = end + 1
-        if length % BULK_PACKET_BYTES == 0 and len(self._buffer) > length:
-            length += 1
-        frame = bytes(self._buffer[:length])
-        del self._buffer[:length]
-        return frame
+        return receive_frame_by_reading(
+            self._joiner, lambda: self.read_one_packet(timeout_milliseconds)
+        )
 
     def read_one_packet(self, timeout_milliseconds: int) -> bytes:
         """Reads one bulk packet, or says why it could not.

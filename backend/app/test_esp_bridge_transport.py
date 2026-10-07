@@ -14,12 +14,13 @@ from pathlib import Path
 import pytest
 
 from app.deq_protocol import Direction, Message, encode_frame
-from app.deq_transport import TransportError, TransportTimeout
-from app.esp_bridge_transport import (
+from app.deq_transport import (
     BULK_PACKET_BYTES,
     MAX_FRAME_BYTES,
-    EspBridgeTransport,
+    TransportError,
+    TransportTimeout,
 )
+from app.esp_bridge_transport import EspBridgeTransport
 
 CORPUS_PATH = Path(__file__).resolve().parents[2] / "conformance" / "flows.json"
 

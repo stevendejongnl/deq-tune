@@ -138,7 +138,7 @@ to, Pioneer.
 
   The frontend asks for all of this over `/api/device`, so the browser never touches USB.
 
-  Three transports sit behind `backend/app/deq_transport.py`. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
+  Three transports sit behind `backend/app/deq_transport.py`, which also holds the piece they share: `FrameJoiner` cuts whole frames out of whatever a link hands back, because every link carries the same frames and only the read differs — a bulk USB read returns one 512-byte packet, a serial read returns whatever has arrived. It imports nothing optional, so `app/test_deq_transport.py` tests the framing, the 512-byte pad rule included, with no USB or serial stack installed. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
 
 ```bash
 cd backend && uv sync --extra usb
