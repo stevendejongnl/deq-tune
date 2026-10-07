@@ -1,5 +1,6 @@
 import typia from "typia";
 import type {
+  BridgeDto,
   DeviceDto,
   DeviceOptionsDto,
   EqStyleWriteDto,
@@ -72,7 +73,16 @@ export interface DeviceApi {
   selectLiveSimulation(name: string): Promise<DeviceDto>;
 }
 
-export class DeqApiClient implements ProfileApi, DeviceApi {
+/** What the app can ask about the machine holding the link.
+ *
+ * Separate from `DeviceApi` because it answers a different question. The
+ * DEQ being off is normal; the bridge being unwell is a fault.
+ */
+export interface BridgeApi {
+  readBridge(): Promise<BridgeDto>;
+}
+
+export class DeqApiClient implements ProfileApi, DeviceApi, BridgeApi {
   private baseUrl: string;
   private fetchImpl: FetchLike;
 
@@ -115,6 +125,10 @@ export class DeqApiClient implements ProfileApi, DeviceApi {
 
   async readDevice(): Promise<DeviceDto> {
     return typia.assert<DeviceDto>(await this.call("GET", "/device"));
+  }
+
+  async readBridge(): Promise<BridgeDto> {
+    return typia.assert<BridgeDto>(await this.call("GET", "/bridge"));
   }
 
   async connectDevice(): Promise<DeviceDto> {

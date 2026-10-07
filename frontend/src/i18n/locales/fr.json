@@ -78,5 +78,7 @@
   "zoneNameMids": "Médiums",
   "zoneNamePresence": "Présence",
   "zoneNameSubBass": "Infra-basses",
-  "bridgeUnreachable": "Pont inaccessible"
+  "bridgeUnreachable": "Pont inaccessible",
+  "dismiss": "Fermer",
+  "bridgeNoticeDismissHint": "Masque ceci jusqu'au redémarrage du pont."
 }

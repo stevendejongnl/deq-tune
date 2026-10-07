@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
+from app.bridge_routes import router as bridge_router
 from app.db import create_db_and_tables, engine
 from app.deq_device import link_keeper
 from app.device_routes import router as device_router
@@ -44,6 +45,7 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api")
 app.include_router(device_router, prefix="/api")
+app.include_router(bridge_router, prefix="/api")
 
 
 @app.get("/health")

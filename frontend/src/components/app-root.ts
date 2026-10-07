@@ -13,6 +13,7 @@ import { countEdits } from "../tuning-edit-count.ts";
 import "./profile-list.ts";
 import "./eq-editor.ts";
 import "./speaker-panel.ts";
+import "./bridge-notices.ts";
 import "./device-status.ts";
 import "./locale-switcher.ts";
 import "./dsp-panel.ts";
@@ -204,6 +205,7 @@ export class AppRoot extends LitElement {
             ${this.isPhoneLayout
               ? nothing
               : html`${this.renderLocaleSwitcher()}<span class="header-divider"></span>`}
+            <bridge-notices .api=${this.api} .locale=${this.locale}></bridge-notices>
             <device-status
               .api=${this.api}
               .locale=${this.locale}

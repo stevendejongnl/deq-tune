@@ -450,6 +450,28 @@
         }
       }
     },
+    "/api/bridge": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Read Bridge",
+        "description": "Returns the bridge's health, and everything it has gone wrong with.\n\nReading raises a notice when the health says so, which is what makes\na power dip outlive itself: the live reading recovers, and the notice\nstays until the bridge restarts.",
+        "operationId": "read_bridge_api_bridge_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BridgeRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -475,6 +497,93 @@
   },
   "components": {
     "schemas": {
+      "BridgeNoticeRead": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "first_seen_seconds": {
+            "type": "number",
+            "title": "First Seen Seconds"
+          },
+          "last_seen_seconds": {
+            "type": "number",
+            "title": "Last Seen Seconds"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "severity",
+          "message",
+          "first_seen_seconds",
+          "last_seen_seconds",
+          "count"
+        ],
+        "title": "BridgeNoticeRead",
+        "description": "One fault the bridge has seen since it started."
+      },
+      "BridgeRead": {
+        "properties": {
+          "undervoltage_now": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undervoltage Now"
+          },
+          "undervoltage_since_boot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undervoltage Since Boot"
+          },
+          "uptime_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Seconds"
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/BridgeNoticeRead"
+            },
+            "type": "array",
+            "title": "Notices",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "BridgeRead",
+        "description": "What the app shows about the machine holding the link.\n\nThis is the bridge, not the DEQ. The two fail for different reasons\nand ask different things of a person: a DEQ that is off is normal,\nand a bridge that is browning out is a fault in the wiring.\n\nThe undervoltage fields are `None` where the machine cannot tell. A\nlaptop has no `vcgencmd`, and `False` would be a claim it cannot\nmake."
+      },
       "CancellingEq": {
         "properties": {
           "L": {

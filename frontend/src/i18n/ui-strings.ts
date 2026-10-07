@@ -74,6 +74,8 @@ export type UiStrings = {
   deviceNotConnected: string;
   deviceConnected: string;
   bridgeUnreachable: string;
+  dismiss: string;
+  bridgeNoticeDismissHint: string;
   factoryBadge: string;
   editedBadgeOne: string;
   editedBadgeMany: string;

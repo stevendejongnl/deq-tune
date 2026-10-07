@@ -78,5 +78,7 @@
   "zoneNameMids": "中音",
   "zoneNamePresence": "存在感",
   "zoneNameSubBass": "超低音",
-  "bridgeUnreachable": "ブリッジに接続できません"
+  "bridgeUnreachable": "ブリッジに接続できません",
+  "dismiss": "閉じる",
+  "bridgeNoticeDismissHint": "ブリッジが再起動するまで非表示にします。"
 }

@@ -78,5 +78,7 @@
   "zoneNameMids": "Medios",
   "zoneNamePresence": "Presencia",
   "zoneNameSubBass": "Subgraves",
-  "bridgeUnreachable": "Puente no accesible"
+  "bridgeUnreachable": "Puente no accesible",
+  "dismiss": "Cerrar",
+  "bridgeNoticeDismissHint": "Oculta esto hasta que el puente se reinicie."
 }

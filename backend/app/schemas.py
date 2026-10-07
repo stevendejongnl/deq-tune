@@ -40,6 +40,35 @@ class DeviceRead(BaseModel):
     problem: str | None = None
 
 
+class BridgeNoticeRead(BaseModel):
+    """One fault the bridge has seen since it started."""
+
+    key: str
+    severity: str
+    message: str
+    first_seen_seconds: float
+    last_seen_seconds: float
+    count: int
+
+
+class BridgeRead(BaseModel):
+    """What the app shows about the machine holding the link.
+
+    This is the bridge, not the DEQ. The two fail for different reasons
+    and ask different things of a person: a DEQ that is off is normal,
+    and a bridge that is browning out is a fault in the wiring.
+
+    The undervoltage fields are `None` where the machine cannot tell. A
+    laptop has no `vcgencmd`, and `False` would be a claim it cannot
+    make.
+    """
+
+    undervoltage_now: bool | None = None
+    undervoltage_since_boot: bool | None = None
+    uptime_seconds: float | None = None
+    notices: list[BridgeNoticeRead] = []
+
+
 class DeqEnumValueRead(BaseModel):
     """One value the unit accepts, as the Pioneer app declares it."""
 

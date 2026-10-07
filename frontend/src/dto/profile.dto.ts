@@ -140,3 +140,30 @@ export interface EqStyleWriteDto {
 export interface LiveSimulationWriteDto {
   name: string;
 }
+
+/** One fault the bridge has seen since it started.
+ *
+ * A notice stays until the bridge restarts, so this can describe
+ * something that is no longer happening. That is deliberate: a power dip
+ * that lasted a second still explains a link that dropped.
+ */
+export interface BridgeNoticeDto {
+  key: string;
+  severity: string;
+  message: string;
+  first_seen_seconds: number;
+  last_seen_seconds: number;
+  count: number;
+}
+
+/** The machine holding the link, which is not the DEQ.
+ *
+ * The undervoltage fields are null where the machine cannot tell: a
+ * laptop has no `vcgencmd`, and false would be a claim it cannot make.
+ */
+export interface BridgeDto {
+  undervoltage_now: boolean | null;
+  undervoltage_since_boot: boolean | null;
+  uptime_seconds: number | null;
+  notices: BridgeNoticeDto[];
+}

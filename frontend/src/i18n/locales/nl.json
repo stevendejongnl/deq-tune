@@ -78,5 +78,7 @@
   "zoneNameMids": "Midden",
   "zoneNamePresence": "Presence",
   "zoneNameSubBass": "Sublaag",
-  "bridgeUnreachable": "Bridge niet bereikbaar"
+  "bridgeUnreachable": "Bridge niet bereikbaar",
+  "dismiss": "Sluiten",
+  "bridgeNoticeDismissHint": "Verbergt dit tot de bridge opnieuw start."
 }

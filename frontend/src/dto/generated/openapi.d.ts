@@ -199,6 +199,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/bridge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Bridge
+         * @description Returns the bridge's health, and everything it has gone wrong with.
+         *
+         *     Reading raises a notice when the health says so, which is what makes
+         *     a power dip outlive itself: the live reading recovers, and the notice
+         *     stays until the bridge restarts.
+         */
+        get: operations["read_bridge_api_bridge_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -220,6 +244,49 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BridgeNoticeRead
+         * @description One fault the bridge has seen since it started.
+         */
+        BridgeNoticeRead: {
+            /** Key */
+            key: string;
+            /** Severity */
+            severity: string;
+            /** Message */
+            message: string;
+            /** First Seen Seconds */
+            first_seen_seconds: number;
+            /** Last Seen Seconds */
+            last_seen_seconds: number;
+            /** Count */
+            count: number;
+        };
+        /**
+         * BridgeRead
+         * @description What the app shows about the machine holding the link.
+         *
+         *     This is the bridge, not the DEQ. The two fail for different reasons
+         *     and ask different things of a person: a DEQ that is off is normal,
+         *     and a bridge that is browning out is a fault in the wiring.
+         *
+         *     The undervoltage fields are `None` where the machine cannot tell. A
+         *     laptop has no `vcgencmd`, and `False` would be a claim it cannot
+         *     make.
+         */
+        BridgeRead: {
+            /** Undervoltage Now */
+            undervoltage_now?: boolean | null;
+            /** Undervoltage Since Boot */
+            undervoltage_since_boot?: boolean | null;
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+            /**
+             * Notices
+             * @default []
+             */
+            notices: components["schemas"]["BridgeNoticeRead"][];
+        };
         /** CancellingEq */
         CancellingEq: {
             /** L */
@@ -825,6 +892,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_bridge_api_bridge_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BridgeRead"];
                 };
             };
         };

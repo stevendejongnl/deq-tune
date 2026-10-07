@@ -78,5 +78,7 @@
   "zoneNameMids": "Mids",
   "zoneNamePresence": "Presence",
   "zoneNameSubBass": "Sub-bass",
-  "bridgeUnreachable": "Bridge not reachable"
+  "bridgeUnreachable": "Bridge not reachable",
+  "dismiss": "Dismiss",
+  "bridgeNoticeDismissHint": "Hides this until the bridge restarts."
 }
