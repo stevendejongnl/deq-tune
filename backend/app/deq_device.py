@@ -1,29 +1,28 @@
 """Holds the one link to the DEQ unit.
 
-The backend owns the link, not the browser. A laptop reaches the unit over
-its own USB port, or through an ESP32-S3 wired to the unit's port that
-runs the same code. Either way the process that holds the handle is this
-one, so the frontend reads device state over HTTP like any other data.
+The backend owns the link, not the browser. The process that holds the
+handle is this one, so the frontend reads device state over HTTP like any
+other data.
 
 Which transport that link uses is configuration. `DEQ_TRANSPORT=simulator`
 serves a simulated unit a developer can change while it runs, through
 `tools/deq_console.py` -- see `deq_simulator_transport.py`.
 `DEQ_TRANSPORT=fake` is
 the default, which talks to `testing/fake_deq.py` so the whole app runs end
-to end with no hardware. `DEQ_TRANSPORT=usb` talks to a real unit through
-`usb_transport.py`, which needs the `usb` extra (`uv sync --extra usb`).
-`DEQ_TRANSPORT=esp-bridge` talks to a unit through an ESP32-S3 running
-the bridge firmware (needs the `esp-bridge` extra and
-`DEQ_ESP_BRIDGE_PORT` set to the board's serial port) -- see
-`esp_bridge_transport.py` for why a
-physical USB host (this machine's own port, or the ESP's) is needed at
-all: a laptop's USB-C port is usually host-only and cannot answer the
-DEQ, which is itself a USB host when connected this way.
+to end with no hardware. `DEQ_TRANSPORT=accessory` talks to a real unit
+through the Pi's accessory gadget -- see `accessory_transport.py`. That is
+the one that reaches a DEQ in the car, and it is how the Pi runs.
+`DEQ_TRANSPORT=usb` talks to a unit plugged into this machine's own port
+through `usb_transport.py`, which needs the `usb` extra
+(`uv sync --extra usb`).
 
-No real unit has answered the direct USB transport yet, because this
-laptop's own USB-C ports turned out to be host-only hardware -- see
-`USB_CAPTURE_NOTES.md` in the outer repo. `scripts/check_real_deq.py` is
-the script to run once a transport that can reach the unit is available.
+The direct USB transport has never answered a real unit, because a
+laptop's USB-C port is usually host-only hardware and the DEQ is itself a
+USB host when connected this way -- see `USB_CAPTURE_NOTES.md` in the
+outer repo. The Pi answers it because the gadget presents the device side,
+which is why `accessory` is the real path and `usb` is kept only for a
+machine that can do the same. `scripts/check_real_deq.py` runs the
+conformance check over either one.
 """
 
 from __future__ import annotations
@@ -38,11 +37,10 @@ from app.deq_transport import Transport, TransportError
 from app.eq_data import TuningData
 
 TRANSPORT_ENVIRONMENT_VARIABLE = "DEQ_TRANSPORT"
-ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE = "DEQ_ESP_BRIDGE_PORT"
 FAKE_TRANSPORT_NAME = "fake"
 SIMULATOR_TRANSPORT_NAME = "simulator"
 USB_TRANSPORT_NAME = "usb"
-ESP_BRIDGE_TRANSPORT_NAME = "esp-bridge"
+ACCESSORY_TRANSPORT_NAME = "accessory"
 
 # How long the link keeper waits between tries. The unit is wired to the
 # car, so a wait of a few seconds is short against the time it takes a
@@ -89,22 +87,16 @@ def build_transport(name: str | None = None) -> Transport:
         from app.usb_transport import UsbTransport
 
         return UsbTransport()
-    if name == ESP_BRIDGE_TRANSPORT_NAME:
-        from app.esp_bridge_transport import EspBridgeTransport
+    if name == ACCESSORY_TRANSPORT_NAME:
+        from app.accessory_transport import AccessoryTransport
 
-        port = os.environ.get(ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE)
-        if port is None:
-            raise DeviceUnavailable(
-                f"{ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE} is not set. "
-                "It must name the ESP bridge's serial port, for example /dev/ttyACM0."
-            )
-        return EspBridgeTransport(port)
+        return AccessoryTransport()
     raise DeviceUnavailable(
         f"no transport named {name!r}. "
         f"Use {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME}, "
         f"{TRANSPORT_ENVIRONMENT_VARIABLE}={SIMULATOR_TRANSPORT_NAME}, "
-        f"{TRANSPORT_ENVIRONMENT_VARIABLE}={USB_TRANSPORT_NAME}, "
-        f"or {TRANSPORT_ENVIRONMENT_VARIABLE}={ESP_BRIDGE_TRANSPORT_NAME}."
+        f"{TRANSPORT_ENVIRONMENT_VARIABLE}={ACCESSORY_TRANSPORT_NAME}, "
+        f"or {TRANSPORT_ENVIRONMENT_VARIABLE}={USB_TRANSPORT_NAME}."
     )
 
 

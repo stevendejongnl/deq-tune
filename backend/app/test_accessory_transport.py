@@ -1,18 +1,25 @@
-"""Checks the ESP bridge transport's framing, without a serial port.
+"""Checks the accessory transport's framing, without a Pi or a socket.
 
 Same story as `test_usb_transport.py`: this covers cutting whole frames
 out of a byte stream, which is where a real link would most likely catch
-this code out. The ESP relays the DEQ's own framing unchanged, so this
+this code out. The gadget relays the DEQ's own framing unchanged, so this
 reuses the same frames and the same pad-byte rule.
+
+The fake is a socket rather than a serial port, and the two differ in how
+they report quiet: a socket raises `socket.timeout` and returns zero bytes
+only when the far end has closed. Both cases are covered below, because
+they mean different things to a session.
 """
 
 from __future__ import annotations
 
 import json
+import socket
 from pathlib import Path
 
 import pytest
 
+from app.accessory_transport import AccessoryTransport
 from app.deq_protocol import Direction, Message, encode_frame
 from app.deq_transport import (
     BULK_PACKET_BYTES,
@@ -20,7 +27,6 @@ from app.deq_transport import (
     TransportError,
     TransportTimeout,
 )
-from app.esp_bridge_transport import EspBridgeTransport
 
 CORPUS_PATH = Path(__file__).resolve().parents[2] / "conformance" / "flows.json"
 
@@ -42,35 +48,42 @@ def build_frame(body_bytes: int) -> bytes:
     )
 
 
-class FakeSerialConnection:
-    """One serial port, backed by bytes in memory.
+class FakeGadgetSocket:
+    """One Unix socket, backed by bytes in memory.
 
-    `pyserial` returns fewer bytes than asked for -- including zero --
-    when its timeout elapses, rather than raising. This fixture does the
-    same; you give it the stream to serve; it depends on nothing.
+    It serves the stream the gadget would relay; you give it that stream;
+    it depends on nothing. An exhausted stream raises `socket.timeout`,
+    the way a real socket with a timeout set does -- a closed far end is
+    a separate fixture below, because it means a dead link and not a
+    quiet one.
     """
 
     def __init__(self, stream: bytes = b"") -> None:
         self.stream = bytearray(stream)
         self.written = bytearray()
         self.timeout: float = 1.0
+        self.closed = False
 
-    def read(self, chunk_bytes: int) -> bytes:
+    def settimeout(self, timeout_seconds: float) -> None:
+        self.timeout = timeout_seconds
+
+    def recv(self, chunk_bytes: int) -> bytes:
+        if len(self.stream) == 0:
+            raise socket.timeout("timed out")
         chunk = bytes(self.stream[:chunk_bytes])
         del self.stream[: len(chunk)]
         return chunk
 
-    def write(self, data: bytes) -> int:
+    def sendall(self, data: bytes) -> None:
         self.written += data
-        return len(data)
 
     def close(self) -> None:
-        pass
+        self.closed = True
 
 
-def build_transport(stream: bytes = b"") -> EspBridgeTransport:
-    """Returns a transport wired to a fake serial connection, no hardware."""
-    return EspBridgeTransport(port="unused", connection=FakeSerialConnection(stream))
+def build_transport(stream: bytes = b"") -> AccessoryTransport:
+    """Returns a transport wired to a fake gadget socket, no hardware."""
+    return AccessoryTransport(socket_path="unused", connection=FakeGadgetSocket(stream))
 
 
 def test_a_short_frame_arrives_in_one_read():
@@ -84,7 +97,7 @@ def test_a_short_frame_arrives_in_one_read():
 
 def test_a_long_frame_is_rebuilt_from_several_reads():
     """The coefficient write is 4209 bytes. A transport that treated one
-    read as one frame would truncate it if the bridge split the write."""
+    read as one frame would truncate it if the gadget split the write."""
     frame = build_frame(2080)
     assert len(frame) > BULK_PACKET_BYTES * 8
 
@@ -106,7 +119,7 @@ def test_two_frames_in_one_stream_come_back_one_at_a_time():
 def test_a_frame_that_fills_whole_packets_keeps_its_pad_byte():
     """`pack_frame` adds one zero byte when a frame would otherwise be an
     exact multiple of 512 -- a rule that belongs to the DEQ's own USB link,
-    which the bridge relays unchanged. The reader has to take that byte
+    which the gadget relays unchanged. The reader has to take that byte
     with the frame and not leave it to confuse the next read."""
     padded = next(
         frame
@@ -122,23 +135,45 @@ def test_a_frame_that_fills_whole_packets_keeps_its_pad_byte():
     assert transport.receive_frame(1.0) == following
 
 
-def test_a_silent_bridge_times_out():
-    """A timeout means the bridge had nothing to relay, which the session
+def test_a_quiet_gadget_times_out():
+    """A timeout means the gadget had nothing to relay, which the session
     reports differently from a broken link."""
     transport = build_transport(b"")
     with pytest.raises(TransportTimeout, match="sent nothing"):
         transport.receive_frame(0.01)
 
 
+def test_a_closed_socket_is_a_dead_link_and_not_a_timeout():
+    """The gadget closes the socket when its session ends -- the car slept,
+    or the DEQ dropped the link. A session cannot wait that out, so this
+    must not look like a slow reply."""
+    transport = build_transport()
+
+    class ClosedConnection:
+        def settimeout(self, timeout_seconds: float) -> None:
+            pass
+
+        def recv(self, chunk_bytes: int) -> bytes:
+            return b""
+
+    transport.connection = ClosedConnection()
+    with pytest.raises(TransportError, match="closed the link") as caught:
+        transport.receive_frame(1.0)
+    assert not isinstance(caught.value, TransportTimeout)
+
+
 def test_a_read_that_fails_for_another_reason_is_not_a_timeout():
     transport = build_transport()
 
     class BrokenConnection:
-        def read(self, chunk_bytes: int) -> bytes:
-            raise OSError("the port went away")
+        def settimeout(self, timeout_seconds: float) -> None:
+            pass
+
+        def recv(self, chunk_bytes: int) -> bytes:
+            raise OSError("the socket went away")
 
     transport.connection = BrokenConnection()
-    with pytest.raises(TransportError, match="reading from the bridge failed") as caught:
+    with pytest.raises(TransportError, match="reading from the gadget failed") as caught:
         transport.receive_frame(1.0)
     assert not isinstance(caught.value, TransportTimeout)
 
@@ -158,16 +193,16 @@ def test_sending_writes_the_whole_frame():
     assert bytes(transport.connection.written) == frame
 
 
-def test_a_short_write_is_an_error():
+def test_a_write_that_fails_is_reported():
     transport = build_transport()
 
-    class ShortConnection:
-        def write(self, data: bytes) -> int:
-            return len(data) - 1
+    class BrokenConnection:
+        def sendall(self, data: bytes) -> None:
+            raise OSError("the socket went away")
 
-    transport.connection = ShortConnection()
-    with pytest.raises(TransportError, match="wrote"):
-        transport.send_frame(captured_frame("frame-status-request"))
+    transport.connection = BrokenConnection()
+    with pytest.raises(TransportError, match="writing 10 bytes to the gadget failed"):
+        transport.send_frame(bytes(10))
 
 
 def test_closing_twice_is_safe():

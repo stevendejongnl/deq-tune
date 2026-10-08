@@ -1,10 +1,9 @@
 """How the machine running this backend is doing.
 
-The backend runs on the bridge: a Pi wired to the DEQ in the car, and
-later an ESP doing the same job. That machine can be unwell in ways that
-look exactly like a broken app -- a Pi browning out drops its USB link,
-its Wi-Fi, or both, and the person holding the phone sees an app that
-stopped working for no reason.
+The backend runs on the bridge: a Pi wired to the DEQ in the car. That
+machine can be unwell in ways that look exactly like a broken app -- a Pi
+browning out drops its USB link, its Wi-Fi, or both, and the person
+holding the phone sees an app that stopped working for no reason.
 
 So this reports the bridge's own health, separately from
 `deq_device.py`'s report of the DEQ. The two fail independently and mean

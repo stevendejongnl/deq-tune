@@ -89,10 +89,10 @@ generate-dto:
 	cd backend && PYTHONPATH=. uv run python scripts/export_openapi.py
 	cd frontend && npm run generate:dto
 
-# Needs a real DEQ on USB or an ESP bridge. DEQ_TRANSPORT picks which:
-#   make check-real-deq DEQ_TRANSPORT=usb
-#   make check-real-deq DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0
-DEQ_TRANSPORT ?= usb
+# Needs a real DEQ. DEQ_TRANSPORT picks the link:
+#   make check-real-deq                       the Pi's accessory gadget
+#   make check-real-deq DEQ_TRANSPORT=usb     a unit on this machine's port
+DEQ_TRANSPORT ?= accessory
 
 check-real-deq:
 	cd backend && PYTHONPATH=. DEQ_TRANSPORT=$(DEQ_TRANSPORT) \

@@ -19,7 +19,7 @@ __pycache__/
 # Git worktrees that Claude Code creates inside the repo
 .claude/worktrees/
 
-# The ESP32-S3 bridge firmware lives in the private outer repo.
+# Firmware lives in the private outer repo.
 firmware/
 
 # Personal working notes, deliberately not shared

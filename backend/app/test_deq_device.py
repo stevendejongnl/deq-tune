@@ -9,9 +9,9 @@ import time
 
 import pytest
 
+from app.accessory_transport import AccessoryUnavailable
 from app.deq_device import (
-    ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE,
-    ESP_BRIDGE_TRANSPORT_NAME,
+    ACCESSORY_TRANSPORT_NAME,
     FAKE_TRANSPORT_NAME,
     USB_TRANSPORT_NAME,
     DeqDevice,
@@ -20,7 +20,6 @@ from app.deq_device import (
     LinkKeeper,
     build_transport,
 )
-from app.esp_bridge_transport import EspBridgeUnavailable
 from app.testing.fake_deq import FakeDeq
 from app.usb_transport import UsbUnavailable
 
@@ -38,48 +37,22 @@ def test_an_unknown_name_is_an_error():
         build_transport("not-a-real-transport")
 
 
-def test_esp_bridge_without_a_port_set_is_an_error():
-    """The port has no sensible default -- it is a serial device path
-    that differs by machine -- so asking for this transport without one
-    fails loudly rather than guessing."""
-    with pytest.raises(DeviceUnavailable, match=ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE):
-        build_transport(ESP_BRIDGE_TRANSPORT_NAME)
-
-
-def test_esp_bridge_with_no_pyserial_installed_says_so(monkeypatch):
-    """`esp-bridge` is an optional extra; CI never installs it, so this is
-    the path CI actually exercises."""
-    try:
-        import serial  # noqa: F401
-
-        pytest.skip("pyserial is installed in this environment")
-    except ModuleNotFoundError:
-        pass
-    monkeypatch.setenv(ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE, "/dev/ttyACM0")
-    with pytest.raises(EspBridgeUnavailable, match="pyserial is not installed"):
-        build_transport(ESP_BRIDGE_TRANSPORT_NAME)
-
-
-def test_esp_bridge_with_a_port_set_tries_to_open_it(monkeypatch):
-    """No real board is on this machine, so this only checks that a port
-    name is actually used, not that the link succeeds. Opening the port
-    is `EspBridgeTransport`'s own job, so its failure comes back as the
-    transport's own error, not wrapped in `DeviceUnavailable` --
-    `DeqDevice.connect()` is what catches `TransportError` and turns it
-    into a reported problem; `build_transport` itself does not."""
-    try:
-        import serial  # noqa: F401
-    except ModuleNotFoundError:
-        pytest.skip("pyserial is not installed in this environment")
-    monkeypatch.setenv(ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE, "/dev/does-not-exist")
-    with pytest.raises(EspBridgeUnavailable, match="/dev/does-not-exist"):
-        build_transport(ESP_BRIDGE_TRANSPORT_NAME)
+def test_accessory_without_the_gadget_running_says_what_to_check():
+    """The gadget's socket exists only while a DEQ session runs, so this
+    is what a developer asking for the real transport on a laptop gets.
+    Reaching the socket is `AccessoryTransport`'s own job, so its failure
+    comes back as the transport's own error, not wrapped in
+    `DeviceUnavailable` -- `DeqDevice.connect()` is what catches
+    `TransportError` and turns it into a reported problem;
+    `build_transport` itself does not."""
+    with pytest.raises(AccessoryUnavailable, match="could not reach the gadget"):
+        build_transport(ACCESSORY_TRANSPORT_NAME)
 
 
 def test_usb_with_no_pyusb_installed_says_so():
     """`usb` is an optional extra; CI never installs it, so this is the
-    path CI actually exercises. Same story as the ESP bridge case above:
-    `UsbUnavailable` is the transport's own error, not `DeviceUnavailable`."""
+    path CI actually exercises. `UsbUnavailable` is the transport's own
+    error, not `DeviceUnavailable`."""
     try:
         import usb.core  # noqa: F401
 

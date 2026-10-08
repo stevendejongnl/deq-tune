@@ -7,7 +7,6 @@ answered it yet. This script is what closes that gap: plug a DEQ in, run it,
 and read what matched.
 
     cd backend
-    uv sync --extra usb
     PYTHONPATH=. uv run python scripts/check_real_deq.py
 
 It only reads, by default. Every step that writes to the unit is off unless
@@ -15,23 +14,24 @@ you ask for it:
 
     PYTHONPATH=. uv run python scripts/check_real_deq.py --write
 
-This uses `DEQ_TRANSPORT`, same as the app itself (`deq_device.py`), so a
-direct USB connection and an ESP bridge both work the same way:
+This uses `DEQ_TRANSPORT`, same as the app itself (`deq_device.py`). Run it
+on the Pi, where the gadget holds the link:
 
-    DEQ_TRANSPORT=usb PYTHONPATH=. uv run python scripts/check_real_deq.py
-    DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 \
-        PYTHONPATH=. uv run python scripts/check_real_deq.py
+    DEQ_TRANSPORT=accessory PYTHONPATH=. uv run python scripts/check_real_deq.py
 
-`usb` is the default transport for this script specifically (unlike the app,
-whose default is `fake`) — checking a real unit is the one reason to run it.
-`DEQ_TRANSPORT=fake` is rejected here, since a check against the fake tells
-nothing about a real unit, which is this script's only job.
+`accessory` is the default transport for this script specifically (unlike
+the app, whose default is `fake`) — checking a real unit is the one reason
+to run it, and the Pi is what reaches one. `DEQ_TRANSPORT=fake` is rejected
+here, since a check against the fake tells nothing about a real unit, which
+is this script's only job.
 
-On Linux a plain user cannot usually open a USB device directly. Either run
-the `usb` transport with `sudo -E env PYTHONPATH=. ...`, or install
-`scripts/99-pioneer-deq.rules` as a udev rule (install steps in its own
-comment) — not needed for the `esp-bridge` transport, which only opens a
-serial port.
+`DEQ_TRANSPORT=usb` is the other real option, for a machine that can present
+the device side of a USB link. It needs the `usb` extra
+(`uv sync --extra usb`), and on Linux a plain user cannot usually open a USB
+device directly: either run it with `sudo -E env PYTHONPATH=. ...`, or
+install `scripts/99-pioneer-deq.rules` as a udev rule (install steps in its
+own comment). The `accessory` transport needs neither, because it opens a
+Unix socket and not the device.
 
 What it prints is a list of checks, each `ok`, `differs` or `failed`, and a
 count at the end. A `differs` line is the interesting one: it means the unit
@@ -48,6 +48,7 @@ import sys
 
 from app.deq_blob import encode_blob
 from app.deq_device import (
+    ACCESSORY_TRANSPORT_NAME,
     FAKE_TRANSPORT_NAME,
     USB_TRANSPORT_NAME,
     DeviceUnavailable,
@@ -106,11 +107,12 @@ class Report:
 
 def check_link(report: Report) -> Transport:
     """Opens the link named by `DEQ_TRANSPORT`, or stops with the reason."""
-    transport_name = os.environ.get("DEQ_TRANSPORT", USB_TRANSPORT_NAME)
+    transport_name = os.environ.get("DEQ_TRANSPORT", ACCESSORY_TRANSPORT_NAME)
     if transport_name == FAKE_TRANSPORT_NAME:
         raise TransportError(
             "DEQ_TRANSPORT=fake checks nothing about a real unit, which is this "
-            f"script's only job. Use {USB_TRANSPORT_NAME!r} or 'esp-bridge'."
+            f"script's only job. Use {ACCESSORY_TRANSPORT_NAME!r} or "
+            f"{USB_TRANSPORT_NAME!r}."
         )
     print(f"Opening the link ({transport_name})")
     transport = build_transport(transport_name)
