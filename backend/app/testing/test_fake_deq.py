@@ -148,3 +148,93 @@ def build_request_frame(command_id: int, body: bytes = b"") -> bytes:
             body=body,
         )
     )
+
+
+CAPTURES_PATH = Path(__file__).resolve().parent / "captures"
+
+# The volume the real unit held through the car session on 2026-10-08. It
+# is in all three captured replies below, so a fake that reports anything
+# else cannot reproduce them.
+REAL_UNIT_VOLUME_DB = -37
+
+# STATUS the real unit answered a volume write with while a tone fed. Every
+# other refusal on record is -5, so this one is its own code.
+REAL_VOLUME_REFUSAL_STATUS = -6
+
+
+def read_capture(name: str) -> str:
+    return (CAPTURES_PATH / name).read_text().strip()
+
+
+def test_the_fake_reproduces_the_real_units_mode_reply():
+    """0x0b answers with four fields, and this is the real unit's answer.
+
+    Captured in the car on 2026-10-08 at transaction id 11, when the
+    backend set THROUGH: MODE 4, volume -37 dB, mute SOUND_ON, not
+    driving. The generic echo rule answered with MODE alone, which no unit
+    has ever done.
+    """
+    fake = FakeDeq(volume_db=REAL_UNIT_VOLUME_DB)
+    request = encode_frame(
+        Message(
+            direction=Direction.TO_DEVICE,
+            command_id=0x0B,
+            transaction_id=(11).to_bytes(8, "little"),
+            body=(4).to_bytes(4, "little", signed=True),
+        )
+    )
+
+    fake.send_frame(request)
+
+    assert fake.receive_frame(1.0).hex() == read_capture(
+        "20261008_set_mode_reply.hex"
+    )
+
+
+def test_the_fake_reproduces_the_real_units_answer_to_sound_off():
+    """The unit took SOUND_OFF with STATUS 0 and reported SOUND_ON anyway.
+
+    Captured at transaction id 13. It is why 0x0f is no lever: the unit
+    accepts the command and ignores the value.
+    """
+    fake = FakeDeq()
+    request = encode_frame(
+        Message(
+            direction=Direction.TO_DEVICE,
+            command_id=0x0F,
+            transaction_id=(13).to_bytes(8, "little"),
+            body=(2).to_bytes(4, "little", signed=True),
+        )
+    )
+
+    fake.send_frame(request)
+
+    assert fake.receive_frame(1.0).hex() == read_capture(
+        "20261008_mute_state_reply.hex"
+    )
+
+
+def test_the_fake_reproduces_the_real_units_volume_refusal():
+    """A refused volume write keeps the unit's own volume.
+
+    Captured at transaction id 12: STATUS -6 and -37 dB, after the backend
+    asked for -10 dB while a tone fed.
+    """
+    fake = FakeDeq(
+        volume_db=REAL_UNIT_VOLUME_DB,
+        status_by_command={0x0D: REAL_VOLUME_REFUSAL_STATUS},
+    )
+    request = encode_frame(
+        Message(
+            direction=Direction.TO_DEVICE,
+            command_id=0x0D,
+            transaction_id=(12).to_bytes(8, "little"),
+            body=(-10).to_bytes(4, "little", signed=True),
+        )
+    )
+
+    fake.send_frame(request)
+
+    assert fake.receive_frame(1.0).hex() == read_capture(
+        "20261008_volume_refusal_reply.hex"
+    )

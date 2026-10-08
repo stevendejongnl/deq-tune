@@ -37,7 +37,15 @@ from app.deq_blob import (
 )
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_session import (
-    COMMAND_AUTO_SAVE_EQ_MODE,
+    COMMAND_GET_DRIVING_STATE,
+    COMMAND_GET_MODE,
+    COMMAND_GET_MUTE_STATE,
+    COMMAND_GET_VOLUME,
+    COMMAND_PLAY_READY_NOTIFICATION,
+    COMMAND_SELF_SAVE_CONFIGURATION_ENABLE,
+    COMMAND_SET_MODE,
+    COMMAND_SET_MUTE_STATE,
+    COMMAND_SET_VOLUME,
     COMMAND_CRASH_REPORT,
     COMMAND_SYSTEM_ERROR_FLAGS,
     COMMAND_DEVICE_IDENTITY,
@@ -75,6 +83,25 @@ STATUS_REFUSED_SYNC = -5
 # The volume the car's own unit reported, so the default is a real value.
 FAKE_VOLUME_DB = -27
 
+# The source mode a cold start reports. Measured from the real unit on
+# 2026-10-08: its `0x0b` reply carried MODE 4, which `deq_enums.json`
+# names THROUGH.
+FAKE_MODE = 4
+
+# MUTE_STATE wire values, from `deq_enums.json`. The real unit reported
+# SOUND_ON and never moved off it, even when told SOUND_OFF.
+MUTE_STATE_SOUND_ON = 1
+MUTE_STATE_SOUND_OFF = 2
+
+# Which commands still report their own field when they refuse.
+#
+# A refusal carries STATUS and nothing else -- except here. The real unit
+# refused a volume write with STATUS -6 on 2026-10-08 and still reported
+# the volume it kept, which is `20261008_volume_refusal_reply.hex`. Only
+# 0x0d has been measured refusing, so only 0x0d is in this set. Add an id
+# when a capture shows it, not when it seems likely.
+COMMANDS_THAT_REPORT_STATE_WHEN_REFUSING = {0x0D}
+
 
 @dataclass
 class Exchange:
@@ -103,6 +130,10 @@ class FakeDeq:
     volume_db: int = FAKE_VOLUME_DB
     muted: bool = False
     driving: bool = False
+
+    # The source mode the unit holds, as an AUDIO_SOURCE wire value. The
+    # real unit in the car reported 4, THROUGH, on every cold start.
+    mode: int = FAKE_MODE
 
     # Faults, so a caller can drive the error paths on purpose.
     #
@@ -183,8 +214,10 @@ class FakeDeq:
             return self.status_bytes(STATUS_REFUSED_SYNC)
         status = self.status_by_command.get(request.command_id, STATUS_OK)
         if status != STATUS_OK:
+            if request.command_id in COMMANDS_THAT_REPORT_STATE_WHEN_REFUSING:
+                return self.status_bytes(status) + self.build_tail(request)
             # A failing reply carries STATUS and nothing else, which is what
-            # the real unit sent when it refused.
+            # the real unit sent when it refused the opening frame.
             return self.status_bytes(status)
         return STATUS_OK_BYTES + self.build_tail(request)
 
@@ -231,7 +264,25 @@ class FakeDeq:
             return self.error_flags.to_bytes(4, "little")
         if request.command_id == COMMAND_CRASH_REPORT:
             return self.crash_report
-        if request.command_id == COMMAND_AUTO_SAVE_EQ_MODE:
+        if request.command_id == COMMAND_SET_MODE:
+            return self.accept_mode(request)
+        if request.command_id == COMMAND_GET_MODE:
+            return self.mode.to_bytes(4, "little", signed=True)
+        if request.command_id == COMMAND_SET_VOLUME:
+            return self.accept_volume(request)
+        if request.command_id == COMMAND_GET_VOLUME:
+            return self.volume_db.to_bytes(4, "little", signed=True)
+        if request.command_id == COMMAND_SET_MUTE_STATE:
+            return self.accept_mute_state(request)
+        if request.command_id == COMMAND_GET_MUTE_STATE:
+            return self.mute_state_wire_value().to_bytes(4, "little", signed=True)
+        if request.command_id == COMMAND_GET_DRIVING_STATE:
+            return int(self.driving).to_bytes(4, "little", signed=True)
+        if request.command_id == COMMAND_PLAY_READY_NOTIFICATION:
+            # `deq_commands.json` gives 0x1a a reply of TRANSACTION_ID and
+            # STATUS only, so there is no field to echo.
+            return b""
+        if request.command_id == COMMAND_SELF_SAVE_CONFIGURATION_ENABLE:
             # Unlike the small commands the echo rule covers, this reply's
             # own fields (deq_commands.json) are TRANSACTION_ID and STATUS
             # only -- ENABLE_FLAG is not echoed back.
@@ -282,6 +333,51 @@ class FakeDeq:
         bytes back for a 2100-byte write.
         """
         return request.body[:4]
+
+    def accept_mode(self, request: Message) -> bytes:
+        """Takes a source mode and reports the unit's whole audio state.
+
+        0x0b answers with four fields, not one: MODE, ASP_STATE_VOLUME,
+        ASP_STATE_MUTE_STATE and ASP_STATE_DRIVING_STATE. The generic echo
+        rule used to answer it with MODE alone, which no real unit has
+        ever done -- `20261008_set_mode_reply.hex` is the real reply.
+
+        The real unit took every mode it was sent with STATUS 0 and echoed
+        it back, so this does the same. Set `status_by_command` to make it
+        refuse instead.
+        """
+        self.mode = int.from_bytes(request.body, "little", signed=True)
+        return b"".join([
+            self.mode.to_bytes(4, "little", signed=True),
+            self.volume_db.to_bytes(4, "little", signed=True),
+            self.mute_state_wire_value().to_bytes(4, "little", signed=True),
+            int(self.driving).to_bytes(4, "little", signed=True),
+        ])
+
+    def accept_volume(self, request: Message) -> bytes:
+        """Takes a volume and reports what the unit now holds.
+
+        A refusal keeps the old volume: the real unit answered STATUS -6
+        and still reported -37 dB, which is
+        `20261008_volume_refusal_reply.hex`. A caller sets that refusal
+        with `status_by_command`, and this method honours it.
+        """
+        if self.status_by_command.get(request.command_id, 0) == 0:
+            self.volume_db = int.from_bytes(request.body, "little", signed=True)
+        return self.volume_db.to_bytes(4, "little", signed=True)
+
+    def accept_mute_state(self, request: Message) -> bytes:
+        """Takes a MUTE_STATE and reports what the unit now holds.
+
+        The real unit answered SOUND_OFF with STATUS 0 and then reported
+        SOUND_ON anyway: `20261008_mute_state_reply.hex`. So this takes
+        the value, keeps its own state unchanged, and reports SOUND_ON --
+        the one behaviour a unit has actually shown.
+        """
+        return self.mute_state_wire_value().to_bytes(4, "little", signed=True)
+
+    def mute_state_wire_value(self) -> int:
+        return MUTE_STATE_SOUND_OFF if self.muted else MUTE_STATE_SOUND_ON
 
     def echo_request_field(self, request: Message) -> bytes:
         """Echoes a small request's own field back, as the unit does.

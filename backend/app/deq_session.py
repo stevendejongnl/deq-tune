@@ -59,9 +59,34 @@ from app.deq_protocol import (
 from app.deq_transport import Transport, TransportTimeout
 from app.eq_data import TuningData
 
-# Command ids, named so a reader does not have to hold the table in mind.
-# Every one of these is in `deq_commands.json`, generated from the APK.
-COMMAND_SYNC = 0x00
+# Command ids. The APK names every one of them in its own debug screen,
+# `fragment/playground/i$d`, which is an enum of (name, ordinal, wire
+# value). The names below are that enum's, not guesses, and each one
+# agrees with the request and reply fields `deq_commands.json` carries for
+# the same id. Read the enum before inventing a name: four of the names
+# here used to be wrong, and one of them sent a read at the wrong command
+# for three weeks.
+#
+#   0x00 CONNECT          0x01 SEND             0x02 PING
+#   0x03 GET_VERSION      0x04 GET_HW_INFORMATION
+#   0x05 SET_OPAL_CONFIGURATION   0x06 GET_OPAL_CONFIGURATION
+#   0x07 SAVE_OPAL_CONFIGURATION  0x08 WRITE_USER_CONFIGURATION
+#   0x09 READ_USER_CONFIGURATION  0x0a GET_USER_LOG
+#   0x0b SET_MODE         0x0c GET_MODE
+#   0x0d SET_VOLUME       0x0e GET_VOLUME
+#   0x0f SET_MUTE_STATE   0x10 GET_MUTE_STATE
+#   0x11 GET_DRIVING_STATE        0x12 RESET
+#   0x13 SET_SPEAKER_MUTE_STATE   0x14 GET_SPEAKER_MUTE_STATE
+#   0x15 GET_CRASH_REPORT 0x16 ERASE_CRASH_REPORT
+#   0x17 GET_SYSTEM_ERROR_FLAGS   0x18 TOGGLE_USB_MODE
+#   0x19 SELF_SAVE_OPAL_CONFIGURATION_ENABLE
+#   0x1a PLAY_READY_NOTIFICATION
+#   0x1b SET_SYSTEM_MUTE_STATE    0x1c GET_SYSTEM_MUTE_STATE
+#   0x1d ISSUE_REQUEST_APP_LAUNCH 0x1e RESET_EEPROM
+#   0x1f SET_USB_CONDITIONER_CONFIGURATION_TABLE
+#   0x20 GET_USB_CONDITIONER_CONFIGURATION_TABLE
+#   0x21 SET_TIMEOUT_INTERVAL
+COMMAND_CONNECT = 0x00
 COMMAND_KEEPALIVE = 0x02
 COMMAND_FIRMWARE_VERSION = 0x03
 COMMAND_DEVICE_IDENTITY = 0x04
@@ -69,16 +94,25 @@ COMMAND_WRITE_COEFFICIENTS = 0x05
 COMMAND_READ_CONFIGURATION_TABLE = 0x06
 COMMAND_WRITE_USER_CONFIGURATION = 0x08
 COMMAND_READ_USER_CONFIGURATION = 0x09
-COMMAND_READ_CONFIGURATION = 0x0A
+COMMAND_GET_USER_LOG = 0x0A
+COMMAND_SET_MODE = 0x0B
+COMMAND_GET_MODE = 0x0C
+COMMAND_SET_VOLUME = 0x0D
+COMMAND_GET_VOLUME = 0x0E
+COMMAND_SET_MUTE_STATE = 0x0F
+COMMAND_GET_MUTE_STATE = 0x10
+COMMAND_GET_DRIVING_STATE = 0x11
 COMMAND_CRASH_REPORT = 0x15
 COMMAND_SYSTEM_ERROR_FLAGS = 0x17
-COMMAND_MODE = 0x0B
-COMMAND_VOLUME = 0x0D
-COMMAND_AUTO_SAVE_EQ_MODE = 0x19
-COMMAND_SPEAKER_MUTE_STATES = 0x1F
-COMMAND_MUTE_STATE = 0x20
+COMMAND_SELF_SAVE_CONFIGURATION_ENABLE = 0x19
+COMMAND_PLAY_READY_NOTIFICATION = 0x1A
+COMMAND_SET_USB_CONDITIONER_TABLE = 0x1F
+COMMAND_GET_USB_CONDITIONER_TABLE = 0x20
 COMMAND_SET_TIMEOUT_INTERVAL = 0x21
-COMMAND_STARTUP_DONE = 0x1A
+
+# `COMMAND_SYNC` was this program's name for 0x00 before the APK's own
+# enum was read. It is kept so nothing that imports it breaks.
+COMMAND_SYNC = COMMAND_CONNECT
 
 # Which CONFIG_ID carries which block of command 0x05. Read from the APK:
 # `b/e/ab`'s dispatch maps each id to the field enum that declares its
@@ -145,8 +179,8 @@ STARTUP_STEPS: tuple[tuple[int, bytes], ...] = (
     (COMMAND_CRASH_REPORT, b""),
     (COMMAND_FIRMWARE_VERSION, b""),
     (COMMAND_DEVICE_IDENTITY, b""),
-    (COMMAND_READ_CONFIGURATION, b""),
-    (COMMAND_MUTE_STATE, b""),
+    (COMMAND_GET_USER_LOG, b""),
+    (COMMAND_GET_USB_CONDITIONER_TABLE, b""),
     (COMMAND_READ_USER_CONFIGURATION, b""),
     (COMMAND_READ_CONFIGURATION_TABLE, build_get_opal_configuration_body()),
     # This sequence is the app's own, with every writing command removed.
@@ -155,7 +189,7 @@ STARTUP_STEPS: tuple[tuple[int, bytes], ...] = (
     # is a SET, and the rest write tuning, coefficients, volume or mode.
     # A connect should read and change nothing, so none is sent here.
     # Three of them were sent by an earlier version of this list -- 0x16,
-    # 0x1f and COMMAND_AUTO_SAVE_EQ_MODE -- and should not have been.
+    # 0x1f and COMMAND_SELF_SAVE_CONFIGURATION_ENABLE -- and should not have been.
 )
 
 
@@ -493,11 +527,61 @@ class DeqSession:
         "ringing: setSourceMode(SourceMode.THROUGH)".
         """
         wire_value = AUDIO_SOURCE.by_name(source_name).wire_value
-        self.exchange(COMMAND_MODE, wire_value.to_bytes(4, "little", signed=True))
+        self.exchange(COMMAND_SET_MODE, wire_value.to_bytes(4, "little", signed=True))
 
     def set_volume(self, volume_db: int) -> None:
         """Sets the master volume, in dB. The unit takes a signed value."""
-        self.exchange(COMMAND_VOLUME, volume_db.to_bytes(4, "little", signed=True))
+        self.exchange(COMMAND_SET_VOLUME, volume_db.to_bytes(4, "little", signed=True))
+
+    def read_mode(self) -> int:
+        """Returns the source mode the unit holds, as a wire value.
+
+        0x0c is a read: it carries no body and the unit answers with one
+        field. The writing command, 0x0b, echoes the mode back too, which
+        is how this was read before -- but that needs a write first, and
+        a read does not.
+        """
+        return self._read_one_signed_field(COMMAND_GET_MODE)
+
+    def read_volume(self) -> int:
+        """Returns the master volume the unit holds, in dB."""
+        return self._read_one_signed_field(COMMAND_GET_VOLUME)
+
+    def read_mute_state(self) -> int:
+        """Returns the mute state the unit holds, as a MUTE_STATE wire value.
+
+        `deq_enums.json` names them: SOUND_ON 1, SOUND_OFF 2.
+        """
+        return self._read_one_signed_field(COMMAND_GET_MUTE_STATE)
+
+    def read_driving_state(self) -> int:
+        """Returns whether the unit thinks the car is moving."""
+        return self._read_one_signed_field(COMMAND_GET_DRIVING_STATE)
+
+    def _read_one_signed_field(self, command_id: int) -> int:
+        """Sends a read with no body and returns its one 4-byte field.
+
+        0x0c, 0x0e, 0x10 and 0x11 share a shape: an empty request, and a
+        reply of STATUS and then one signed 32-bit value.
+        """
+        reply = self.exchange(command_id)
+        return int.from_bytes(reply.body[4:8], "little", signed=True)
+
+    def notify_play_ready(self) -> None:
+        """Tells the unit this device is ready to play audio.
+
+        0x1a, PLAY_READY_NOTIFICATION. The request carries no body at all,
+        so there is nothing to guess: `deq_commands.json` gives it a
+        16-byte payload, which is the header and the transaction id and
+        nothing else. The reply is STATUS only.
+
+        The real app sends it at the end of every cold start, right after
+        the mode write, and this app has never sent it. It is the last
+        frame of the app's opening conversation that is still missing, so
+        it is a candidate for what makes the unit play a USB source. That
+        is untested against a unit.
+        """
+        self.exchange(COMMAND_PLAY_READY_NOTIFICATION)
 
     def close(self) -> None:
         self.transport.close()

@@ -190,3 +190,12 @@ DEQ_TRANSPORT=usb PYTHONPATH=. uv run python scripts/check_real_deq.py
 ```
 
   It reads only, unless you pass `--write` (which writes the unit's own settings back unchanged). Each check prints `ok`, `DIFFERS` or `FAILED`. A `DIFFERS` line is the valuable one: the unit answered, but not the way the app and the captures predicted. Record those in the private notes — the Pioneer app and the unit are the authority, and this code is what is under test. The `accessory` transport opens a socket and needs no privileges of its own. The `usb` transport opens a USB device, which on Linux usually needs root or a udev rule: `backend/scripts/99-pioneer-deq.rules` is one, with the install steps in its own comment.
+
+  `backend/scripts/probe_audio_output.py` answers the one hardware question still open: whether the unit plays the audio this device writes. Offering a USB audio function moves the unit's input to USB, and nothing sent so far has made it play what arrives there. The app's own code switches the unit to source mode `SP_OTHER_SOURCE` or `MIX_OTHER_SOURCE` when the phone starts playing, and those modes have never been sent, so the probe sends each of modes 5 to 8 in turn, with a `PLAY_READY` notification and a volume, and holds each one long enough to hear.
+
+```bash
+cd backend
+DEQ_TRANSPORT=accessory PYTHONPATH=. uv run python scripts/probe_audio_output.py
+```
+
+  It writes to the unit, and it puts the mode and the volume it found back when it finishes. Rehearse it against the fake first, where it costs nothing: `DEQ_TRANSPORT=fake PYTHONPATH=. uv run python scripts/probe_audio_output.py --hold-seconds 0`.

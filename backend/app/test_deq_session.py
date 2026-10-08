@@ -14,7 +14,7 @@ from app.deq_protocol import build_set_timeout_interval_body, build_sync_body
 from app.deq_session import (
     CONFIGURATION_PAYLOAD_BYTES,
     COMMAND_KEEPALIVE,
-    COMMAND_MODE,
+    COMMAND_SET_MODE,
     COMMAND_SET_TIMEOUT_INTERVAL,
     COMMAND_SYNC,
     CONFIG_ID_CROSSOVER_STANDARD,
@@ -41,7 +41,7 @@ def test_start_sends_the_apps_own_connect_order():
     it safe to replay against a unit."""
     fake = FakeDeq()
     DeqSession(fake).start()
-    expected = [command_id for command_id, _ in STARTUP_STEPS] + [COMMAND_MODE]
+    expected = [command_id for command_id, _ in STARTUP_STEPS] + [COMMAND_SET_MODE]
     assert fake.command_order == expected
 
 
@@ -50,7 +50,7 @@ def test_start_sends_the_apps_own_connect_order():
 # the rest write tuning, coefficients, volume or mute.
 WRITING_COMMANDS = (0x16, 0x1F, 0x05, 0x19, 0x0D, 0x0F)
 
-# COMMAND_MODE, 0x0b, is a write and is deliberately not in the list
+# COMMAND_SET_MODE, 0x0b, is a write and is deliberately not in the list
 # above. Not sending it is not the neutral choice: a Pi that offers an
 # audio function leaves the unit playing USB, and an empty USB input is
 # silence -- a car measured on 2026-10-08 had no audio for as long as the
@@ -77,7 +77,7 @@ def test_start_hands_the_cars_own_audio_back():
 
     mode_request = next(
         one.request for one in fake.exchanges
-        if one.request.command_id == COMMAND_MODE
+        if one.request.command_id == COMMAND_SET_MODE
     )
     assert int.from_bytes(mode_request.body, "little", signed=True) == 4
 
@@ -494,7 +494,7 @@ def test_setting_the_audio_source_sends_the_apk_s_own_wire_value():
     session.set_audio_source("THROUGH")
 
     sent = decode_frame(fake.sent_frames[-1])
-    assert sent.command_id == COMMAND_MODE
+    assert sent.command_id == COMMAND_SET_MODE
     assert int.from_bytes(sent.body, "little", signed=True) == 4
 
 
