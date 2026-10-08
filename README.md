@@ -30,6 +30,8 @@ cd ../frontend && npm install
 
 `npm install` also runs a one-time native build for the frontend's DTO-validation toolchain. On a fresh install this takes one to three minutes; let it finish.
 
+`make install` then runs `make warm`, which fills the frontend's dependency cache. Without it the first page load stalls: the `ttsc` transform writes imports of `typia`'s deep internals, so Vite cannot see them when it first scans, and it discovers them mid-load, re-optimizes and reloads. Warming takes about a second and makes `make dev` start in well under a second. Run `make warm` again after a `typia` or `vite` version change.
+
 ## Makefile
 
 A `Makefile` at the repo root wraps the commands below. Run `make` or `make help` to list targets.

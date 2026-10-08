@@ -35,6 +35,18 @@ export default defineConfig({
       },
     }),
   ],
+  // The ttsc transform writes imports of typia's deep internals, so Vite's
+  // first scan cannot see them: it discovers them mid-run, re-optimizes,
+  // and reloads the page. Naming them here means one cold start instead of
+  // a start plus a re-optimize. `npm run warm` fills the cache without a
+  // browser; after that a start reuses it.
+  optimizeDeps: {
+    include: [
+      "typia",
+      "typia/lib/internal/_accessExpressionAsString",
+      "typia/lib/internal/_assertGuard",
+    ],
+  },
   server: {
     proxy: {
       "/api": "http://localhost:8420",

@@ -1,5 +1,5 @@
 .PHONY: help install install-backend install-frontend \
-        dev dev-backend dev-frontend dev-simulator dev-sim console \
+        dev dev-backend dev-frontend dev-simulator dev-sim console warm \
         test test-backend test-frontend e2e e2e-install \
         typecheck generate-dto check-real-deq clean
 
@@ -15,6 +15,7 @@ help:
 	@echo "  make dev-sim        Run the whole stack against a simulated DEQ you can change"
 	@echo "  make dev-simulator  Run only the backend against that simulated DEQ"
 	@echo "  make console        Change what the simulated DEQ reports (run beside it)"
+	@echo "  make warm           Pre-build the frontend dependency cache (once, ~1s)"
 	@echo "  make test           Run backend and frontend tests"
 	@echo "  make e2e            Run the end-to-end tests in a real browser"
 	@echo "  make e2e-install    Install the browser the end-to-end tests need"
@@ -23,7 +24,7 @@ help:
 	@echo "  make check-real-deq Run the conformance check against a real unit (needs hardware)"
 	@echo "  make clean          Remove build artifacts and local databases"
 
-install: install-backend install-frontend
+install: install-backend install-frontend warm
 
 install-backend:
 	cd backend && uv sync
@@ -42,6 +43,13 @@ dev-backend:
 
 dev-frontend:
 	cd frontend && npm run dev -- --port $(FRONTEND_PORT)
+
+# Fills the frontend's dependency cache without starting a server. The
+# ttsc transform writes imports of typia's deep internals, so without this
+# Vite discovers them on the first page load, re-optimizes and reloads.
+# `make install` runs it; run it again after a typia or vite change.
+warm:
+	cd frontend && npm run warm
 
 # The whole stack against a DEQ whose answers are yours to change. This is
 # the one to use for frontend work: `make dev` runs the plain fake, which
