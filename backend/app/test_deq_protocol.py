@@ -12,9 +12,17 @@ import pytest
 from app.deq_protocol import (
     BODY_OFFSET,
     COMMAND_SPECS,
+    CONFIG_ID_BYTES,
+    INITIAL_CONFIG_ID,
+    SYNC_BODY,
+    TIMEOUT_INTERVAL_BYTES,
+    TIMEOUT_INTERVAL_MILLISECONDS,
     Direction,
     InvalidFrameError,
     Message,
+    build_get_opal_configuration_body,
+    build_set_timeout_interval_body,
+    build_sync_body,
     decode_frame,
     decode_message,
     encode_frame,
@@ -171,3 +179,67 @@ def test_reading_past_the_end_of_a_payload_is_rejected() -> None:
     config_id_field = COMMAND_SPECS[0x05].request.field_named("CONFIG_ID")
     with pytest.raises(InvalidFrameError):
         read_field(bytes(BODY_OFFSET), config_id_field)
+
+
+def test_command_0x21_body_is_the_timeout_interval_the_app_sends() -> None:
+    # `b/e/ai.k()` returns 0x2710 and nothing else can set it.
+    assert TIMEOUT_INTERVAL_MILLISECONDS == 0x2710
+    assert build_set_timeout_interval_body() == bytes.fromhex("10270000")
+
+
+def test_command_0x21_body_fills_the_payload_its_spec_declares() -> None:
+    specification = COMMAND_SPECS[0x21].request
+    payload = encode_message(
+        Message(
+            Direction.TO_DEVICE,
+            0x21,
+            bytes(8),
+            build_set_timeout_interval_body(),
+        )
+    )
+    assert len(payload) == specification.payload_bytes
+    timeout_field = specification.field_named("TIMEOUT_INTERVAL")
+    assert timeout_field.width == TIMEOUT_INTERVAL_BYTES
+    assert read_field(payload, timeout_field) == TIMEOUT_INTERVAL_MILLISECONDS
+
+
+def test_command_0x06_body_asks_for_the_configuration_the_app_asks_for() -> None:
+    # `b/e.d()` sets v5 to 0 and passes it to `c(I)`.
+    assert INITIAL_CONFIG_ID == 0
+    assert build_get_opal_configuration_body() == bytes.fromhex("00000000")
+
+
+def test_command_0x06_body_fills_the_payload_its_spec_declares() -> None:
+    specification = COMMAND_SPECS[0x06].request
+    payload = encode_message(
+        Message(
+            Direction.TO_DEVICE,
+            0x06,
+            bytes(8),
+            build_get_opal_configuration_body(),
+        )
+    )
+    assert len(payload) == specification.payload_bytes
+    config_id_field = specification.field_named("CONFIG_ID")
+    assert config_id_field.width == CONFIG_ID_BYTES
+    assert read_field(payload, config_id_field) == INITIAL_CONFIG_ID
+
+
+def test_the_sync_body_is_the_24_bytes_the_app_sends() -> None:
+    # Measured in five emulator cold starts, 2026-10-01 to 2026-10-08.
+    assert len(SYNC_BODY) == 24
+    assert build_sync_body() == bytes.fromhex(
+        "a5c543847b356c8c408b701679ce1f110000000000000000"
+    )
+
+
+def test_the_sync_body_fills_the_payload_the_app_puts_on_the_wire() -> None:
+    # The app's own 0x00 frame is 89 bytes once packed: a 40-byte payload,
+    # nibble-expanded to 80, plus the 8 framing bytes and the end marker.
+    payload = encode_message(
+        Message(Direction.TO_DEVICE, 0x00, (1).to_bytes(8, "little"), build_sync_body())
+    )
+    assert len(payload) == BODY_OFFSET + 24
+    assert len(encode_frame(
+        Message(Direction.TO_DEVICE, 0x00, (1).to_bytes(8, "little"), build_sync_body())
+    )) == 89

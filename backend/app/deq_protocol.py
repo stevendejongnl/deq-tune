@@ -270,3 +270,70 @@ def read_field(payload: bytes, command_field: CommandField) -> int:
             f"payload of {len(payload)} bytes does not reach {command_field.name}"
         )
     return int.from_bytes(payload[command_field.offset:end], "little")
+
+
+# The bodies the app's cold start carries, read from the APK and not guessed.
+#
+# The app opens with 0x00 and then sends 0x21 before any read. A DEQ that
+# answers only the 0x00 and then nothing is refusing the open: see SYNC_BODY
+# below for the body that 0x00 must carry.
+#
+# `b/e/ai.k()` returns 0x2710, which is 10000, as the only TIMEOUT_INTERVAL
+# the app ever sends. The value is hardcoded, so there is nothing to choose.
+TIMEOUT_INTERVAL_MILLISECONDS = 10000
+
+# `b/e.d()` calls `c(I)` with v5, which `const/4 v5, 0x0` sets at the top of
+# the method, so the app asks for configuration 0.
+INITIAL_CONFIG_ID = 0
+
+TIMEOUT_INTERVAL_BYTES = 4
+CONFIG_ID_BYTES = 4
+
+
+def build_set_timeout_interval_body(
+    timeout_interval_milliseconds: int = TIMEOUT_INTERVAL_MILLISECONDS,
+) -> bytes:
+    """Returns the body of command 0x21, the frame the app sends second.
+
+    `b/e/ai.h()` writes the transaction id and then this one field, so the
+    body is the field alone.
+    """
+    return timeout_interval_milliseconds.to_bytes(TIMEOUT_INTERVAL_BYTES, "little")
+
+
+def build_get_opal_configuration_body(config_id: int = INITIAL_CONFIG_ID) -> bytes:
+    """Returns the body of command 0x06, GET_OPAL_CONFIGURATION.
+
+    `b/e/i.h()` writes the transaction id and then the CONFIG_ID, so the body
+    is the config id alone.
+    """
+    return config_id.to_bytes(CONFIG_ID_BYTES, "little")
+
+
+# The body of command 0x00, COMMAND_SYNC, which opens a session.
+#
+# The DEQ refuses a 0x00 that carries no body: it answers STATUS -5 and then
+# ignores every frame that follows. The app sends these 24 bytes.
+#
+# `b/e/b.h()` builds it, and every part is a constant:
+#
+#   bytes 0..15   `b/a/e$a.b`, a 16-byte literal in the APK
+#   bytes 16..19  a boolean, false, which `b/g/a.b(Z)` writes as four zeros
+#   bytes 20..23  a zero int
+#
+# 0x00 is not the special-cased command an earlier reading of the APK took
+# it for: `b/e/q` is a different request that the cold start never sends.
+# The app's 0x00 is `b/e/b` and goes through the normal packer.
+#
+# Confirmed twice over: the literal above decodes to these bytes, and five
+# emulator cold starts between 2026-10-01 and 2026-10-08 put exactly them on
+# the wire.
+#
+# Untested against a real unit. The DEQ may want the boolean set, which is
+# the one field here that the app can vary.
+SYNC_BODY = bytes.fromhex("a5c543847b356c8c408b701679ce1f110000000000000000")
+
+
+def build_sync_body() -> bytes:
+    """Returns the body of command 0x00, the frame that opens a session."""
+    return SYNC_BODY
