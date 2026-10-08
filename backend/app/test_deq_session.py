@@ -7,12 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from app.deq_blob import UserConfiguration
+from app.deq_blob import STANDARD_BLOB_BYTES, UserConfiguration
 from app.deq_dsp import FilterSlope, build_equalizer_payload
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_protocol import build_set_timeout_interval_body, build_sync_body
 from app.deq_session import (
+    CONFIGURATION_PAYLOAD_BYTES,
     COMMAND_KEEPALIVE,
+    COMMAND_MODE,
     COMMAND_SET_TIMEOUT_INTERVAL,
     COMMAND_SYNC,
     CONFIG_ID_CROSSOVER_STANDARD,
@@ -30,27 +32,54 @@ from app.deq_session import (
 )
 from app.eq_data import TuningData
 from app.deq_transport import TransportTimeout
-from app.testing.fake_deq import FAKE_SERIAL, FAKE_SPEAKER_MODE, FakeDeq
+from app.testing.fake_deq import FAKE_SERIAL, FakeDeq
 
 
 def test_start_sends_the_apps_own_connect_order():
+    """The reads come in the app's own order, and the source mode follows
+    them. `STARTUP_STEPS` stays a table of reads only, which is what makes
+    it safe to replay against a unit."""
     fake = FakeDeq()
     DeqSession(fake).start()
-    assert fake.command_order == [command_id for command_id, _ in STARTUP_STEPS]
+    expected = [command_id for command_id, _ in STARTUP_STEPS] + [COMMAND_MODE]
+    assert fake.command_order == expected
 
 
-# Every command that changes the unit. A connect reads and changes
-# nothing, so none of these may appear in STARTUP_STEPS. 0x16 erases the
-# unit's own crash log, 0x1f is a SET, and the rest write tuning,
-# coefficients, volume, mode or mute.
-WRITING_COMMANDS = (0x16, 0x1F, 0x05, 0x19, 0x0D, 0x0B, 0x0F)
+# Every command that changes the unit's settings. A connect must not send
+# one of these. 0x16 erases the unit's own crash log, 0x1f is a SET, and
+# the rest write tuning, coefficients, volume or mute.
+WRITING_COMMANDS = (0x16, 0x1F, 0x05, 0x19, 0x0D, 0x0F)
+
+# COMMAND_MODE, 0x0b, is a write and is deliberately not in the list
+# above. Not sending it is not the neutral choice: a Pi that offers an
+# audio function leaves the unit playing USB, and an empty USB input is
+# silence -- a car measured on 2026-10-08 had no audio for as long as the
+# gadget ran. So a connect sets THROUGH, which hands the car's own audio
+# back. It is the one thing a connect changes, and it changes it to the
+# state a person expects.
 
 
-def test_start_sends_no_command_that_changes_the_unit():
+def test_start_sends_no_command_that_changes_the_units_tuning():
+    """A connect must not touch tuning, coefficients, volume or mute, and
+    must not erase the unit's crash log."""
     fake = FakeDeq()
     DeqSession(fake).start()
     sent = set(fake.command_order)
     assert sent.isdisjoint(WRITING_COMMANDS)
+
+
+def test_start_hands_the_cars_own_audio_back():
+    """Connecting must not cost a person their radio. The unit plays
+    whatever source it holds, so the mode has to be said out loud."""
+    fake = FakeDeq()
+
+    DeqSession(fake).start()
+
+    mode_request = next(
+        one.request for one in fake.exchanges
+        if one.request.command_id == COMMAND_MODE
+    )
+    assert int.from_bytes(mode_request.body, "little", signed=True) == 4
 
 
 def test_start_opens_with_the_sync_body_the_unit_requires():
@@ -96,7 +125,6 @@ def test_read_device_identity_reports_what_the_unit_says():
     identity = DeqSession(fake).read_device_identity()
     assert identity.firmware_version == 0x0310
     assert identity.serial == FAKE_SERIAL
-    assert identity.speaker_mode == FAKE_SPEAKER_MODE
 
 
 def test_a_written_configuration_reads_back():
@@ -293,3 +321,187 @@ class ReplyingTransport:
 
     def close(self) -> None:
         self.closed = True
+
+
+class ReplayingTransport:
+    """Answers one command with one recorded frame.
+
+    It replays what a real unit actually sent; you give it the frame; it
+    depends on nothing. `FakeDeq` cannot serve this test, because it
+    answers `0x09` with exactly the 572 bytes the blob needs -- which is
+    the thing that hid this bug.
+    """
+
+    def __init__(self, reply_frame: bytes) -> None:
+        self.reply_frame = reply_frame
+        self.sent: list[bytes] = []
+
+    def send_frame(self, frame: bytes) -> None:
+        self.sent.append(frame)
+
+    def receive_frame(self, timeout_seconds: float) -> bytes:
+        return self.reply_frame
+
+    def close(self) -> None:
+        pass
+
+
+REAL_REPLY_PATH = (
+    Path(__file__).parent / "testing" / "captures"
+    / "20261008_user_configuration_reply.hex"
+)
+
+
+def test_the_blob_is_cut_out_of_a_real_units_longer_reply():
+    """A real DEQ-S1000A2 answered 0x09 with a 2032-byte body on
+    2026-10-08: four bytes of STATUS, the 572-byte blob, and 1456 bytes
+    this app has no meaning for yet.
+
+    Handing the whole body to `decode_blob` fails, which is what
+    `check_real_deq.py` found against the unit. The values asserted here
+    are the car's own tune, read from that capture.
+    """
+    reply_frame = bytes.fromhex(REAL_REPLY_PATH.read_text().strip())
+    transport = ReplayingTransport(reply_frame)
+    # The recorded reply carries transaction id 9, so the session has to
+    # reach that id for the reply to match the request it answers.
+    session = DeqSession(transport)
+    session._transaction_counter = 8
+
+    configuration = session.read_user_configuration()
+
+    assert configuration.version == 3
+    assert configuration.speaker_mode == 3
+    assert configuration.listening_position == 5
+    assert configuration.band_count == 31
+
+
+def test_a_configuration_write_sends_the_whole_structure_the_unit_wants():
+    """A real DEQ-S1000A2 refused a bare 572-byte blob with STATUS -5 on
+    2026-10-08. `0x08` declares a 2028-byte USER_CONFIGURATION, which is
+    what `0x09` returns after its STATUS.
+    """
+    fake = FakeDeq()
+    session = DeqSession(fake)
+    configuration = UserConfiguration(bank_in_use=1)
+
+    session.write_user_configuration(configuration)
+
+    written = decode_frame(fake.sent_frames[-1])
+    assert len(written.body) == CONFIGURATION_PAYLOAD_BYTES
+
+
+def test_a_write_hands_back_the_bytes_the_read_did_not_decode():
+    """Those 1456 bytes have no known meaning in this app, so a write must
+    carry through what the unit sent rather than invent them. On the car's
+    own unit they were all zero, but that is this unit's state and not a
+    rule to encode.
+    """
+    recognisable = bytes([0xAB]) * (CONFIGURATION_PAYLOAD_BYTES - STANDARD_BLOB_BYTES)
+    session = DeqSession(FakeDeq())
+    session._configuration_trailing_bytes = recognisable
+
+    payload = session.build_configuration_payload(UserConfiguration())
+
+    assert len(payload) == CONFIGURATION_PAYLOAD_BYTES
+    assert payload[STANDARD_BLOB_BYTES:] == recognisable
+
+
+def test_a_write_with_no_read_before_it_pads_with_zeros():
+    """Nothing is known about those bytes until a read sees them, and the
+    car's unit had zeros in all of them."""
+    session = DeqSession(FakeDeq())
+
+    payload = session.build_configuration_payload(UserConfiguration())
+
+    assert len(payload) == CONFIGURATION_PAYLOAD_BYTES
+    assert set(payload[STANDARD_BLOB_BYTES:]) == {0}
+
+
+class PushesNotificationFirst:
+    """Pushes one notification, then answers, as a real unit does.
+
+    The unit sends a notification whenever something changes on it, with
+    no regard for whether a request is in flight; you give it the frame to
+    push; it depends on nothing. `FakeDeq` answers one request with one
+    reply and never pushes, so it cannot show this.
+    """
+
+    def __init__(self, notification_frame: bytes) -> None:
+        self.queue = [notification_frame]
+
+    def send_frame(self, frame: bytes) -> None:
+        request = decode_frame(frame)
+        self.queue.append(
+            encode_frame(
+                Message(
+                    direction=Direction.FROM_DEVICE,
+                    command_id=request.command_id,
+                    transaction_id=request.transaction_id,
+                    body=bytes(4),
+                )
+            )
+        )
+
+    def receive_frame(self, timeout_seconds: float) -> bytes:
+        return self.queue.pop(0)
+
+    def close(self) -> None:
+        pass
+
+
+VOLUME_NOTIFICATION_FRAME = bytes.fromhex(
+    "f000400600000001000300000009000000040000000000000e0e0f0f0f0f0f0ff7"
+)
+
+
+def test_a_notification_between_a_request_and_its_reply_is_not_a_mismatch():
+    """A real DEQ-S1000A2 pushed one of these per step of the car's own
+    volume knob on 2026-10-08. One arriving mid-exchange is not an answer
+    to anything, and treating it as one raised `ReplyMismatchError` and
+    broke the session.
+    """
+    transport = PushesNotificationFirst(VOLUME_NOTIFICATION_FRAME)
+    session = DeqSession(transport)
+
+    reply = session.exchange(COMMAND_KEEPALIVE)
+
+    assert reply.command_id == COMMAND_KEEPALIVE
+
+
+def test_a_skipped_notification_is_kept_not_thrown_away():
+    """It says what changed on the unit, which is the only way to learn
+    about a change nothing asked for."""
+    transport = PushesNotificationFirst(VOLUME_NOTIFICATION_FRAME)
+    session = DeqSession(transport)
+
+    session.exchange(COMMAND_KEEPALIVE)
+
+    assert len(session.notifications) == 1
+    pushed = session.notifications[0]
+    assert pushed.direction == Direction.NOTIFICATION
+    assert int.from_bytes(pushed.body, "little", signed=True) == -18
+
+
+def test_setting_the_audio_source_sends_the_apk_s_own_wire_value():
+    """THROUGH is what keeps a car audible while this app is connected.
+    Its wire value is 4, not its ordinal 5 -- `SourceMode`'s constructor
+    is (name, ordinal, wireValue), and reading the wrong argument selects
+    SP_OTHER_SOURCE instead.
+    """
+    fake = FakeDeq()
+    session = DeqSession(fake)
+
+    session.set_audio_source("THROUGH")
+
+    sent = decode_frame(fake.sent_frames[-1])
+    assert sent.command_id == COMMAND_MODE
+    assert int.from_bytes(sent.body, "little", signed=True) == 4
+
+
+def test_an_unknown_audio_source_name_is_refused():
+    """A wrong name must not reach the unit as some other mode."""
+    session = DeqSession(FakeDeq())
+
+    with pytest.raises(KeyError):
+        session.set_audio_source("NOT_A_SOURCE_MODE")

@@ -29,7 +29,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.deq_blob import UserConfiguration, decode_blob, encode_blob
+from app.deq_blob import (
+    STANDARD_BLOB_BYTES,
+    UserConfiguration,
+    decode_blob,
+    encode_blob,
+)
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_session import (
     COMMAND_AUTO_SAVE_EQ_MODE,
@@ -41,6 +46,7 @@ from app.deq_session import (
     COMMAND_SYNC,
     COMMAND_WRITE_COEFFICIENTS,
     COMMAND_WRITE_USER_CONFIGURATION,
+    CONFIGURATION_PAYLOAD_BYTES,
     STATUS_BYTES,
     STATUS_OK,
 )
@@ -57,7 +63,6 @@ ECHO_LIMIT_PAYLOAD_BYTES = 28
 # DEQ-S1000A2 in the car on 2026-10-08, not invented.
 FAKE_FIRMWARE_VERSION = 0x0202
 FAKE_SERIAL = "ABIV002781EW"
-FAKE_SPEAKER_MODE = 3
 
 # The 16-byte word the unit returns in its sync reply. Hardcoded in the app
 # as `b/a/e$b.a`, and the real unit sent exactly this.
@@ -169,6 +174,13 @@ class FakeDeq:
         """Returns one reply body: STATUS, then whatever the command adds."""
         if request.command_id == COMMAND_SYNC:
             return self.build_sync_body(request)
+        if (
+            request.command_id == COMMAND_WRITE_USER_CONFIGURATION
+            and len(request.body) != CONFIGURATION_PAYLOAD_BYTES
+        ):
+            # The real unit refused a bare 572-byte blob with STATUS -5 on
+            # 2026-10-08. It wants the whole 2028-byte structure.
+            return self.status_bytes(STATUS_REFUSED_SYNC)
         status = self.status_by_command.get(request.command_id, STATUS_OK)
         if status != STATUS_OK:
             # A failing reply carries STATUS and nothing else, which is what
@@ -210,7 +222,7 @@ class FakeDeq:
         if request.command_id == COMMAND_DEVICE_IDENTITY:
             return self.build_identity_tail()
         if request.command_id == COMMAND_READ_USER_CONFIGURATION:
-            return encode_blob(self.configuration)
+            return self.build_configuration_payload()
         if request.command_id == COMMAND_WRITE_USER_CONFIGURATION:
             return self.accept_configuration(request)
         if request.command_id == COMMAND_WRITE_COEFFICIENTS:
@@ -227,19 +239,40 @@ class FakeDeq:
         return self.echo_request_field(request)
 
     def build_identity_tail(self) -> bytes:
-        """DEVICE_ID, RESERVED and SPEAKER_MODE, per the APK's field table."""
+        """DEVICE_ID and the eight zero bytes that follow it.
+
+        Measured from a real DEQ-S1000A2 on 2026-10-08, which answered
+        `0x04` with a 24-byte body: four of STATUS, twelve of ASCII serial,
+        eight zero. The APK's field table declares 40 payload bytes with
+        SPEAKER_MODE at offset 36, and this fake used to send that -- so a
+        field the unit never sends read as a real value in every test. The
+        unit is the authority, so this matches the unit.
+        """
         serial_bytes = self.serial.encode("ascii")
         if len(serial_bytes) > 12:
             raise ValueError(f"serial {self.serial!r} does not fit in 12 bytes")
-        return (
-            serial_bytes.ljust(12, b"\x00")
-            + bytes(4)
-            + FAKE_SPEAKER_MODE.to_bytes(4, "little")
-        )
+        return serial_bytes.ljust(12, b"\x00") + bytes(8)
+
+    def build_configuration_payload(self) -> bytes:
+        """Returns the 2028 bytes `0x09` answers with, blob first.
+
+        A real DEQ-S1000A2 answered with exactly this many on 2026-10-08,
+        of which the first 572 are the blob this app decodes. The rest were
+        all zero on that unit. Answering a bare 572 here is what hid two
+        real bugs: the reader handed the whole body to `decode_blob`, and
+        the writer sent a blob the unit refuses.
+        """
+        blob = encode_blob(self.configuration)
+        return blob.ljust(CONFIGURATION_PAYLOAD_BYTES, b"\x00")
 
     def accept_configuration(self, request: Message) -> bytes:
-        """Stores a written blob, so a later read returns it."""
-        self.configuration = decode_blob(request.body)
+        """Stores a written blob, so a later read returns it.
+
+        The unit wants the whole 2028-byte structure and refuses a bare
+        572-byte blob with STATUS -5, measured on 2026-10-08. So this
+        refuses one too, rather than accepting what the real unit will not.
+        """
+        self.configuration = decode_blob(request.body[:STANDARD_BLOB_BYTES])
         return b""
 
     def acknowledge_coefficients(self, request: Message) -> bytes:

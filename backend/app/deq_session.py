@@ -30,8 +30,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.deq_blob import UserConfiguration, decode_blob, encode_blob
-from app.deq_enums import EQ_STYLE, LIVE_SIMULATION
+from app.deq_blob import (
+    STANDARD_BLOB_BYTES,
+    UserConfiguration,
+    decode_blob,
+    encode_blob,
+)
+from app.deq_enums import AUDIO_SOURCE, EQ_STYLE, LIVE_SIMULATION
 from app.deq_dsp import (
     CROSSOVER_SLOT_COUNT,
     TIME_ALIGNMENT_SLOT_COUNT,
@@ -105,9 +110,25 @@ STATUS_OFFSET = 0
 STATUS_BYTES = 4
 STATUS_OK = 0
 
+# How many bytes `0x08`'s USER_CONFIGURATION field carries, from
+# `deq_commands.json`. It is the whole structure, of which this app decodes
+# the first 572; `0x09` returns exactly this many after its STATUS. A real
+# unit refused a bare 572-byte write with STATUS -5.
+CONFIGURATION_PAYLOAD_BYTES = 2028
+
 # How long to wait for one reply. The app's own keepalive runs about every
 # nine seconds, so a reply that takes longer than this is a dead link.
 DEFAULT_TIMEOUT_SECONDS = 5.0
+
+# Which input the unit plays once a link is up. THROUGH passes the car's
+# own audio through, so connecting this app never costs a person their
+# radio.
+#
+# This is the app's own choice, not a guess. The real Sound & Tune app was
+# run against a fake accessory in the emulator on 2026-10-08, and its cold
+# start sends `0x0b` with body `04000000` -- SourceMode THROUGH, wire
+# value 4. See `DeqSession.set_audio_source`.
+DEFAULT_AUDIO_SOURCE = "THROUGH"
 
 # The order the app sends on connect. Each entry is a command id and the
 # body to send with it; a body of `b""` means the command carries nothing
@@ -168,10 +189,13 @@ class DeviceIdentity:
 
     firmware_version: int
     serial: str
-    # From the same reply as `serial`, per `deq_commands.json`'s SPEAKER_MODE
-    # field. Lets a caller cross-check this against the blob's own
-    # `speaker_mode`, which is a separate read.
-    speaker_mode: int
+    # No speaker mode here, though `deq_commands.json` declares one. The
+    # APK says `0x04` answers with 40 payload bytes and SPEAKER_MODE at
+    # offset 36; a real DEQ-S1000A2 answered with 24 on 2026-10-08 -- four
+    # of STATUS, twelve of ASCII serial, eight zero. So the field is past
+    # the end of the reply and could only ever read zero, which is what it
+    # did: the conformance check reported 0 against the blob's 3. The
+    # blob's own `speaker_mode` is the one to read.
 
 
 class DeqSession:
@@ -190,6 +214,12 @@ class DeqSession:
         self.transport = transport
         self.timeout_seconds = timeout_seconds
         self._transaction_counter = 0
+        # What a configuration read saw past the blob. A write has to send
+        # it back; see `write_user_configuration`.
+        self._configuration_trailing_bytes: bytes | None = None
+        # Frames the unit pushed with nothing having asked for them. A
+        # caller reads these to see what changed on the unit itself.
+        self.notifications: list[Message] = []
 
     def next_transaction_id(self) -> bytes:
         """Returns the next transaction id, 8 bytes little-endian.
@@ -214,16 +244,30 @@ class DeqSession:
         return reply
 
     def _read_reply(self, request: Message) -> Message:
-        try:
-            frame = self.transport.receive_frame(self.timeout_seconds)
-        except TransportTimeout as caught_error:
-            raise SessionTimeoutError(
-                f"no reply to command 0x{request.command_id:02x} "
-                f"within {self.timeout_seconds} seconds"
-            ) from caught_error
-        reply = decode_frame(frame)
-        self._check_matches(request, reply)
-        return reply
+        """Returns the reply to one request, skipping what it is not.
+
+        The unit pushes notifications with nothing having asked for them --
+        a real DEQ-S1000A2 sent one per step of the car's own volume knob
+        on 2026-10-08. One of those arriving between a request and its
+        reply is not an answer to anything, so it is recorded and passed
+        over rather than compared against the request. Treating it as a
+        reply raised `ReplyMismatchError` and broke the session, which is
+        what turning the volume knob mid-request used to do.
+        """
+        while True:
+            try:
+                frame = self.transport.receive_frame(self.timeout_seconds)
+            except TransportTimeout as caught_error:
+                raise SessionTimeoutError(
+                    f"no reply to command 0x{request.command_id:02x} "
+                    f"within {self.timeout_seconds} seconds"
+                ) from caught_error
+            message = decode_frame(frame)
+            if message.direction == Direction.NOTIFICATION:
+                self.notifications.append(message)
+                continue
+            self._check_matches(request, message)
+            return message
 
     def _check_matches(self, request: Message, reply: Message) -> None:
         if reply.command_id != request.command_id:
@@ -256,32 +300,81 @@ class DeqSession:
             raise DeviceStatusError(reply.command_id, status)
 
     def start(self) -> None:
-        """Runs the app's own connect sequence, in order."""
+        """Runs the app's own connect sequence, then claims no audio.
+
+        `STARTUP_STEPS` reads and changes nothing. The source mode is the
+        one exception, and it is sent here rather than added to that table
+        so the table keeps its property: every frame in it is a read.
+
+        The mode has to be set because not setting it is not neutral. A Pi
+        offering an audio function leaves the unit playing USB, and an
+        empty USB input is silence -- measured in a car on 2026-10-08,
+        where the audio returned within seconds of stopping the gadget.
+        `THROUGH` hands the car's own audio back. Playing our own audio is
+        a deliberate act on top of this, not the state a link starts in.
+        """
         for command_id, body in STARTUP_STEPS:
             self.exchange(command_id, body)
+        self.set_audio_source(DEFAULT_AUDIO_SOURCE)
 
     def send_keepalive(self) -> None:
         """Sends one keepalive. The app repeats this for the whole session."""
         self.exchange(COMMAND_KEEPALIVE)
 
     def read_device_identity(self) -> DeviceIdentity:
-        """Returns the unit's firmware version, serial number and speaker mode."""
+        """Returns the unit's firmware version and serial number."""
         version_reply = self.exchange(COMMAND_FIRMWARE_VERSION)
         identity_reply = self.exchange(COMMAND_DEVICE_IDENTITY)
         return DeviceIdentity(
             firmware_version=read_field(version_reply, offset=4, width=2),
             serial=read_text_field(identity_reply, offset=4, width=12),
-            speaker_mode=read_field(identity_reply, offset=20, width=4),
         )
 
     def read_user_configuration(self) -> UserConfiguration:
-        """Reads the unit's settings blob."""
+        """Reads the unit's settings blob.
+
+        The reply carries more than the blob. A real DEQ-S1000A2 answered
+        with a 2032-byte body on 2026-10-08: four bytes of STATUS, the
+        572-byte blob, and then 1456 bytes this app has no meaning for
+        yet. So the blob has to be cut out rather than handed over whole,
+        and `decode_blob` refuses the whole body -- with a message blaming
+        NETWORK mode, which is misleading, since the unit was in STANDARD.
+        """
         reply = self.exchange(COMMAND_READ_USER_CONFIGURATION)
-        return decode_blob(reply.body[STATUS_BYTES:])
+        payload = reply.body[STATUS_BYTES:]
+        # Keep the part this app does not decode, so a later write can hand
+        # it back instead of guessing at it.
+        self._configuration_trailing_bytes = payload[STANDARD_BLOB_BYTES:]
+        return decode_blob(payload[:STANDARD_BLOB_BYTES])
 
     def write_user_configuration(self, configuration: UserConfiguration) -> None:
-        """Writes the settings blob back to the unit."""
-        self.exchange(COMMAND_WRITE_USER_CONFIGURATION, encode_blob(configuration))
+        """Writes the settings blob back to the unit.
+
+        The unit wants the whole structure, not just the part this app
+        decodes. `deq_commands.json` declares `0x08`'s USER_CONFIGURATION
+        as 2028 bytes, which is exactly what `0x09` returns after its
+        STATUS, and a real DEQ-S1000A2 refused a bare 572-byte blob with
+        STATUS -5 on 2026-10-08.
+
+        So the 572 bytes this app understands go in front, and the rest is
+        carried through from the last read. Keeping what the unit sent is
+        the point: those bytes have no known meaning here, and inventing
+        them would write a guess into a car's audio processor. A write with
+        no read before it pads with zeros, which is what this unit had in
+        all 1456 of them.
+        """
+        self.exchange(
+            COMMAND_WRITE_USER_CONFIGURATION,
+            self.build_configuration_payload(configuration),
+        )
+
+    def build_configuration_payload(self, configuration: UserConfiguration) -> bytes:
+        """Returns the 2028 bytes `0x08` wants: the blob, then the rest."""
+        blob = encode_blob(configuration)
+        trailing = self._configuration_trailing_bytes
+        if trailing is None:
+            trailing = bytes(CONFIGURATION_PAYLOAD_BYTES - len(blob))
+        return blob + trailing
 
     def write_coefficients(self, config_id: int, configuration: bytes) -> None:
         """Sends one block of DSP coefficients.
@@ -356,6 +449,23 @@ class DeqSession:
         configuration = self.read_user_configuration()
         configuration.sound_field = wire_value
         self.write_user_configuration(configuration)
+
+    def set_audio_source(self, source_name: str) -> None:
+        """Picks which input the unit plays.
+
+        This is what keeps a car audible while the app is connected. The
+        DEQ plays whatever source it holds, and a Pi offering an audio
+        function leaves it on USB -- which carries nothing, so the car goes
+        silent. `THROUGH` passes the car's own audio through instead.
+
+        Measured on 2026-10-08: the car had no audio for as long as the
+        gadget ran, with or without anything writing to the audio
+        function, and it returned the moment the gadget stopped. The real
+        app sets this mode explicitly; `service/g` in the APK logs
+        "ringing: setSourceMode(SourceMode.THROUGH)".
+        """
+        wire_value = AUDIO_SOURCE.by_name(source_name).wire_value
+        self.exchange(COMMAND_MODE, wire_value.to_bytes(4, "little", signed=True))
 
     def set_volume(self, volume_db: int) -> None:
         """Sets the master volume, in dB. The unit takes a signed value."""
