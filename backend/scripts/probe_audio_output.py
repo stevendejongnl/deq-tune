@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
 """Asks a real DEQ to play the audio this device writes.
 
-One question is open about the hardware: the DEQ takes the car's audio as
-soon as a device offers a USB audio function, and nothing tried so far has
-made it play what arrives on that function. A car session on 2026-10-08
-ruled out source modes 0 to 4, every volume between -15 and 0, both mute
-values, and a 440 Hz tone that ALSA confirmed the unit was consuming.
+**It did its job: mode 5 was heard in a car on 2026-10-08.** The DEQ plays
+what this device writes once it holds `SP_OTHER_SOURCE`, and THROUGH plays
+the car's own audio with the same gadget attached. What is left for this
+script is the rest of the table -- `MIX_OTHER_SOURCE` (6) above all, which
+the session ended before reaching, and which would say whether our audio
+and the car's can play together.
 
-The APK says why that was the wrong half of the table. `SourceMode` has
-ten values, not five, and the app's own mapping -- run in the emulator,
-not read by eye -- sends `SP_OTHER_SOURCE` (5) when other audio plays and
-the unit is on THROUGH, which is where the real unit sits. Wire 4,
-THROUGH, is the car's own source, and every car test so far ran under it.
-Wire 5 and 6 have never reached a unit.
-
-This script sends them, one at a time, and gives a person time to listen.
+It sends one source mode at a time and gives a person time to listen,
+which is the only way to read the answer: the unit accepts every mode with
+STATUS 0 whether or not anything comes out of the speakers.
 
     cd backend
     DEQ_TRANSPORT=accessory PYTHONPATH=. uv run python \\

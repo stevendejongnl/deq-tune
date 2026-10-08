@@ -515,16 +515,21 @@ class DeqSession:
     def set_audio_source(self, source_name: str) -> None:
         """Picks which input the unit plays.
 
-        This is what keeps a car audible while the app is connected. The
-        DEQ plays whatever source it holds, and a Pi offering an audio
-        function leaves it on USB -- which carries nothing, so the car goes
-        silent. `THROUGH` passes the car's own audio through instead.
+        This decides what comes out of the car's speakers while a session
+        runs, and both answers were heard in a car on 2026-10-08:
 
-        Measured on 2026-10-08: the car had no audio for as long as the
-        gadget ran, with or without anything writing to the audio
-        function, and it returned the moment the gadget stopped. The real
-        app sets this mode explicitly; `service/g` in the APK logs
-        "ringing: setSourceMode(SourceMode.THROUGH)".
+            THROUGH (4)           the car's own audio
+            SP_OTHER_SOURCE (5)   whatever this device writes over USB
+
+        Both were measured with the Pi's audio function attached and a
+        tone feeding, so an attached audio function does not take the
+        car's audio -- an earlier version of this docstring said it did.
+        THROUGH is the right default, and the connect sequence ends with
+        it. The real app sets the mode explicitly too; `service/g` in the
+        APK logs "ringing: setSourceMode(SourceMode.THROUGH)".
+
+        One catch: the unit refuses a volume write with STATUS -6 while it
+        holds THROUGH, and takes one on an OTHER mode. Set the mode first.
         """
         wire_value = AUDIO_SOURCE.by_name(source_name).wire_value
         self.exchange(COMMAND_SET_MODE, wire_value.to_bytes(4, "little", signed=True))
