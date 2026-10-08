@@ -243,3 +243,55 @@ def test_the_sync_body_fills_the_payload_the_app_puts_on_the_wire() -> None:
     assert len(encode_frame(
         Message(Direction.TO_DEVICE, 0x00, (1).to_bytes(8, "little"), build_sync_body())
     )) == 89
+
+
+# Frames a real DEQ-S1000A2 pushed on 2026-10-08, one per step of the car's
+# own volume knob. Nothing asked for them.
+REAL_NOTIFICATIONS = (
+    ("f000400600000001000300000009000000040000000000000e0d0f0f0f0f0f0ff7", 0x09, -19),
+    ("f000400600000001000300000009000000040000000000000e0e0f0f0f0f0f0ff7", 0x09, -18),
+    ("f000400600000001000300000009000000040000000000000e0f0f0f0f0f0f0ff7", 0x09, -17),
+    ("f000400600000001000300000009000000040000000000000f000f0f0f0f0f0ff7", 0x09, -16),
+    ("f000400600000001000300000009000000040000000000000f010f0f0f0f0f0ff7", 0x09, -15),
+)
+
+
+@pytest.mark.parametrize("hex_frame,command_id,value", REAL_NOTIFICATIONS)
+def test_a_pushed_notification_decodes(hex_frame, command_id, value):
+    """The unit pushes these with no request behind them, and they are
+    shorter than a reply: 12 payload bytes and no transaction id.
+
+    Reading them at a reply's body offset is what made a real unit look
+    silent. Every one of these was rejected as "shorter than its header"
+    while the car's volume knob was turning.
+    """
+    message = decode_frame(bytes.fromhex(hex_frame))
+
+    assert message.direction == Direction.NOTIFICATION
+    assert message.command_id == command_id
+    assert message.transaction_id == b""
+    assert int.from_bytes(message.body, "little", signed=True) == value
+
+
+def test_a_notification_does_not_change_how_a_reply_decodes():
+    """The body offset depends on the direction, so a reply has to keep
+    its 16-byte header and its transaction id."""
+    reply = Message(
+        direction=Direction.FROM_DEVICE,
+        command_id=0x09,
+        transaction_id=(9).to_bytes(8, "little"),
+        body=bytes(572),
+    )
+
+    decoded = decode_frame(encode_frame(reply))
+
+    assert decoded.direction == Direction.FROM_DEVICE
+    assert decoded.transaction_id == (9).to_bytes(8, "little")
+    assert len(decoded.body) == 572
+
+
+def test_a_payload_too_short_for_any_header_is_still_refused():
+    """A direction cannot be read out of three bytes, so this must say so
+    rather than index past the end."""
+    with pytest.raises(InvalidFrameError, match="shorter than its header"):
+        decode_message(bytes(3))

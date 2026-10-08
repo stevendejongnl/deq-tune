@@ -69,6 +69,12 @@ LENGTH_OFFSET = 4
 TRANSACTION_ID_OFFSET = 8
 BODY_OFFSET = 16
 
+# A notification carries no transaction id, so its body starts where the
+# transaction id would be. Nothing asked for the frame, so there is no id
+# to mirror back. Measured from a real unit on 2026-10-08: a 12-byte
+# payload, of which the last four are the value.
+NOTIFICATION_BODY_OFFSET = 8
+
 # The length field counts the payload from the transaction id onwards.
 LENGTH_FIELD_BIAS = 8
 
@@ -78,6 +84,11 @@ TRANSACTION_ID_BYTES = 8
 class Direction(IntEnum):
     TO_DEVICE = 1
     FROM_DEVICE = 2
+    # A frame the unit sends with nothing having asked for it. Measured on
+    # 2026-10-08: turning the car's own volume knob made a real
+    # DEQ-S1000A2 push one of these per step. See NOTIFICATION_BODY_OFFSET
+    # for how its header differs.
+    NOTIFICATION = 3
 
 
 class InvalidFrameError(ValueError):
@@ -163,23 +174,46 @@ def encode_message(message: Message) -> bytes:
 
 
 def decode_message(payload: bytes) -> Message:
-    """Returns the message one payload carries."""
-    if len(payload) < BODY_OFFSET:
+    """Returns the message one payload carries.
+
+    A notification is shorter than a reply and has no transaction id, so
+    the body offset depends on the direction. Reading every frame at the
+    reply's offset is what made a real unit look silent: it pushed a
+    volume notification per knob step on 2026-10-08, and each one was
+    rejected as "shorter than its header".
+    """
+    direction = read_direction(payload)
+    body_offset = (
+        NOTIFICATION_BODY_OFFSET
+        if direction == Direction.NOTIFICATION
+        else BODY_OFFSET
+    )
+    if len(payload) < body_offset:
         raise InvalidFrameError(
             f"payload of {len(payload)} bytes is shorter than its header"
         )
-    direction_value = int.from_bytes(payload[DIRECTION_OFFSET:DIRECTION_OFFSET + 2], "little")
-    try:
-        direction = Direction(direction_value)
-    except ValueError as caught_error:
-        raise InvalidFrameError(f"unknown direction {direction_value}") from caught_error
     return Message(
         direction=direction,
         command_id=int.from_bytes(payload[COMMAND_ID_OFFSET:COMMAND_ID_OFFSET + 2], "little"),
-        transaction_id=payload[TRANSACTION_ID_OFFSET:BODY_OFFSET],
-        body=payload[BODY_OFFSET:],
+        transaction_id=payload[TRANSACTION_ID_OFFSET:body_offset],
+        body=payload[body_offset:],
         declared_length=int.from_bytes(payload[LENGTH_OFFSET:LENGTH_OFFSET + 4], "little"),
     )
+
+
+def read_direction(payload: bytes) -> Direction:
+    """Returns which way one payload travels, or says it cannot tell."""
+    if len(payload) < LENGTH_OFFSET:
+        raise InvalidFrameError(
+            f"payload of {len(payload)} bytes is shorter than its header"
+        )
+    direction_value = int.from_bytes(
+        payload[DIRECTION_OFFSET:DIRECTION_OFFSET + 2], "little"
+    )
+    try:
+        return Direction(direction_value)
+    except ValueError as caught_error:
+        raise InvalidFrameError(f"unknown direction {direction_value}") from caught_error
 
 
 def encode_frame(message: Message) -> bytes:
