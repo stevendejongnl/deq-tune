@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.deq_session import DeqSession
 from app.testing.fake_deq import FakeDeq
-from scripts.probe_audio_output import ProbeLog, run_probe
+from scripts.probe_audio_output import ProbeLog, restore_state, run_probe
 
 
 class SilentLog(ProbeLog):
@@ -111,3 +111,45 @@ def test_it_reads_the_state_without_writing_first():
 
     reads = [one for one in fake.command_order if one in (0x0C, 0x0E, 0x10, 0x11)]
     assert reads == [0x0C, 0x0E, 0x10, 0x11]
+
+
+class FailsTheFirstRestoreWrite(FakeDeq):
+    """A unit that stays quiet for one write, then answers normally.
+
+    The real unit did this on 2026-10-08: the mode write that would have
+    put it back timed out right after a 20-second hold in mode 5, and the
+    volume write never ran at all.
+    """
+
+    def __init__(self, **keywords) -> None:
+        super().__init__(**keywords)
+        self.writes_to_swallow = 0
+
+    def send_frame(self, frame: bytes) -> None:
+        if self.writes_to_swallow > 0:
+            self.writes_to_swallow -= 1
+            return
+        super().send_frame(frame)
+
+
+def test_a_failed_restore_write_is_retried_and_the_volume_still_runs():
+    """A quiet unit must not cost the car its audio: the mode is tried
+    again, and the volume write runs whatever happened to the mode."""
+    fake = FailsTheFirstRestoreWrite(volume_db=-37)
+    session = DeqSession(fake)
+    log = SilentLog()
+
+    run_probe(
+        session,
+        log,
+        mode_wire_values=[5],
+        volume_db=-20,
+        hold_seconds=0,
+        sleep_function=never_sleeps,
+    )
+    fake.writes_to_swallow = 1
+    restore_state(session, log, {"mode": 4, "volume_db": -37})
+
+    assert fake.mode == 4
+    assert fake.volume_db == -37
+    assert any("attempt 1 failed" in line for line in log.lines)

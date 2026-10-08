@@ -197,19 +197,51 @@ def drain_pending_frames(transport, quiet_seconds: float = 1.5) -> int:
 def restore_state(
     session: DeqSession, log: ProbeLog, state: dict[str, int]
 ) -> None:
-    """Puts back the mode and volume the unit held before the probe."""
+    """Puts back the mode and volume the unit held before the probe.
+
+    This is what gives the car its audio back, so neither write may be
+    skipped because the other failed. The mode write timed out once on
+    2026-10-08, right after a 20-second hold in mode 5, and the volume
+    write never ran. Each one is tried twice and reports what happened.
+    """
     log.step("putting the unit back")
-    mode_reply = session.exchange(
-        0x0B, state["mode"].to_bytes(4, "little", signed=True)
-    )
-    log.reply(
+    restore_one_field(
+        session,
+        log,
+        0x0B,
+        state["mode"],
         f"mode {state['mode']} ({mode_name(state['mode'])})",
-        describe_status(mode_reply.body),
     )
-    volume_reply = session.exchange(
-        0x0D, state["volume_db"].to_bytes(4, "little", signed=True)
+    restore_one_field(
+        session, log, 0x0D, state["volume_db"], f"volume {state['volume_db']} dB"
     )
-    log.reply(f"volume {state['volume_db']} dB", describe_status(volume_reply.body))
+
+
+def restore_one_field(
+    session: DeqSession,
+    log: ProbeLog,
+    command_id: int,
+    value: int,
+    what: str,
+    attempts: int = 2,
+) -> None:
+    """Writes one value back, trying again once if the unit stays quiet.
+
+    A failure here is reported and not raised. The next write still has to
+    run, and a person in a car needs to read which part of the restore
+    worked.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            reply = session.exchange(
+                command_id, value.to_bytes(4, "little", signed=True)
+            )
+        except Exception as caught_error:
+            log.reply(what, f"attempt {attempt} failed: {caught_error}")
+            continue
+        log.reply(what, describe_status(reply.body))
+        return
+    log.note(f"{what} was NOT restored. Stop the gadget to give the car its audio.")
 
 
 def run_probe(
