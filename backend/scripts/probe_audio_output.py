@@ -8,10 +8,11 @@ ruled out source modes 0 to 4, every volume between -15 and 0, both mute
 values, and a 440 Hz tone that ALSA confirmed the unit was consuming.
 
 The APK says why that was the wrong half of the table. `SourceMode` has
-ten values, and `service/g` switches the unit to `SP_OTHER_SOURCE` or
-`MIX_OTHER_SOURCE` -- wire 5 and 6 -- when the phone itself starts to
-play. Wire 4, THROUGH, is the car's own source, and every car test ran
-under it. Wire 5 to 8 have never reached a unit.
+ten values, not five, and the app's own mapping -- run in the emulator,
+not read by eye -- sends `SP_OTHER_SOURCE` (5) when other audio plays and
+the unit is on THROUGH, which is where the real unit sits. Wire 4,
+THROUGH, is the car's own source, and every car test so far ran under it.
+Wire 5 and 6 have never reached a unit.
 
 This script sends them, one at a time, and gives a person time to listen.
 
@@ -51,10 +52,26 @@ from app.deq_session import DeqSession
 from app.deq_enums import AUDIO_SOURCE
 from app.deq_transport import TransportError
 
-# The modes to try, in the order the APK makes most likely. 5 and 6 are
-# what the app itself sends when the phone plays; 7 and 8 are the PURE
-# pair, which no code path in the app was seen to send.
-DEFAULT_MODE_WIRE_VALUES = (5, 6, 7, 8)
+# The modes to try, in the order the app's own code makes likely.
+#
+# `SourceMode.a(playing, connectionKind)` is what the app calls to pick a
+# mode. Its mapping was read by running it in the emulator for all ten
+# modes and all three connection kinds on 2026-10-08, which beats reading
+# its packed-switch by eye. Over AOA, with other audio playing:
+#
+#   from THROUGH (4)       -> SP_OTHER_SOURCE (5)
+#   from STAND_ALONE (0)   -> SP_OTHER_SOURCE (5)
+#   from SP_GENUINE (1)    -> MIX_OTHER_SOURCE (6)
+#   from SP_OTHER (5)      -> MIX_OTHER_SOURCE (6)
+#   from MIX_GENUINE (2)   -> THROUGH (4)
+#   from MIX_OTHER (6)     -> THROUGH (4)
+#   from CAR_SOURCE (3)    -> THROUGH (4)
+#
+# The real unit sits at THROUGH, so 5 is what the app would send, and 6 is
+# the step after it. Both PURE modes return null for every connection
+# kind, so the app never sends them; pass `--modes 7,8` to try them
+# anyway.
+DEFAULT_MODE_WIRE_VALUES = (5, 6)
 
 # How long each mode stays on, so a person can hear whether it worked.
 DEFAULT_HOLD_SECONDS = 8.0
