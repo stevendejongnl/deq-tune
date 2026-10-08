@@ -329,8 +329,8 @@ def build_get_opal_configuration_body(config_id: int = INITIAL_CONFIG_ID) -> byt
 # emulator cold starts between 2026-10-01 and 2026-10-08 put exactly them on
 # the wire.
 #
-# Untested against a real unit. The DEQ may want the boolean set, which is
-# the one field here that the app can vary.
+# A real unit accepted these bytes on 2026-10-08 and then answered every
+# command of the cold start with STATUS 0.
 SYNC_BODY = bytes.fromhex("a5c543847b356c8c408b701679ce1f110000000000000000")
 
 
