@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.deq_blob import UserConfiguration
 from app.deq_device import DeviceUnavailable
 from app.deq_session import DeqSession
 from app.deq_transport import TransportError
@@ -54,8 +53,8 @@ def run_every_check() -> check_real_deq.Report:
     report = check_real_deq.Report()
     session = DeqSession(FakeDeq())
     check_real_deq.check_startup(report, session)
-    identity = check_real_deq.check_identity(report, session)
-    check_real_deq.check_configuration(report, session, identity)
+    check_real_deq.check_identity(report, session)
+    check_real_deq.check_configuration(report, session)
     check_real_deq.check_keepalive(report, session)
     check_real_deq.check_write_back(report, session)
     return report
@@ -90,30 +89,13 @@ def test_a_failure_changes_the_exit_code(capsys) -> None:
     assert "failed outright" in capsys.readouterr().out
 
 
-def test_speaker_mode_agreement_passes_when_both_reads_match() -> None:
+def test_the_blob_check_reads_a_real_units_reply_shape() -> None:
+    """The blob is not the whole reply. A real unit answered 0x09 with a
+    2032-byte body -- STATUS, the 572-byte blob, then bytes this app has
+    no meaning for -- so the check has to cut the blob out and still pass.
+    """
     report = check_real_deq.Report()
     session = DeqSession(FakeDeq())
-    identity = check_real_deq.check_identity(report, session)
-    check_real_deq.check_configuration(report, session, identity)
-    assert report.differences == []
-
-
-def test_speaker_mode_agreement_catches_a_real_disagreement() -> None:
-    """The identity reply (command 0x04) and the blob (command 0x09) report
-    speaker mode independently. If a unit's two answers disagree, that is
-    worth knowing, not silently averaging over."""
-    disagreeing_fake = FakeDeq(configuration=UserConfiguration(speaker_mode=7))
-    report = check_real_deq.Report()
-    session = DeqSession(disagreeing_fake)
-    identity = check_real_deq.check_identity(report, session)
-    check_real_deq.check_configuration(report, session, identity)
-    assert any("speaker mode agreement" in difference for difference in report.differences)
-
-
-def test_speaker_mode_agreement_is_skipped_when_identity_failed() -> None:
-    """A failed identity read must not crash the configuration check."""
-    report = check_real_deq.Report()
-    session = DeqSession(FakeDeq())
-    check_real_deq.check_configuration(report, session, identity=None)
-    assert not any("speaker mode agreement" in difference for difference in report.differences)
+    check_real_deq.check_configuration(report, session)
     assert report.failures == []
+    assert report.differences == []

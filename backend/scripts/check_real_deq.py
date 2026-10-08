@@ -157,7 +157,7 @@ def check_identity(report: Report, session: DeqSession) -> DeviceIdentity | None
 
 
 def check_configuration(
-    report: Report, session: DeqSession, identity: DeviceIdentity | None = None
+    report: Report, session: DeqSession
 ) -> None:
     """Reads the settings blob and checks it round-trips.
 
@@ -165,10 +165,12 @@ def check_configuration(
     whole semantic state, and `deq_blob` was written from the app's own
     reader, so a byte-exact round trip means that reader is right.
 
-    `identity`, from `check_identity`, lets this also cross-check the
-    speaker mode the `0x04` reply reported against the blob's own
-    `speaker_mode` byte. The two are read by two different commands, so
-    agreement is not guaranteed by either read alone.
+    There is no cross-check of the speaker mode against `0x04`'s reply any
+    more. The APK declares a SPEAKER_MODE field there at payload offset 36,
+    and a real unit answered `0x04` with 24 payload bytes on 2026-10-08 --
+    the field is past the end of the reply. This check reported `0` against
+    the blob's `3` for exactly that reason. The blob is the only place the
+    speaker mode is actually readable.
     """
     print("\nReading the settings blob")
     try:
@@ -213,19 +215,6 @@ def check_configuration(
             "car_model_name_key_digest",
             f"{len(configuration.car_model_name_key_digest)} bytes, expected 16",
         )
-
-    if identity is not None:
-        if identity.speaker_mode == configuration.speaker_mode:
-            report.ok(
-                "speaker mode agreement",
-                f"command 0x04 and the blob both say {identity.speaker_mode}",
-            )
-        else:
-            report.differs(
-                "speaker mode agreement",
-                f"command 0x04 said {identity.speaker_mode}, "
-                f"the blob says {configuration.speaker_mode}",
-            )
 
 
 def check_keepalive(report: Report, session: DeqSession) -> None:
@@ -285,8 +274,8 @@ def main() -> int:
     session = DeqSession(transport)
     try:
         check_startup(report, session)
-        identity = check_identity(report, session)
-        check_configuration(report, session, identity)
+        check_identity(report, session)
+        check_configuration(report, session)
         check_keepalive(report, session)
         if arguments.write:
             check_write_back(report, session)
