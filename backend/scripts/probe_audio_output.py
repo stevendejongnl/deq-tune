@@ -50,7 +50,7 @@ from app.deq_device import (
 )
 from app.deq_session import DeqSession
 from app.deq_enums import AUDIO_SOURCE
-from app.deq_transport import TransportError
+from app.deq_transport import TransportError, TransportTimeout
 
 # The modes to try, in the order the app's own code makes likely.
 #
@@ -172,6 +172,28 @@ def describe_status(body: bytes) -> str:
     return f"STATUS {status}, reported {first_field}"
 
 
+def drain_pending_frames(transport, quiet_seconds: float = 1.5) -> int:
+    """Reads and throws away whatever is already waiting on the link.
+
+    The gadget drives the link whenever no backend holds it, so stopping
+    the backend to run this leaves the gadget's own keepalive reply in
+    flight. That reply carries a transaction id far ahead of a fresh
+    session's, which `DeqSession` reports as a mismatch rather than as a
+    leftover -- and rightly so: an id ahead of the request is not stale.
+
+    It cost a car session on 2026-10-08: "sent command 0x00, got a reply
+    to 0x02". Draining first is the fix, and it belongs here rather than
+    in the session, which cannot tell a leftover from a fault.
+    """
+    discarded = 0
+    while True:
+        try:
+            transport.receive_frame(quiet_seconds)
+        except (TransportTimeout, TransportError):
+            return discarded
+        discarded += 1
+
+
 def restore_state(
     session: DeqSession, log: ProbeLog, state: dict[str, int]
 ) -> None:
@@ -252,6 +274,10 @@ def main(arguments: list[str]) -> int:
     except (DeviceUnavailable, TransportError) as caught_error:
         print(f"no link: {caught_error}")
         return 1
+
+    discarded = drain_pending_frames(transport)
+    if discarded > 0:
+        print(f"dropped {discarded} frame(s) left over from the gadget's own session")
 
     session = DeqSession(transport)
     try:
