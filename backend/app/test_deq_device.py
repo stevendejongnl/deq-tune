@@ -20,6 +20,7 @@ from app.deq_device import (
     LinkKeeper,
     build_transport,
 )
+from app.deq_transport import TransportError
 from app.testing.fake_deq import FakeDeq
 from app.usb_transport import UsbUnavailable
 
@@ -91,12 +92,18 @@ class CountingDevice:
     def __init__(self, connect_results: list[DeviceState]) -> None:
         self.connect_results = list(connect_results)
         self.connect_count = 0
+        self.keep_alive_count = 0
         self._state = DeviceState(connected=False)
 
     def connect(self) -> DeviceState:
         self.connect_count += 1
         if self.connect_results:
             self._state = self.connect_results.pop(0)
+        return self._state
+
+    def keep_alive(self) -> DeviceState:
+        """Counts the keepalives the keeper sends on a live link."""
+        self.keep_alive_count += 1
         return self._state
 
     def state(self) -> DeviceState:
@@ -145,6 +152,19 @@ def test_the_keeper_stops_trying_once_the_link_is_up():
 
     LinkKeeper(unit, wait_function=wait).run()
 
+    assert unit.connect_count == 1
+
+
+def test_the_keeper_keeps_a_live_link_warm():
+    """The real app sends COMMAND_KEEPALIVE for a whole session. Nothing
+    here sent one until 2026-10-08: the backend connected and then went
+    silent, so a dead link kept reporting itself as up."""
+    unit = CountingDevice([DeviceState(connected=True)])
+    wait = RecordingWait(allowed_waits=4)
+
+    LinkKeeper(unit, wait_function=wait).run()
+
+    assert unit.keep_alive_count > 0
     assert unit.connect_count == 1
 
 
@@ -264,3 +284,95 @@ def test_a_link_that_comes_up_forgets_the_old_reason():
     assert device.connect().problem is None
     assert device.state().problem is None
     assert device.state().connected is True
+
+
+class SingleLinkFakeDeq(FakeDeq):
+    """A fake unit that allows one open link at a time, like the Pi's relay.
+
+    The gadget relays for a single backend, because two writers on one DEQ
+    link interleave frames. So a second transport is refused while the
+    first is open; you build these through `open_link`; it depends on the
+    counter that tracks how many are open.
+
+    `FakeDeq` alone cannot catch a second open, since it allows any number.
+    This is the seam that makes the refusal visible to a test.
+    """
+
+    def __init__(self, open_links: list) -> None:
+        super().__init__()
+        self.open_links = open_links
+
+    def close(self) -> None:
+        if self in self.open_links:
+            self.open_links.remove(self)
+        super().close()
+
+
+def open_single_link(open_links: list) -> SingleLinkFakeDeq:
+    """Returns a new link, or refuses because one is already open."""
+    if open_links != []:
+        raise TransportError(
+            "a second backend tried to attach; the gadget refused it"
+        )
+    transport = SingleLinkFakeDeq(open_links)
+    open_links.append(transport)
+    return transport
+
+
+def test_connecting_twice_releases_the_first_link_instead_of_being_refused():
+    """A real unit refused this on 2026-10-08, and the working link went
+    down with the refusal. `connect` has to let go of the link it holds
+    before it asks for another, because the far end allows only one."""
+    open_links: list = []
+    unit = DeqDevice(build_transport_function=lambda: open_single_link(open_links))
+
+    first = unit.connect()
+    assert first.connected is True
+
+    second = unit.connect()
+
+    assert second.connected is True, second.problem
+    assert second.problem is None
+    assert len(open_links) == 1, "the first link was left open"
+
+
+class FailsOnKeepalive(FakeDeq):
+    """Answers the connect sequence, then refuses the next keepalive.
+
+    This is a unit that went away mid-session -- the car switched off, or
+    the cable moved. You connect, then the first keepalive fails; it
+    depends on nothing beyond `FakeDeq`.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.connected_once = False
+
+    def send_frame(self, frame: bytes) -> None:
+        if self.connected_once:
+            raise TransportError("the unit stopped answering")
+        super().send_frame(frame)
+
+
+def test_a_failing_keepalive_drops_the_link_and_says_why():
+    """A keepalive is the only thing that notices a unit that went away
+    between requests. Reporting `connected` after one fails would tell the
+    app a link is up when it is gone."""
+    unit = DeqDevice(build_transport_function=FailsOnKeepalive)
+    assert unit.connect().connected is True
+
+    unit.require_session().transport.connected_once = True
+    state = unit.keep_alive()
+
+    assert state.connected is False
+    assert "stopped answering" in state.problem
+
+
+def test_keeping_a_dead_link_alive_is_harmless():
+    """The keeper calls this on whatever state it finds, so it must not
+    raise when there is no session to keep."""
+    unit = DeqDevice(build_transport_function=FakeDeq)
+
+    state = unit.keep_alive()
+
+    assert state.connected is False

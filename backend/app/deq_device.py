@@ -126,8 +126,19 @@ class DeqDevice:
         self._problem: str | None = None
 
     def connect(self) -> DeviceState:
-        """Opens the link and runs the unit's startup sequence."""
+        """Opens the link and runs the unit's startup sequence.
+
+        It releases the link it already holds first. A transport can be one
+        the far end allows only once -- the Pi's gadget relays for a single
+        backend, because two writers on one DEQ link interleave frames --
+        so building the new transport before closing the old one is asking
+        to be refused. That is what a real unit did on 2026-10-08: a second
+        `connect()` was refused, and the working link went down with it
+        until `LinkKeeper` built it again. The fake transport cannot show
+        this, since nothing refuses a second one.
+        """
         with self._link_lock:
+            self.disconnect()
             try:
                 session = DeqSession(self.build_transport_function())
                 session.start()
@@ -152,6 +163,23 @@ class DeqDevice:
                 ),
                 serial=self._identity.serial,
             )
+
+    def keep_alive(self) -> DeviceState:
+        """Sends one keepalive, and drops the link if the unit refuses it.
+
+        It never raises: the keeper's thread has to survive a unit that
+        went away, and a dropped link is a normal state the app reports.
+        """
+        with self._link_lock:
+            if self._session is None:
+                return self.state()
+            try:
+                self._session.send_keepalive()
+            except (SessionError, TransportError) as caught_error:
+                self.disconnect()
+                self._problem = str(caught_error)
+                return DeviceState(connected=False, problem=self._problem)
+            return self.state()
 
     def disconnect(self) -> None:
         with self._link_lock:
@@ -253,9 +281,23 @@ class LinkKeeper:
         return thread is not None and thread.is_alive()
 
     def run(self) -> None:
-        """Connects, then watches, until asked to stop."""
+        """Connects, keeps the link warm, and reconnects, until asked to stop.
+
+        A live link still needs a frame now and then. The real app sends
+        COMMAND_KEEPALIVE about every nine seconds for a whole session, and
+        nothing here sent one until 2026-10-08: the backend connected and
+        then went silent, which also meant a link that had died was
+        reported as up until something else happened to ask the unit for
+        something.
+
+        The keepalive doubles as the check. A unit that stops answering one
+        drops the link here, so `state()` tells the truth rather than
+        repeating what was true at connect time.
+        """
         while True:
-            if not self.unit.state().connected:
+            if self.unit.state().connected:
+                self.unit.keep_alive()
+            else:
                 self.connect_once()
             if not self.wait_function(self.retry_seconds):
                 return
