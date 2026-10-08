@@ -144,7 +144,7 @@ to, Pioneer.
 
   The backend connects by itself. `LinkKeeper` in `backend/app/deq_device.py` runs in its own thread, started with the app, and calls `connect()` until the link is up and again whenever it drops. So the frontend has no connect button: it reads `/api/device` and reports what it finds. A thread and not an asyncio task, because a transport read blocks for its whole timeout and would otherwise stall every request being served at the time. One lock guards the link, since the keeper's thread and the request handlers both reach it and the protocol is one request and then its reply over a single transport.
 
-  Three transports sit behind `backend/app/deq_transport.py`, which also holds the piece they share: `FrameJoiner` cuts whole frames out of whatever a link hands back, because every link carries the same frames and only the read differs — a bulk USB read returns one 512-byte packet, a serial read returns whatever has arrived. It imports nothing optional, so `app/test_deq_transport.py` tests the framing, the 512-byte pad rule included, with no USB or serial stack installed. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
+  Four transports sit behind `backend/app/deq_transport.py`, which also holds the piece they share: `FrameJoiner` cuts whole frames out of whatever a link hands back, because every link carries the same frames and only the read differs — a bulk USB read returns one 512-byte packet, a serial read returns whatever has arrived. It imports nothing optional, so `app/test_deq_transport.py` tests the framing, the 512-byte pad rule included, with no USB or serial stack installed. `DEQ_TRANSPORT=fake` is the default and talks to `backend/app/testing/fake_deq.py`, which answers by the rules measured from 217 request-and-reply pairs of real DEQ-S1000A2 traffic; `app/testing/test_fake_deq.py` checks that it reproduces a captured reply byte for byte, so it stands in for the unit rather than for our own guesses. `DEQ_TRANSPORT=usb` talks to a real unit over bulk transfers through `backend/app/usb_transport.py`, which needs the `usb` extra:
 
 ```bash
 cd backend && uv sync --extra usb
@@ -157,6 +157,19 @@ PYTHONPATH=. DEQ_TRANSPORT=usb uv run uvicorn app.main:app --port 8420
 cd backend && uv sync --extra esp-bridge
 PYTHONPATH=. DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 uv run uvicorn app.main:app --port 8420
 ```
+
+  `DEQ_TRANSPORT=simulator` is the fake unit with knobs on, for working on the frontend without hardware. It is `FakeDeq` plus a state file, so every protocol rule stays pinned to real captures and only the reported state varies. `backend/scripts/deq_console.py` is a small curses console that writes that file; the simulator re-reads it before each reply, so a key press shows up in the next frame and nothing restarts. Run the two side by side:
+
+```bash
+cd backend
+PYTHONPATH=. DEQ_TRANSPORT=simulator uv run uvicorn app.main:app --port 8420
+# in another terminal
+cd backend && uv run python scripts/deq_console.py
+```
+
+  It moves the volume, mutes, sets the driving state, and turns on the faults a real unit can show: refusing the open with `STATUS -5` and then going quiet, failing one command, and reporting system error flags. Refuse the open and `/api/device` reports `connected: false` with the unit's own reason; clear it and the link comes back. `DEQ_SIMULATOR_STATE` names the file if the default `deq-simulator-state.json` is in the way.
+
+  It knows nothing about the Pi and reaches no hardware. There is deliberately no "audio flowing" switch either: audio is a separate USB function and the DEQ never reports on it, so the switch would invent a protocol field that does not exist.
 
   This third transport exists because a laptop's own USB-C port is usually host-only hardware, and the DEQ is itself a USB host when connected over its own USB-A port: two hosts plugged together answer each other with silence, not an error. The ESP32-S3 has a real USB-OTG controller (checked, the plain ESP32 and the C-series chips like the C3/C6 do not — only S2/S3/P4 do) and acts as the USB host in the laptop's place, relaying raw bytes over its UART port; the SysEx framing and all command parsing stay in `deq_protocol.py`, unchanged. The firmware itself is not in this repository.
 

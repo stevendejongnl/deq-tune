@@ -5,7 +5,10 @@ its own USB port, or through an ESP32-S3 wired to the unit's port that
 runs the same code. Either way the process that holds the handle is this
 one, so the frontend reads device state over HTTP like any other data.
 
-Which transport that link uses is configuration. `DEQ_TRANSPORT=fake` is
+Which transport that link uses is configuration. `DEQ_TRANSPORT=simulator`
+serves a simulated unit a developer can change while it runs, through
+`tools/deq_console.py` -- see `deq_simulator_transport.py`.
+`DEQ_TRANSPORT=fake` is
 the default, which talks to `testing/fake_deq.py` so the whole app runs end
 to end with no hardware. `DEQ_TRANSPORT=usb` talks to a real unit through
 `usb_transport.py`, which needs the `usb` extra (`uv sync --extra usb`).
@@ -37,6 +40,7 @@ from app.eq_data import TuningData
 TRANSPORT_ENVIRONMENT_VARIABLE = "DEQ_TRANSPORT"
 ESP_BRIDGE_PORT_ENVIRONMENT_VARIABLE = "DEQ_ESP_BRIDGE_PORT"
 FAKE_TRANSPORT_NAME = "fake"
+SIMULATOR_TRANSPORT_NAME = "simulator"
 USB_TRANSPORT_NAME = "usb"
 ESP_BRIDGE_TRANSPORT_NAME = "esp-bridge"
 
@@ -77,6 +81,10 @@ def build_transport(name: str | None = None) -> Transport:
         from app.testing.fake_deq import FakeDeq
 
         return FakeDeq()
+    if name == SIMULATOR_TRANSPORT_NAME:
+        from app.deq_simulator_transport import DeqSimulator
+
+        return DeqSimulator()
     if name == USB_TRANSPORT_NAME:
         from app.usb_transport import UsbTransport
 
@@ -94,6 +102,7 @@ def build_transport(name: str | None = None) -> Transport:
     raise DeviceUnavailable(
         f"no transport named {name!r}. "
         f"Use {TRANSPORT_ENVIRONMENT_VARIABLE}={FAKE_TRANSPORT_NAME}, "
+        f"{TRANSPORT_ENVIRONMENT_VARIABLE}={SIMULATOR_TRANSPORT_NAME}, "
         f"{TRANSPORT_ENVIRONMENT_VARIABLE}={USB_TRANSPORT_NAME}, "
         f"or {TRANSPORT_ENVIRONMENT_VARIABLE}={ESP_BRIDGE_TRANSPORT_NAME}."
     )

@@ -22,3 +22,9 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+# The backend root, so `app` imports from a test anywhere under it. The
+# console lives in `scripts/` with its test beside it, which is the rule
+# this repo follows everywhere else.
+pythonpath = ["."]

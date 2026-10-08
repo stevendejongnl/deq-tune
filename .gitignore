@@ -24,3 +24,7 @@ firmware/
 
 # Personal working notes, deliberately not shared
 CLAUDE.local.md
+
+# The simulated DEQ's scratch state, written by scripts/deq_console.py.
+deq-simulator-state.json
+deq-simulator-state.json.new
