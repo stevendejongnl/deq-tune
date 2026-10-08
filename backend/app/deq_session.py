@@ -47,6 +47,7 @@ from app.deq_dsp import (
     crossover_slot_settings,
 )
 from app.deq_protocol import (
+    TRANSACTION_ID_BYTES,
     Direction,
     Message,
     build_get_opal_configuration_body,
@@ -210,10 +211,14 @@ class DeqSession:
         self,
         transport: Transport,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        transactions_already_sent: int = 0,
     ) -> None:
         self.transport = transport
         self.timeout_seconds = timeout_seconds
-        self._transaction_counter = 0
+        # Where the transaction ids start counting. A fresh session opens
+        # at 1. A test that replays a captured reply gives the number of
+        # transactions the capture had before it, so the ids line up.
+        self._transaction_counter = transactions_already_sent
         # What a configuration read saw past the blob. A write has to send
         # it back; see `write_user_configuration`.
         self._configuration_trailing_bytes: bytes | None = None
@@ -266,8 +271,31 @@ class DeqSession:
             if message.direction == Direction.NOTIFICATION:
                 self.notifications.append(message)
                 continue
+            if self._answers_an_earlier_request(request, message):
+                # A reply left over from a conversation this session did
+                # not have. Reading it as an answer puts every later
+                # request one reply out of step, which is what a car
+                # session hit on 2026-10-08 when the Pi's gadget and this
+                # backend both opened the link: "sent command 0x21, got a
+                # reply to 0x15". Dropping it recovers instead.
+                continue
             self._check_matches(request, message)
             return message
+
+    def _answers_an_earlier_request(self, request: Message, reply: Message) -> bool:
+        """True when a reply belongs to a request this session already sent.
+
+        The transaction id says so: it counts up, so an id below the one
+        in flight is stale. An id this session never sent at all is not
+        stale but wrong, and `_check_matches` reports it.
+        """
+        if reply.transaction_id == request.transaction_id:
+            return False
+        if len(reply.transaction_id) != TRANSACTION_ID_BYTES:
+            return False
+        return int.from_bytes(reply.transaction_id, "little") < int.from_bytes(
+            request.transaction_id, "little"
+        )
 
     def _check_matches(self, request: Message, reply: Message) -> None:
         if reply.command_id != request.command_id:

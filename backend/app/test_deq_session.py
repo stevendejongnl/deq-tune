@@ -365,8 +365,7 @@ def test_the_blob_is_cut_out_of_a_real_units_longer_reply():
     transport = ReplayingTransport(reply_frame)
     # The recorded reply carries transaction id 9, so the session has to
     # reach that id for the reply to match the request it answers.
-    session = DeqSession(transport)
-    session._transaction_counter = 8
+    session = DeqSession(transport, transactions_already_sent=8)
 
     configuration = session.read_user_configuration()
 
@@ -505,3 +504,75 @@ def test_an_unknown_audio_source_name_is_refused():
 
     with pytest.raises(KeyError):
         session.set_audio_source("NOT_A_SOURCE_MODE")
+
+
+class ReplaysAStaleReplyFirst:
+    """Hands back one reply from a conversation this session did not have.
+
+    The Pi's gadget and the backend both opened the link in a car on
+    2026-10-08, which left a reply in flight for a request this session
+    never sent; every later request then read the previous one's answer.
+    You give it the stale reply; it answers everything after that
+    correctly.
+    """
+
+    def __init__(self, stale_reply: bytes) -> None:
+        self.queue = [stale_reply]
+
+    def send_frame(self, frame: bytes) -> None:
+        request = decode_frame(frame)
+        self.queue.append(
+            encode_frame(
+                Message(
+                    direction=Direction.FROM_DEVICE,
+                    command_id=request.command_id,
+                    transaction_id=request.transaction_id,
+                    body=bytes(4),
+                )
+            )
+        )
+
+    def receive_frame(self, timeout_seconds: float) -> bytes:
+        return self.queue.pop(0)
+
+    def close(self) -> None:
+        pass
+
+
+def test_a_reply_to_an_earlier_request_is_dropped_not_read_as_this_one():
+    """Two openers on one link leave a reply in flight. Reading it as an
+    answer put a real session one reply out of step, and the connect
+    failed with "sent command 0x21, got a reply to 0x15"."""
+    stale = encode_frame(
+        Message(
+            direction=Direction.FROM_DEVICE,
+            command_id=0x15,
+            transaction_id=(1).to_bytes(8, "little"),
+            body=bytes(4),
+        )
+    )
+    transport = ReplaysAStaleReplyFirst(stale)
+    session = DeqSession(transport, transactions_already_sent=4)
+
+    reply = session.exchange(COMMAND_KEEPALIVE)
+
+    assert reply.command_id == COMMAND_KEEPALIVE
+    assert int.from_bytes(reply.transaction_id, "little") == 5
+
+
+def test_a_reply_carrying_an_id_this_session_never_sent_is_still_an_error():
+    """Dropping a stale reply must not swallow a genuinely wrong one: an
+    id ahead of the request is not a leftover, it is a mismatch."""
+    ahead = encode_frame(
+        Message(
+            direction=Direction.FROM_DEVICE,
+            command_id=COMMAND_KEEPALIVE,
+            transaction_id=(99).to_bytes(8, "little"),
+            body=bytes(4),
+        )
+    )
+    transport = ReplaysAStaleReplyFirst(ahead)
+    session = DeqSession(transport)
+
+    with pytest.raises(ReplyMismatchError, match="transaction id"):
+        session.exchange(COMMAND_KEEPALIVE)
