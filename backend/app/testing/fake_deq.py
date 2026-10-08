@@ -33,6 +33,8 @@ from app.deq_blob import UserConfiguration, decode_blob, encode_blob
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_session import (
     COMMAND_AUTO_SAVE_EQ_MODE,
+    COMMAND_CRASH_REPORT,
+    COMMAND_SYSTEM_ERROR_FLAGS,
     COMMAND_DEVICE_IDENTITY,
     COMMAND_FIRMWARE_VERSION,
     COMMAND_READ_USER_CONFIGURATION,
@@ -40,6 +42,7 @@ from app.deq_session import (
     COMMAND_WRITE_COEFFICIENTS,
     COMMAND_WRITE_USER_CONFIGURATION,
     STATUS_BYTES,
+    STATUS_OK,
 )
 from app.deq_transport import TransportTimeout
 
@@ -50,10 +53,22 @@ STATUS_OK_BYTES = (0).to_bytes(STATUS_BYTES, "little")
 # does not.
 ECHO_LIMIT_PAYLOAD_BYTES = 28
 
-# What this fake unit reports about itself.
+# What this fake unit reports about itself. Measured from the real
+# DEQ-S1000A2 in the car on 2026-10-08, not invented.
 FAKE_FIRMWARE_VERSION = 0x0202
 FAKE_SERIAL = "ABIV002781EW"
 FAKE_SPEAKER_MODE = 3
+
+# The 16-byte word the unit returns in its sync reply. Hardcoded in the app
+# as `b/a/e$b.a`, and the real unit sent exactly this.
+REPLY_SYNC_WORD = bytes.fromhex("3dd378e1054592964b2ede1fb9283b2b")
+
+# The sync reply the real unit sends is 32 bytes: STATUS, the word above,
+# and then the three ASP_STATE fields of `deq_commands.json`.
+STATUS_REFUSED_SYNC = -5
+
+# The volume the car's own unit reported, so the default is a real value.
+FAKE_VOLUME_DB = -27
 
 
 @dataclass
@@ -79,6 +94,28 @@ class FakeDeq:
     # Set this to stop answering, so a test can see a timeout.
     answers: bool = True
 
+    # The live state the unit reports in its sync reply.
+    volume_db: int = FAKE_VOLUME_DB
+    muted: bool = False
+    driving: bool = False
+
+    # Faults, so a caller can drive the error paths on purpose.
+    #
+    # `refuses_sync` reproduces what the real unit does when COMMAND_SYNC
+    # carries no body: STATUS -5 and then nothing. It is the bug that cost
+    # two car sessions, so a fake that cannot reproduce it is not much of a
+    # fake.
+    refuses_sync: bool = False
+    # STATUS to answer with, per command id. Anything not listed answers 0.
+    status_by_command: dict[int, int] = field(default_factory=dict)
+    # Command ids to stop answering after, so a caller can see a timeout
+    # mid-sequence rather than only at the start.
+    silent_after: set[int] = field(default_factory=set)
+    # What 0x17 and 0x15 report. Empty means no fault, which is what the
+    # real unit sent.
+    error_flags: int = 0
+    crash_report: bytes = b""
+
     exchanges: list[Exchange] = field(default_factory=list)
     sent_frames: list[bytes] = field(default_factory=list)
     _pending_reply: bytes | None = None
@@ -92,13 +129,26 @@ class FakeDeq:
     def send_frame(self, frame: bytes) -> None:
         self.sent_frames.append(frame)
         request = decode_frame(frame)
+        if not self.answers:
+            # Already quiet: the request is recorded, nothing is answered.
+            return
         reply = self.build_reply(request)
         self.exchanges.append(Exchange(request=request, reply=reply))
         self._pending_reply = encode_frame(reply)
+        if request.command_id in self.silent_after:
+            self.answers = False
 
     def receive_frame(self, timeout_seconds: float) -> bytes:
-        if not self.answers or self._pending_reply is None:
-            raise TransportTimeout(f"fake DEQ sent nothing within {timeout_seconds} seconds")
+        """Returns the reply this fake is holding, if it has one.
+
+        A reply already built is still delivered when the unit has gone
+        quiet. The real unit sends its refusal and *then* stops answering,
+        so swallowing that last frame would hide the refusal itself.
+        """
+        if self._pending_reply is None:
+            raise TransportTimeout(
+                f"fake DEQ sent nothing within {timeout_seconds} seconds"
+            )
         frame = self._pending_reply
         self._pending_reply = None
         return frame
@@ -118,8 +168,36 @@ class FakeDeq:
     def build_body(self, request: Message) -> bytes:
         """Returns one reply body: STATUS, then whatever the command adds."""
         if request.command_id == COMMAND_SYNC:
-            return b""
+            return self.build_sync_body(request)
+        status = self.status_by_command.get(request.command_id, STATUS_OK)
+        if status != STATUS_OK:
+            # A failing reply carries STATUS and nothing else, which is what
+            # the real unit sent when it refused.
+            return self.status_bytes(status)
         return STATUS_OK_BYTES + self.build_tail(request)
+
+    def build_sync_body(self, request: Message) -> bytes:
+        """Returns the sync reply: STATUS, the word, and the live state.
+
+        The real unit refuses a COMMAND_SYNC that carries no body. It
+        answers STATUS -5 with no other field and then stops answering
+        anything, so this reproduces both halves.
+        """
+        if self.refuses_sync or not request.body:
+            self.answers = False
+            return self.status_bytes(STATUS_REFUSED_SYNC)
+        return (
+            STATUS_OK_BYTES
+            + REPLY_SYNC_WORD
+            + self.volume_db.to_bytes(4, "little", signed=True)
+            + int(self.muted).to_bytes(4, "little")
+            + int(self.driving).to_bytes(4, "little")
+        )
+
+    @staticmethod
+    def status_bytes(status: int) -> bytes:
+        """Returns one STATUS field. Signed: failure is negative."""
+        return status.to_bytes(STATUS_BYTES, "little", signed=True)
 
     def build_tail(self, request: Message) -> bytes:
         """Returns the part of a reply body after STATUS.
@@ -137,6 +215,10 @@ class FakeDeq:
             return self.accept_configuration(request)
         if request.command_id == COMMAND_WRITE_COEFFICIENTS:
             return self.acknowledge_coefficients(request)
+        if request.command_id == COMMAND_SYSTEM_ERROR_FLAGS:
+            return self.error_flags.to_bytes(4, "little")
+        if request.command_id == COMMAND_CRASH_REPORT:
+            return self.crash_report
         if request.command_id == COMMAND_AUTO_SAVE_EQ_MODE:
             # Unlike the small commands the echo rule covers, this reply's
             # own fields (deq_commands.json) are TRANSACTION_ID and STATUS

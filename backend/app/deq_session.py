@@ -41,7 +41,15 @@ from app.deq_dsp import (
     build_time_alignment_payload,
     crossover_slot_settings,
 )
-from app.deq_protocol import Direction, Message, decode_frame, encode_frame
+from app.deq_protocol import (
+    Direction,
+    Message,
+    build_get_opal_configuration_body,
+    build_set_timeout_interval_body,
+    build_sync_body,
+    decode_frame,
+    encode_frame,
+)
 from app.deq_transport import Transport, TransportTimeout
 from app.eq_data import TuningData
 
@@ -56,6 +64,8 @@ COMMAND_READ_CONFIGURATION_TABLE = 0x06
 COMMAND_WRITE_USER_CONFIGURATION = 0x08
 COMMAND_READ_USER_CONFIGURATION = 0x09
 COMMAND_READ_CONFIGURATION = 0x0A
+COMMAND_CRASH_REPORT = 0x15
+COMMAND_SYSTEM_ERROR_FLAGS = 0x17
 COMMAND_MODE = 0x0B
 COMMAND_VOLUME = 0x0D
 COMMAND_AUTO_SAVE_EQ_MODE = 0x19
@@ -103,26 +113,27 @@ DEFAULT_TIMEOUT_SECONDS = 5.0
 # body to send with it; a body of `b""` means the command carries nothing
 # but its transaction id.
 STARTUP_STEPS: tuple[tuple[int, bytes], ...] = (
-    (COMMAND_SYNC, b""),
-    (COMMAND_SET_TIMEOUT_INTERVAL, (0).to_bytes(4, "little")),
-    (0x17, b""),
-    (0x15, b""),
-    (0x16, b""),
+    # COMMAND_SYNC must carry its body. A real DEQ refused an empty one in
+    # the car on 2026-10-08 with STATUS -5 and then ignored every frame
+    # after it. See SYNC_BODY in deq_protocol.
+    (COMMAND_SYNC, build_sync_body()),
+    # The app sends this second, before any read, and always with 10000.
+    (COMMAND_SET_TIMEOUT_INTERVAL, build_set_timeout_interval_body()),
+    (COMMAND_SYSTEM_ERROR_FLAGS, b""),
+    (COMMAND_CRASH_REPORT, b""),
     (COMMAND_FIRMWARE_VERSION, b""),
     (COMMAND_DEVICE_IDENTITY, b""),
     (COMMAND_READ_CONFIGURATION, b""),
     (COMMAND_MUTE_STATE, b""),
-    (COMMAND_SPEAKER_MUTE_STATES, b""),
     (COMMAND_READ_USER_CONFIGURATION, b""),
-    # The real sequence continues through 0x05 (x2), 0x06, 0x0d and 0x0b
-    # before 0x1a. Those five need live state this app does not track at
-    # connect time (the app's own in-memory tuning, current volume, which
-    # audio source is active) -- sending a made-up value would be a guess
-    # with a real-world effect, not a protocol match. See
-    # USB_CAPTURE_NOTES.md's "STARTUP_STEPS stops early" section. 0x19 and
-    # 0x1a need no such value, so only those two are wired in here.
-    (COMMAND_AUTO_SAVE_EQ_MODE, (0).to_bytes(4, "little")),
-    (COMMAND_STARTUP_DONE, b""),
+    (COMMAND_READ_CONFIGURATION_TABLE, build_get_opal_configuration_body()),
+    # This sequence is the app's own, with every writing command removed.
+    # The app also sends 0x16, 0x1f, 0x05 (twice), 0x19, 0x0d, 0x0b and
+    # 0x1a. All of those change the unit: 0x16 erases its crash log, 0x1f
+    # is a SET, and the rest write tuning, coefficients, volume or mode.
+    # A connect should read and change nothing, so none is sent here.
+    # Three of them were sent by an earlier version of this list -- 0x16,
+    # 0x1f and COMMAND_AUTO_SAVE_EQ_MODE -- and should not have been.
 )
 
 
@@ -230,12 +241,17 @@ class DeqSession:
     def _check_status(self, reply: Message) -> None:
         """Raises when the unit reports a non-zero STATUS.
 
-        A reply to the sync command carries no status, so there is nothing
-        to check there.
+        The sync reply is checked like every other. An earlier version
+        skipped it, which is exactly how a STATUS of -5 went unnoticed for
+        two car sessions: the unit was refusing the open and saying so.
         """
-        if reply.command_id == COMMAND_SYNC or len(reply.body) < STATUS_BYTES:
+        if len(reply.body) < STATUS_BYTES:
             return
-        status = int.from_bytes(reply.body[STATUS_OFFSET:STATUS_BYTES], "little")
+        # Signed: the unit reports failure as a negative number, and -5 read
+        # unsigned is 4294967291, which tells a reader nothing.
+        status = int.from_bytes(
+            reply.body[STATUS_OFFSET:STATUS_BYTES], "little", signed=True
+        )
         if status != STATUS_OK:
             raise DeviceStatusError(reply.command_id, status)
 

@@ -10,10 +10,11 @@ import pytest
 from app.deq_blob import UserConfiguration
 from app.deq_dsp import FilterSlope, build_equalizer_payload
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
+from app.deq_protocol import build_set_timeout_interval_body, build_sync_body
 from app.deq_session import (
-    COMMAND_AUTO_SAVE_EQ_MODE,
     COMMAND_KEEPALIVE,
-    COMMAND_STARTUP_DONE,
+    COMMAND_SET_TIMEOUT_INTERVAL,
+    COMMAND_SYNC,
     CONFIG_ID_CROSSOVER_STANDARD,
     CONFIG_ID_EQUALIZER,
     CONFIG_ID_TIME_ALIGNMENT,
@@ -38,15 +39,39 @@ def test_start_sends_the_apps_own_connect_order():
     assert fake.command_order == [command_id for command_id, _ in STARTUP_STEPS]
 
 
-def test_start_ends_with_auto_save_eq_mode_false_then_startup_done():
-    # 0x05/0x06/0x0d/0x0b need live state this app does not track at
-    # connect time, so they are deliberately not sent (see
-    # USB_CAPTURE_NOTES.md). 0x19 and 0x1a need no such value.
+# Every command that changes the unit. A connect reads and changes
+# nothing, so none of these may appear in STARTUP_STEPS. 0x16 erases the
+# unit's own crash log, 0x1f is a SET, and the rest write tuning,
+# coefficients, volume, mode or mute.
+WRITING_COMMANDS = (0x16, 0x1F, 0x05, 0x19, 0x0D, 0x0B, 0x0F)
+
+
+def test_start_sends_no_command_that_changes_the_unit():
     fake = FakeDeq()
     DeqSession(fake).start()
-    assert fake.command_order[-2:] == [COMMAND_AUTO_SAVE_EQ_MODE, COMMAND_STARTUP_DONE]
-    auto_save_request = fake.exchanges[-2].request
-    assert auto_save_request.body == (0).to_bytes(4, "little")
+    sent = set(fake.command_order)
+    assert sent.isdisjoint(WRITING_COMMANDS)
+
+
+def test_start_opens_with_the_sync_body_the_unit_requires():
+    # An empty body here is what a real DEQ refused with STATUS -5.
+    fake = FakeDeq()
+    DeqSession(fake).start()
+    first = fake.exchanges[0].request
+    assert first.command_id == COMMAND_SYNC
+    assert first.body == build_sync_body()
+
+
+def test_start_sets_the_timeout_interval_the_app_sends():
+    fake = FakeDeq()
+    DeqSession(fake).start()
+    timeout_request = next(
+        one.request for one in fake.exchanges
+        if one.request.command_id == COMMAND_SET_TIMEOUT_INTERVAL
+    )
+    assert timeout_request.body == build_set_timeout_interval_body()
+    # The app sends it second, right after the open.
+    assert fake.command_order[1] == COMMAND_SET_TIMEOUT_INTERVAL
 
 
 def test_each_request_carries_a_new_transaction_id():
