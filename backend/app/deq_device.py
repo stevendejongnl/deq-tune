@@ -128,6 +128,10 @@ class DeqDevice:
         self._session: DeqSession | None = None
         self._identity = None
         self._link_lock = threading.RLock()
+        # Why the last connection failed, so `state()` can say. Without
+        # this the app reports a down link and no reason, and the reason is
+        # the only part a person can act on.
+        self._problem: str | None = None
 
     def connect(self) -> DeviceState:
         """Opens the link and runs the unit's startup sequence."""
@@ -138,15 +142,17 @@ class DeqDevice:
                 self._identity = session.read_device_identity()
             except (SessionError, TransportError, DeviceUnavailable) as caught_error:
                 self.disconnect()
-                return DeviceState(connected=False, problem=str(caught_error))
+                self._problem = str(caught_error)
+                return DeviceState(connected=False, problem=self._problem)
             self._session = session
+            self._problem = None
             return self.state()
 
     def state(self) -> DeviceState:
         """Returns what the header shows, without opening a link."""
         with self._link_lock:
             if self._session is None or self._identity is None:
-                return DeviceState(connected=False)
+                return DeviceState(connected=False, problem=self._problem)
             return DeviceState(
                 connected=True,
                 firmware_version=format_firmware_version(

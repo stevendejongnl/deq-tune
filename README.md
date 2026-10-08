@@ -161,10 +161,8 @@ PYTHONPATH=. DEQ_TRANSPORT=esp-bridge DEQ_ESP_BRIDGE_PORT=/dev/ttyACM0 uv run uv
   `DEQ_TRANSPORT=simulator` is the fake unit with knobs on, for working on the frontend without hardware. It is `FakeDeq` plus a state file, so every protocol rule stays pinned to real captures and only the reported state varies. `backend/scripts/deq_console.py` is a small curses console that writes that file; the simulator re-reads it before each reply, so a key press shows up in the next frame and nothing restarts. Run the two side by side:
 
 ```bash
-cd backend
-PYTHONPATH=. DEQ_TRANSPORT=simulator uv run uvicorn app.main:app --port 8420
-# in another terminal
-cd backend && uv run python scripts/deq_console.py
+make dev-sim    # the whole stack against the simulated unit
+make console    # in a second terminal, to change what it reports
 ```
 
   It moves the volume, mutes, sets the driving state, and turns on the faults a real unit can show: refusing the open with `STATUS -5` and then going quiet, failing one command, and reporting system error flags. Refuse the open and `/api/device` reports `connected: false` with the unit's own reason; clear it and the link comes back. `DEQ_SIMULATOR_STATE` names the file if the default `deq-simulator-state.json` is in the way.

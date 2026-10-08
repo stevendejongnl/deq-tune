@@ -262,3 +262,32 @@ def test_start_and_stop_run_the_loop_in_a_thread():
         keeper.stop()
 
     assert keeper.is_running() is False
+
+
+def test_a_down_link_reports_why_it_is_down():
+    # The reason is the only part of a failure a person can act on. An
+    # earlier version returned a bare state from `state()`, so the app
+    # showed a down link and no reason.
+    def build_refusing_transport():
+        raise DeviceUnavailable("the unit is not plugged in")
+
+    device = DeqDevice(build_refusing_transport)
+    assert device.connect().problem == "the unit is not plugged in"
+    assert device.state().problem == "the unit is not plugged in"
+    assert device.state().connected is False
+
+
+def test_a_link_that_comes_up_forgets_the_old_reason():
+    attempts = []
+
+    def build_transport_that_recovers():
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise DeviceUnavailable("the car is off")
+        return FakeDeq()
+
+    device = DeqDevice(build_transport_that_recovers)
+    assert device.connect().problem == "the car is off"
+    assert device.connect().problem is None
+    assert device.state().problem is None
+    assert device.state().connected is True

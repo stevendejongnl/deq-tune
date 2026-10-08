@@ -1,5 +1,5 @@
 .PHONY: help install install-backend install-frontend \
-        dev dev-backend dev-frontend dev-simulator console \
+        dev dev-backend dev-frontend dev-simulator dev-sim console \
         test test-backend test-frontend e2e e2e-install \
         typecheck generate-dto check-real-deq clean
 
@@ -12,7 +12,8 @@ help:
 	@echo "  make dev            Run backend and frontend dev servers together"
 	@echo "  make dev-backend    Run only the backend dev server (port $(BACKEND_PORT))"
 	@echo "  make dev-frontend   Run only the frontend dev server (port $(FRONTEND_PORT))"
-	@echo "  make dev-simulator  Run the backend against a simulated DEQ you can change"
+	@echo "  make dev-sim        Run the whole stack against a simulated DEQ you can change"
+	@echo "  make dev-simulator  Run only the backend against that simulated DEQ"
 	@echo "  make console        Change what the simulated DEQ reports (run beside it)"
 	@echo "  make test           Run backend and frontend tests"
 	@echo "  make e2e            Run the end-to-end tests in a real browser"
@@ -42,9 +43,16 @@ dev-backend:
 dev-frontend:
 	cd frontend && npm run dev -- --port $(FRONTEND_PORT)
 
-# A backend whose DEQ answers are yours to change, for frontend work with
-# no hardware. Run `make console` beside it to move the volume, mute, or
-# turn on a fault.
+# The whole stack against a DEQ whose answers are yours to change. This is
+# the one to use for frontend work: `make dev` runs the plain fake, which
+# always answers the same way. Run `make console` in a third terminal.
+dev-sim:
+	@trap 'kill 0' EXIT INT TERM; \
+	$(MAKE) dev-simulator & \
+	$(MAKE) dev-frontend & \
+	wait
+
+# Only the backend, for when the frontend is already running elsewhere.
 dev-simulator:
 	cd backend && PYTHONPATH=. DEQ_TRANSPORT=simulator \
 		uv run uvicorn app.main:app --reload --port $(BACKEND_PORT)
