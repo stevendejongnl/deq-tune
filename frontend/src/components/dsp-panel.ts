@@ -5,7 +5,9 @@ import { dspPanelStyles } from "./dsp-panel.styles.ts";
 import {
   type EqStyleId,
   type LiveSimulationId,
+  eqStyleHasNoPioneerTranslation,
   eqStyleName,
+  liveSimulationHasNoPioneerTranslation,
   liveSimulationName,
 } from "../i18n/dsp-presets.ts";
 import { uiStrings } from "../i18n/ui-strings.ts";
@@ -56,17 +58,32 @@ export class DspPanel extends LitElement {
             <span class="lock-note">${renderLockIcon()}${strings.dspDeviceHint}</span>
           </div>
           <div class="tiles">
-            ${this.eqStyleIds.map((id) => this.renderEqStyleTile(id))}
+            ${this.shownEqStyleIds.map((id) => this.renderEqStyleTile(id))}
           </div>
         </div>
         <div class="simulation-column">
           <h2>${strings.liveSimulationTitle}</h2>
           <div class="options">
-            ${this.liveSimulationIds.map((id) => this.renderLiveSimulationOption(id))}
+            ${this.shownLiveSimulationIds.map((id) => this.renderLiveSimulationOption(id))}
           </div>
         </div>
       </section>
     `;
+  }
+
+  /** The styles to offer. The DEQ's enum carries members that Pioneer
+   * never shipped a label for, and the real app drops them: its picker
+   * reads a label out of the app's own resources, and an entry with no
+   * resource never reaches the list. Offering one here would show a
+   * tile with a name this project invented, for a style no Pioneer app
+   * has ever selected. */
+  private get shownEqStyleIds(): EqStyleId[] {
+    return this.eqStyleIds.filter((id) => !eqStyleHasNoPioneerTranslation(id));
+  }
+
+  /** The live-simulation modes to offer, dropped for the same reason. */
+  private get shownLiveSimulationIds(): LiveSimulationId[] {
+    return this.liveSimulationIds.filter((id) => !liveSimulationHasNoPioneerTranslation(id));
   }
 
   private renderEqStyleTile(id: EqStyleId): TemplateResult {

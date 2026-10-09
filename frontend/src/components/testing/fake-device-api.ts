@@ -2,7 +2,12 @@ import type { DeviceApi } from "../../api/client.ts";
 import type { DeviceDto, DeviceOptionsDto } from "../../dto/profile.dto.ts";
 
 /** The two value sets the real unit offers, shortened for a test. The
- * backend reads the full lists out of the Pioneer app. */
+ * backend reads the full lists out of the Pioneer app.
+ *
+ * Every member here is one the real app shows. The backend leaves out
+ * `UNKNOWN`, and the panel leaves out the members Pioneer never shipped
+ * a label for, so a fake that carried one of those would make a test
+ * disagree with what a person sees. */
 const FAKE_OPTIONS: DeviceOptionsDto = {
   eq_styles: [
     { name: "FLAT", wire_value: 2 },
@@ -12,7 +17,7 @@ const FAKE_OPTIONS: DeviceOptionsDto = {
   live_simulations: [
     { name: "OFF", wire_value: 1 },
     { name: "CONCERT_HALL", wire_value: 2 },
-    { name: "OPERA_HALL", wire_value: 6 },
+    { name: "CLUB", wire_value: 4 },
   ],
 };
 

@@ -100,14 +100,20 @@ class LiveSimulationWrite(BaseModel):
 
 
 def device_options() -> DeviceOptionsRead:
-    """Returns the unit's value sets, read from the app's own enums."""
+    """Returns the choices the unit offers, read from the app's own enums.
+
+    These are the `selectable` values, not every value. `UNKNOWN` is what
+    a decoder returns for a wire value it does not recognise, so offering
+    it put a tile with no label in the picker, and choosing it would have
+    written wire value 0.
+    """
     return DeviceOptionsRead(
         eq_styles=[
             DeqEnumValueRead(name=value.name, wire_value=value.wire_value)
-            for value in EQ_STYLE
+            for value in EQ_STYLE.selectable
         ],
         live_simulations=[
             DeqEnumValueRead(name=value.name, wire_value=value.wire_value)
-            for value in LIVE_SIMULATION
+            for value in LIVE_SIMULATION.selectable
         ],
     )

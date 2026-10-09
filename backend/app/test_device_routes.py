@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from app.deq_blob import BANK_B
 from app.deq_device import DeqDevice, format_firmware_version
 from app.device_routes import get_device
 from app.main import app
@@ -57,10 +58,24 @@ def test_a_link_that_cannot_open_reports_the_reason(device_client: TestClient) -
 
 def test_the_options_come_from_the_pioneer_app(device_client: TestClient) -> None:
     body = device_client.get("/api/device/options").json()
-    assert len(body["eq_styles"]) == 21
-    assert len(body["live_simulations"]) == 8
+    assert len(body["eq_styles"]) == 20
+    assert len(body["live_simulations"]) == 7
     assert {"name": "SUPER_BASS", "wire_value": 3} in body["eq_styles"]
     assert {"name": "OPERA_HALL", "wire_value": 6} in body["live_simulations"]
+
+
+def test_the_options_leave_out_the_unknown_sentinel(device_client: TestClient) -> None:
+    """`UNKNOWN` is what a decoder returns for a wire value it does not
+    recognise. It is not a setting, and the real app never offers it: its
+    picker reads a label from the app's resources, and an entry with none
+    never reaches the list. Offering it here put a tile with no label in
+    the picker, and choosing it would have written wire value 0."""
+    body = device_client.get("/api/device/options").json()
+
+    assert "UNKNOWN" not in [value["name"] for value in body["eq_styles"]]
+    assert "UNKNOWN" not in [value["name"] for value in body["live_simulations"]]
+    assert 0 not in [value["wire_value"] for value in body["eq_styles"]]
+    assert 0 not in [value["wire_value"] for value in body["live_simulations"]]
 
 
 def test_pushing_a_profile_sends_three_blocks(device_client: TestClient, unit: DeqDevice) -> None:
@@ -101,6 +116,29 @@ def test_selecting_a_live_simulation_reaches_the_units_blob(
     response = device_client.post("/api/device/live-simulation", json={"name": "OPERA_HALL"})
     assert response.status_code == 200
     assert unit.require_session().transport.configuration.sound_field == 6
+
+
+def test_a_style_goes_to_the_bank_the_unit_plays(
+    device_client: TestClient, unit: DeqDevice
+) -> None:
+    """The unit keeps two equalizer banks and plays the one `bank_in_use`
+    names. Each has its own preset index, so writing bank A's index while
+    the unit plays bank B changes nothing a listener can hear.
+
+    The banks are not a choice this app offers. The Pioneer app shows them
+    as "Custom A" and "Custom B" because it has nowhere else to keep a
+    curve; here a profile is a named curve and there can be any number.
+    The bank is only where a profile lands."""
+    device_client.post("/api/device/connect")
+    transport = unit.require_session().transport
+    transport.configuration.bank_in_use = BANK_B
+
+    assert device_client.post("/api/device/eq-style", json={"name": "SUPER_BASS"}).status_code == 200
+
+    # A write replaces the fake's configuration, the way the unit stores a
+    # new blob, so read it back rather than holding the old object.
+    assert transport.configuration.preset_index_b == 3
+    assert transport.configuration.preset_index_a == 0
 
 
 def test_a_style_the_unit_does_not_have_is_a_400(device_client: TestClient) -> None:

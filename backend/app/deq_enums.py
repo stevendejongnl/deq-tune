@@ -54,6 +54,20 @@ class DeqEnum:
     def names(self) -> tuple[str, ...]:
         return tuple(value.name for value in self.values)
 
+    @property
+    def selectable(self) -> tuple[EnumValue, ...]:
+        """The values a person can choose, in wire order.
+
+        A value with no `string_id` has no label in the app's own
+        resources, so the real app never offers it. `UNKNOWN` is the
+        case that matters: it is what a decoder returns for a wire value
+        it does not recognise, not a setting. The app's own picker drops
+        such a value -- `p$f$a.a()` returns null for it and the list
+        builder skips the entry -- so anything that offers a choice must
+        read this, not `values`.
+        """
+        return tuple(value for value in self.values if value.string_id is not None)
+
     def by_name(self, name: str) -> EnumValue:
         """Looks one value up by its Java name, for example `SUPER_BASS`."""
         if name not in self._by_name:
