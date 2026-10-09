@@ -7,8 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from app.deq_blob import STANDARD_BLOB_BYTES, UserConfiguration
-from app.deq_dsp import FilterSlope, build_equalizer_payload
+from app.deq_blob import (
+    STANDARD_BLOB_BYTES,
+    CrossoverSetting as BlobCrossoverSetting,
+    UserConfiguration,
+)
+from app.deq_dsp import (
+    FilterSlope,
+    build_crossover_payload,
+    build_equalizer_payload,
+    crossover_slot_settings,
+)
 from app.deq_protocol import Direction, Message, decode_frame, encode_frame
 from app.deq_protocol import build_set_timeout_interval_body, build_sync_body
 from app.deq_session import (
@@ -17,6 +26,7 @@ from app.deq_session import (
     COMMAND_SET_MODE,
     COMMAND_SET_TIMEOUT_INTERVAL,
     COMMAND_SYNC,
+    CONFIG_ID_CROSSOVER_NETWORK,
     CONFIG_ID_CROSSOVER_STANDARD,
     CONFIG_ID_EQUALIZER,
     CONFIG_ID_TIME_ALIGNMENT,
@@ -167,16 +177,70 @@ def test_write_tuning_sends_three_blocks_under_the_right_config_ids():
     fake = FakeDeq()
     DeqSession(fake).write_tuning(load_factory_tuning())
 
+    # A push also reads the unit's own blob, to keep the crossover slots a
+    # profile says nothing about. Only the coefficient writes matter here.
+    coefficient_writes = [one for one in fake.exchanges if one.request.command_id == 0x05]
     sent = [
         (int.from_bytes(one.request.body[:4], "little"), one.request.payload_length)
-        for one in fake.exchanges
+        for one in coefficient_writes
     ]
     assert sent == [
         (CONFIG_ID_EQUALIZER, 2100),
         (CONFIG_ID_TIME_ALIGNMENT, 52),
         (CONFIG_ID_CROSSOVER_STANDARD, 204),
     ]
-    assert {one.request.command_id for one in fake.exchanges} == {0x05}
+
+
+def test_a_push_keeps_the_crossover_slots_a_profile_does_not_speak_for():
+    """A profile carries a front and a rear high-pass filter, and nothing
+    else. The other slots belong to the person, who sets them on the
+    unit's own filter screen.
+
+    Sending Pass for them would write identity biquads over a crossover
+    somebody set, and the unit would then disagree with itself: the blob
+    naming a frequency and a slope while the audio ran unfiltered. These
+    are the values a real unit held on 2026-10-08."""
+    fake = FakeDeq()
+    fake.configuration.crossovers[2] = BlobCrossoverSetting(frequency=5, slope=3)
+    fake.configuration.crossovers[3] = BlobCrossoverSetting(frequency=3, slope=4)
+
+    DeqSession(fake).write_tuning(load_factory_tuning(), layout="network")
+
+    # Read the slots back out of the block that went on the wire. Slots 2
+    # and 3 live in block 5, two biquads each; an untouched slot leaves an
+    # identity biquad, so a kept setting is one that is not identity.
+    crossover_write = [
+        one
+        for one in fake.exchanges
+        if one.request.command_id == 0x05
+        and int.from_bytes(one.request.body[:4], "little") == CONFIG_ID_CROSSOVER_NETWORK
+    ][-1]
+    expected = build_crossover_payload(
+        "network",
+        crossover_slot_settings(
+            "network",
+            [0, 0, 5, 3, 0],
+            [FilterSlope.PASS, FilterSlope.PASS, FilterSlope(3), FilterSlope(4), FilterSlope.PASS],
+        ),
+    )
+    assert crossover_write.request.body[4:] == expected
+
+
+def test_a_push_still_sends_the_profiles_own_high_pass_filters():
+    """The unit's stored crossover fills the other slots, and must not
+    reach back into the two the profile owns."""
+    fake = FakeDeq()
+    fake.configuration.crossovers[0] = BlobCrossoverSetting(frequency=9, slope=4)
+    fake.configuration.crossovers[1] = BlobCrossoverSetting(frequency=9, slope=4)
+    session = DeqSession(fake)
+
+    tuning = load_factory_tuning()
+    cutoff_positions, slopes = crossover_slot_inputs(tuning)
+    from_profile = (list(cutoff_positions), list(slopes))
+    session.fill_unset_slots_from_unit(cutoff_positions, slopes)
+
+    assert cutoff_positions[:2] == from_profile[0][:2]
+    assert slopes[:2] == from_profile[1][:2]
 
 
 def test_the_equalizer_block_matches_what_deq_dsp_builds():

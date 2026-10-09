@@ -75,6 +75,12 @@ BANK_B_OFFSET = 142
 BANK_BAND_SLOTS = 31
 BANK_BYTES = BANK_BAND_SLOTS * 4
 
+# The unit keeps two equalizer banks and plays the one `bank_in_use`
+# names. A real unit read 0 on 2026-10-08. Each bank has its own preset
+# index, at PRESET_INDEX_A_OFFSET and PRESET_INDEX_B_OFFSET below.
+BANK_A = 0
+BANK_B = 1
+
 PRESET_INDEX_A_OFFSET = 266
 PRESET_INDEX_B_OFFSET = 267
 BANK_FLAG_B_OFFSET = 268

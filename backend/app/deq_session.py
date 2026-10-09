@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.deq_blob import (
+    BANK_B,
     STANDARD_BLOB_BYTES,
     UserConfiguration,
     decode_blob,
@@ -129,6 +130,10 @@ CONFIG_ID_TIME_ALIGNMENT = 10
 CONFIG_ID_CROSSOVER_STANDARD = 11
 CONFIG_ID_CROSSOVER_NETWORK = 12
 CONFIG_ID_EQUALIZER = 13
+
+# The slots a profile speaks for: the front and rear high-pass filters.
+# Every other slot belongs to the unit's own settings blob.
+PROFILE_CROSSOVER_SLOT_COUNT = 2
 
 # A crossover layout and the CONFIG_ID that carries it.
 CROSSOVER_CONFIG_IDS = {
@@ -479,26 +484,73 @@ class DeqSession:
         )
 
     def write_crossover(self, tuning: TuningData, layout: str) -> None:
-        """Sends the high-pass filters for one speaker layout."""
+        """Sends the crossover for one speaker layout.
+
+        A profile carries only a front and a rear high-pass filter, which
+        are slots 0 and 1. The other slots belong to the person, not to
+        the preset: Pioneer sets the factory high-pass per car model and
+        leaves the rest to its own Filter screen, which writes the unit's
+        settings blob.
+
+        So the unit's stored crossover fills the slots the profile says
+        nothing about. Sending Pass for them instead would write identity
+        biquads over a crossover somebody set, and the unit would then
+        disagree with itself: the blob would still name a frequency and a
+        slope while the audio ran unfiltered. A real unit read slot 2 at
+        slope 3 and slot 3 at slope 4 on 2026-10-08, so this is a live
+        setting on a real car and not a hypothetical one.
+        """
         if layout not in CROSSOVER_CONFIG_IDS:
             raise ValueError(f"unknown crossover layout {layout!r}")
         cutoff_positions, slopes = crossover_slot_inputs(tuning)
+        self.fill_unset_slots_from_unit(cutoff_positions, slopes)
         settings = crossover_slot_settings(layout, cutoff_positions, slopes)
         self.write_coefficients(
             CROSSOVER_CONFIG_IDS[layout],
             build_crossover_payload(layout, settings),
         )
 
+    def fill_unset_slots_from_unit(
+        self, cutoff_positions: list[int], slopes: list[FilterSlope]
+    ) -> None:
+        """Puts the unit's own crossover into the slots a profile omits.
+
+        `crossover_slot_inputs` fills slots 0 and 1 from the profile and
+        leaves the rest at Pass. This replaces those with what the unit
+        already stores, so a push changes only what the profile speaks
+        for. It edits both lists in place.
+
+        The blob holds four slots, and the unit addresses five. The fifth
+        has no stored value, so it stays as it came.
+        """
+        configuration = self.read_user_configuration()
+        for slot in range(PROFILE_CROSSOVER_SLOT_COUNT, len(configuration.crossovers)):
+            stored = configuration.crossovers[slot]
+            cutoff_positions[slot] = stored.frequency
+            slopes[slot] = FilterSlope(stored.slope)
+
     def select_eq_style(self, style_name: str) -> None:
         """Picks one of the unit's built-in EQ styles.
 
         No command carries a style as its own field. The style lives in the
-        settings blob, as `preset_index_a`, so selecting one means reading
-        the blob, changing that byte and writing it back.
+        settings blob, as the preset index of the bank in use, so selecting
+        one means reading the blob, changing that byte and writing it back.
+
+        The unit keeps two banks, A and B, each with its own preset index,
+        and `bank_in_use` says which one plays. The Pioneer app shows them
+        as two more entries in its own picker, "Custom A" and "Custom B",
+        because the app has nowhere else to keep a curve. This app does:
+        a profile is a named curve, and there can be any number of them.
+        So the banks are not a choice offered to a person here. They are
+        only where a profile lands on the unit, and this writes whichever
+        bank the unit already plays.
         """
         wire_value = EQ_STYLE.by_name(style_name).wire_value
         configuration = self.read_user_configuration()
-        configuration.preset_index_a = wire_value
+        if configuration.bank_in_use == BANK_B:
+            configuration.preset_index_b = wire_value
+        else:
+            configuration.preset_index_a = wire_value
         self.write_user_configuration(configuration)
 
     def select_live_simulation(self, mode_name: str) -> None:
