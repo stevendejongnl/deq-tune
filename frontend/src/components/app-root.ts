@@ -265,8 +265,10 @@ export class AppRoot extends LitElement {
   }
 
   /** The breadcrumb and the model name, with the edit badge and the
-   * save actions. A custom profile has no car model, so it shows its
-   * own name instead. */
+   * save actions. A custom profile shows the name the user typed, and
+   * no breadcrumb: it carries the car model it was duplicated from, but
+   * that says which car the tuning suits rather than what the profile
+   * is called. */
   private renderHeadingRow(strings: UiStrings, profile: ProfileDto): TemplateResult {
     const brand = profile.brand_name;
     const speakerType = localizedSpeakerTypeLabel(profile, this.locale);

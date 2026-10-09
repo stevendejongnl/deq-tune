@@ -50,15 +50,33 @@ function translateSpeakerType(locale: Locale, speakerType: string): string {
 }
 
 /** A factory preset's car model in `locale`, for example "Mazda2", or
- * "DEMIO" in Japanese. A custom profile has no car model of its own. */
+ * "DEMIO" in Japanese.
+ *
+ * Returns null for a custom profile, which shows the name the user
+ * typed instead. A custom profile does carry a `car_model`: duplicating
+ * a factory preset copies it, so the tuning keeps the car it was made
+ * for. That field says which car the numbers suit; it is not the
+ * profile's name, and showing it in place of the name hid every rename
+ * a user made. */
 export function localizedModelName(profile: ProfileDto, locale: Locale): string | null {
-  return profile.car_model === null ? null : translateModelName(locale, profile.car_model);
+  if (profile.source !== "factory" || profile.car_model === null) {
+    return null;
+  }
+  return translateModelName(locale, profile.car_model);
 }
 
 /** A factory preset's speaker type in `locale`, for example "For
- * Pioneer Speaker". A custom profile has no speaker type of its own. */
+ * Pioneer Speaker".
+ *
+ * Returns null for a custom profile, for the same reason as
+ * `localizedModelName`: a duplicate copies `speaker_type`, and showing
+ * it made a renamed profile keep the breadcrumb of the preset it came
+ * from. */
 export function localizedSpeakerTypeLabel(profile: ProfileDto, locale: Locale): string | null {
-  return profile.speaker_type === null ? null : translateSpeakerType(locale, profile.speaker_type);
+  if (profile.source !== "factory" || profile.speaker_type === null) {
+    return null;
+  }
+  return translateSpeakerType(locale, profile.speaker_type);
 }
 
 /** A factory preset's name in `locale`, built from its car model and

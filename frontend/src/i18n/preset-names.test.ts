@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { localizedProfileName } from "./preset-names.ts";
+import {
+  localizedModelName,
+  localizedProfileName,
+  localizedSpeakerTypeLabel,
+} from "./preset-names.ts";
 import { sampleProfile } from "../dto/testing/sample-profile.ts";
 
 describe("localizedProfileName", () => {
@@ -42,5 +46,54 @@ describe("localizedProfileName", () => {
     });
 
     expect(localizedProfileName(profile, "ja")).toBe("My tuned EQ");
+  });
+});
+
+describe("localizedModelName", () => {
+  it("gives the localized car model for a factory preset", () => {
+    const profile = sampleProfile({
+      source: "factory",
+      car_model: "mazda_3",
+      speaker_type: "general",
+    });
+
+    expect(localizedModelName(profile, "en")).toBe("Mazda3");
+  });
+
+  it("gives nothing for a custom profile that kept the car model it was copied from", () => {
+    // Duplicating a factory preset copies `car_model`, so the tuning
+    // keeps the car it suits. The header once showed that model in
+    // place of the name, which hid every rename a user made.
+    const profile = sampleProfile({
+      source: "custom",
+      name: "My tune",
+      car_model: "mazda_2",
+      speaker_type: "carrozzeria",
+    });
+
+    expect(localizedModelName(profile, "en")).toBeNull();
+  });
+});
+
+describe("localizedSpeakerTypeLabel", () => {
+  it("gives the localized speaker type for a factory preset", () => {
+    const profile = sampleProfile({
+      source: "factory",
+      car_model: "mazda_3",
+      speaker_type: "general",
+    });
+
+    expect(localizedSpeakerTypeLabel(profile, "en")).toBe("For Normal Speaker");
+  });
+
+  it("gives nothing for a custom profile, so it shows no factory breadcrumb", () => {
+    const profile = sampleProfile({
+      source: "custom",
+      name: "My tune",
+      car_model: "mazda_2",
+      speaker_type: "carrozzeria",
+    });
+
+    expect(localizedSpeakerTypeLabel(profile, "en")).toBeNull();
   });
 });
